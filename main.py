@@ -24,8 +24,24 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
+
+def _project_root() -> str:
+    """Locate the repo root.
+
+    ``main`` is installed as a console script, so ``__file__`` lives in
+    site-packages — useless for finding data/ and MulTaBench/. uv runs the
+    command from the project directory, so walk up from cwd to the dir holding
+    pyproject.toml instead.
+    """
+    for p in (Path.cwd(), *Path.cwd().parents):
+        if (p / "pyproject.toml").is_file():
+            return str(p)
+    return os.getcwd()
+
+
+_HERE = _project_root()
 VENV_PY = os.path.join(_HERE, "MulTaBench", ".venv", "bin", "python")
 RAW = os.path.join(_HERE, "data", "house_price_prediction.csv")
 IMAGES = os.path.join(_HERE, "images")
