@@ -1,0 +1,20 @@
+# Cloned by init.sh (external repos — not vendored here)
+/MulTaBench/
+/reverse-img-search/
+
+# Virtualenvs
+.venv/
+venv/
+
+# Pipeline outputs / generated artifacts
+/images/
+/results/
+/data/house_price_multimodal.csv
+/data/_ris_descriptions.csv
+
+# Logs / caches
+*.log
+wandb/
+__pycache__/
+*.pyc
+.env

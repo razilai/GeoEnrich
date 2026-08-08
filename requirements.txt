@@ -1,0 +1,10 @@
+# Pipeline deps, installed by init.sh INTO MulTaBench/.venv (single shared env).
+# torch/transformers/pandas come from MulTaBench's own requirements — not pinned
+# here so uv doesn't re-resolve MulTaBench's CUDA torch build.
+pillow
+# Stage 2: local Stable Diffusion
+diffusers
+accelerate
+# Stage 3 (optional reverse-image-search)
+requests
+beautifulsoup4
