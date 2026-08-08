@@ -52,8 +52,10 @@ else:
 PY
 
 # 3. Build MulTaBench's uv venv + install its deps (its init.sh is uv-based).
+# It's designed to be sourced without `set -eu`; disable our hardening inside the
+# subshell so its unguarded PYTHONPATH ref doesn't trip nounset.
 echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
-( cd MulTaBench && source init.sh )
+( set +eu; cd MulTaBench && source init.sh )
 
 # 4. Install this pipeline's libs into the same venv (diffusers, pillow, ...).
 echo "📦 installing pipeline libs into MulTaBench/.venv"
