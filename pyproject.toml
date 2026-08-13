@@ -6,7 +6,13 @@ requires-python = ">=3.11"
 # Env holder only. Heavy stages run in MulTaBench/.venv (dataset build libs are
 # installed there by init.sh from requirements.txt), so this project ships no
 # code and needs no build backend.
-dependencies = []
+dependencies = [
+    "geopandas>=1.1.4",
+    "pandas>=3.0.5",
+    "pydantic-ai>=2.29.0",
+    "pyrosm>=0.13.1",
+    "python-dotenv>=1.2.2",
+]
 
 [tool.uv]
 package = false

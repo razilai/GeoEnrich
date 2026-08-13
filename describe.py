@@ -18,13 +18,16 @@ Usage:
     python describe.py 10      # only the top 10 by POI count — cheap test run
 """
 
+import asyncio
 import json
 import os
+import random
 import sys
 
 import pandas as pd
 from dotenv import load_dotenv
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
@@ -35,6 +38,16 @@ API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 IN_CSV = "airbnb_enriched.csv"
 OUT_CSV = "airbnb_described.csv"
+
+# concurrent in-flight LLM calls (raise if OpenRouter rate limit allows, lower on 429)
+CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "10"))
+# checkpoint every CHUNK completed listings — a crash resumes from the last save
+CHUNK = 200
+# retry transient errors (429 rate-limit, 5xx) with exponential backoff + jitter
+MAX_RETRIES = 6
+BACKOFF_BASE = 2.0  # seconds: 2, 4, 8, 16, ... capped at BACKOFF_CAP
+BACKOFF_CAP = 60.0
+RETRY_STATUS = {429, 500, 502, 503, 504}
 
 INSTRUCTIONS = (
     "You describe the surroundings of a short-stay rental for a traveller "
@@ -82,6 +95,50 @@ def save(df):
     df.drop(columns=["surroundings_50m"]).to_csv(OUT_CSV, index=False)
 
 
+async def call_with_retry(agent, prompt):
+    """One LLM call, retrying transient 429/5xx with exponential backoff + jitter."""
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            return await agent.run(prompt)
+        except ModelHTTPError as e:
+            if e.status_code not in RETRY_STATUS or attempt == MAX_RETRIES:
+                raise
+            delay = min(BACKOFF_BASE * 2 ** attempt, BACKOFF_CAP)
+            delay += random.uniform(0, delay)  # full jitter — spread the retry storm
+            print(f"  {e.status_code} rate-limited, retry {attempt + 1}/{MAX_RETRIES} "
+                  f"in {delay:.1f}s", flush=True)
+            await asyncio.sleep(delay)
+
+
+async def run_chunk(agent, rows, df, done, total):
+    """Fire all rows in the chunk concurrently, bounded by CONCURRENCY.
+
+    Returns (done, n_failed). A row that exhausts retries is left as NaN so a
+    later run resumes it; it never cancels the sibling calls.
+    """
+    sem = asyncio.Semaphore(CONCURRENCY)
+    lock = asyncio.Lock()
+
+    async def one(idx, row):
+        nonlocal done
+        async with sem:
+            res = await call_with_retry(agent, prompt_for(row))
+        df.at[idx, "surroundings_summary"] = res.output
+        async with lock:
+            done += 1
+            print(f"[{done}/{total}] {row.get('neighbourhood')} (idx {row['index']})",
+                  flush=True)
+
+    # return_exceptions: a single row's failure must not cancel the rest of the batch
+    results = await asyncio.gather(
+        *(one(idx, row) for idx, row in rows), return_exceptions=True
+    )
+    failed = [r for r in results if isinstance(r, Exception)]
+    for e in failed:
+        print(f"  row failed after retries: {e!r}", flush=True)
+    return done, len(failed)
+
+
 def main():
     k = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
@@ -101,12 +158,27 @@ def main():
 
     if not todo.empty:
         agent = build_agent()  # only touch the API (+ require a key) when work remains
-        for i, (idx, row) in enumerate(todo.iterrows(), 1):
-            res = agent.run_sync(prompt_for(row))
-            df.at[idx, "surroundings_summary"] = res.output
-            print(f"[{i}/{len(todo)}] {row.get('neighbourhood')} (idx {row['index']})", flush=True)
-            if i % 200 == 0:
-                save(df)  # checkpoint — a crash resumes from here, not from scratch
+        rows = list(todo.iterrows())
+        total = len(rows)
+
+        async def run_all():
+            done = failed = 0
+            try:
+                # process in CHUNK-sized batches so we still checkpoint mid-run
+                for start in range(0, total, CHUNK):
+                    chunk = rows[start:start + CHUNK]
+                    done, n_fail = await run_chunk(agent, chunk, df, done, total)
+                    failed += n_fail
+                    save(df)  # checkpoint — a crash resumes from here, not from scratch
+            finally:
+                # persist whatever completed, even on an unexpected error
+                save(df)
+            return failed
+
+        failed = asyncio.run(run_all())
+        if failed:
+            print(f"WARNING: {failed} listings still missing a summary — "
+                  f"rerun to retry them", flush=True)
 
     save(df)
     print(f"done -> {OUT_CSV}", flush=True)
