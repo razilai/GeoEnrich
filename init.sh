@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# One-shot setup, uv-driven. After this, run the whole pipeline with:  uv run main
+# One-shot setup, uv-driven.
 #
-#   1. clone MulTaBench (pinned) + patch in the local house-price dataset id
+#   1. clone MulTaBench (pinned) + patch in the local dataset id
 #   2. run MulTaBench's own init  -> builds MulTaBench/.venv (uv) with its deps
-#   3. install this pipeline's libs (Stable Diffusion etc.) INTO MulTaBench/.venv
-#      -> heavy stages (gen + eval) all run in that one venv; correct CUDA torch
-#   4. clone the reverse-image-search helper (optional stage, off by default)
-#   5. `uv sync` the thin orchestrator project (provides the `main` entrypoint)
-#   6. scaffold MulTaBench/.env for credentials (HF_TOKEN etc.)
+#   3. install this project's dataset-build libs (geopandas/pyrosm/pydantic-ai)
+#      INTO MulTaBench/.venv -> build + eval all run in that one venv
+#   4. `uv sync` the thin env-holder project
+#   5. scaffold MulTaBench/.env for credentials (HF_TOKEN etc.)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,8 +14,6 @@ cd "$HERE"
 
 MULTABENCH_REPO="https://github.com/alanarazi7/MulTaBench"
 MULTABENCH_COMMIT="599bd6a5631c96f8aef297cc4cb6e4c197ae0dca"
-RIS_REPO="https://github.com/ramonclaudio/Google-Reverse-Image-Search.git"
-RIS_COMMIT="015628982fee23bf11293b97232fb0e5ac9f41f9"
 VENV_PY="$HERE/MulTaBench/.venv/bin/python"
 
 command -v git >/dev/null || { echo "❌ git not found"; exit 1; }
@@ -57,24 +54,15 @@ PY
 echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
 ( set +eu; cd MulTaBench && source init.sh )
 
-# 4. Install this pipeline's libs into the same venv (diffusers, pillow, ...).
-echo "📦 installing pipeline libs into MulTaBench/.venv"
+# 3. Install this project's dataset-build libs into the same venv.
+echo "📦 installing dataset-build libs into MulTaBench/.venv"
 uv pip install --python "$VENV_PY" -r requirements.txt
 
-# 5. Clone reverse-image-search helper (optional --ris stage; off by default).
-if [ ! -d reverse-img-search/.git ]; then
-    echo "📥 cloning reverse-img-search @ ${RIS_COMMIT:0:8}"
-    git clone "$RIS_REPO" reverse-img-search
-    git -C reverse-img-search checkout --quiet "$RIS_COMMIT"
-else
-    echo "✅ reverse-img-search already present — skipping clone"
-fi
-
-# 6. Sync the thin orchestrator project (creates ./.venv, exposes `main`).
-echo "🔗 uv sync (orchestrator project)"
+# 4. Sync the thin env-holder project (creates ./.venv).
+echo "🔗 uv sync"
 uv sync
 
-# 7. Scaffold credentials file.
+# 5. Scaffold credentials file.
 if [ ! -f MulTaBench/.env ]; then
     cp MulTaBench/.env.example MulTaBench/.env
     echo "📝 created MulTaBench/.env — fill in HF_TOKEN (gated DINOv3) + WANDB/KAGGLE keys"
@@ -84,17 +72,14 @@ cat <<'EOF'
 
 🎉 Setup complete.
 
-To run the eval end-to-end you need:
-  - NVIDIA GPU + CUDA (TAR LoRA fine-tuning asserts CUDA_VISIBLE_DEVICES;
-    `uv run main` auto-pins it to 0 when a GPU is visible)
-  - HF_TOKEN in MulTaBench/.env whose account has been GRANTED access to the
-    gated repo facebook/dinov3-vits16-pretrain-lvd1689m — request it here:
-    https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m
-    (a valid token without granted access still 403s; `uv run main` now
-     checks this up front instead of failing mid-eval)
+PY=MulTaBench/.venv/bin/python
 
-Run the whole pipeline:
-  uv run main --limit 20 --no-eval     # smoke: 20 images + enriched CSV
-  uv run main                          # full pipeline (all rows) + eval
-  uv run main --no-tar                 # eval joint-signal only (no GPU)
+Build the dataset:
+  $PY main.py            # airbnb.csv -> airbnb_enriched.csv (OSM POIs within 50m)
+  $PY describe.py 10     # -> airbnb_described.csv (LLM summary; needs .env key)
+
+Run the eval (text + tabular only — no image modality):
+  $PY run_multabench_eval.py --no-image --target price \
+      --csv airbnb_described.csv --image-folder /dev/null
+  # add --no-tar for joint-signal only (no GPU). TAR (LoRA) needs a GPU + HF_TOKEN.
 EOF

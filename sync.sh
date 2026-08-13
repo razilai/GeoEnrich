@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
-# Copy MulTaBench's filled-in credentials up to the repo root, so the top-level
-# orchestrator project also has them. Run AFTER ./init.sh (which scaffolds
-# MulTaBench/.env) and after you've filled in MulTaBench/.env.
+# Ship the dataset CSVs to the vast.ai GPU box (host alias `vast` in ~/.ssh/config)
+# where the TAR eval runs. The CSVs are NOT git-tracked (too big / churny), so the
+# code travels via git and the data travels via this rsync.
+#
+# Build the dataset locally first (main.py + describe.py), then:
+#     ./sync.sh
+#
+# Remote dir defaults to the repo root on vast, so the scripts' relative paths
+# (airbnb.csv, airbnb_described.csv, ...) resolve. Override:
+#     REMOTE=vast:/some/path/ ./sync.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC="$HERE/MulTaBench/.env"
-DEST="$HERE/.env"
+cd "$HERE"
+
+REMOTE="${REMOTE:-vast:/workspace/multabench/}"
 
 command -v rsync >/dev/null || { echo "❌ rsync not found"; exit 1; }
-[ -f "$SRC" ] || { echo "❌ source not found: $SRC — run ./init.sh, then fill it in"; exit 1; }
 
-rsync --archive --checksum "$SRC" "$DEST"
-echo "✅ synced $SRC → $DEST"
+# raw + generated variants; only the ones that exist get sent.
+csvs=(airbnb.csv airbnb_vanilla.csv airbnb_enriched.csv airbnb_described.csv)
+present=()
+for f in "${csvs[@]}"; do [ -f "$f" ] && present+=("$f"); done
+[ ${#present[@]} -gt 0 ] || { echo "❌ no CSVs found — build the dataset first"; exit 1; }
+
+echo "📤 rsync -> $REMOTE"
+printf '   %s\n' "${present[@]}"
+rsync --archive --checksum --progress "${present[@]}" "$REMOTE"
+echo "✅ synced ${#present[@]} CSV(s) to $REMOTE"

@@ -53,7 +53,7 @@ LEARNERS = {
     "tabpfnv2": TabPFNv2,
     "tabpfnv2p5": TabPFNv2p5,
 }
-TEXT_COL = "description"
+TEXT_COL = "surroundings_summary"
 IMAGE_COL = "image"
 
 

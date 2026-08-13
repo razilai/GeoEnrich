@@ -1,168 +1,222 @@
-"""Pipeline entrypoint — run the whole thing with ``uv run main``.
+"""Enrich Airbnb listings with OSM POIs within a 50m radius.
 
-This is a thin orchestrator. The heavy stages import torch / diffusers / the
-MulTaBench package, so they are dispatched into the MulTaBench uv venv
-(``MulTaBench/.venv``, which owns the correct CUDA torch build) rather than the
-orchestrator's own env. That keeps ``uv run main`` fast and avoids duplicating
-a multi-GB CUDA torch install.
-
-Stages:
-  1+2. build NL descriptions & generate one image per row (Stable Diffusion)
-  2.5. OPTIONAL VLM-caption the generated images -> text modality (--caption)
-  3.   OPTIONAL reverse-image-search enrichment (off by default)
-  4.   assemble the enriched multimodal CSV
-  5.   MulTaBench tri-modal curation eligibility eval
-
-Examples:
-  uv run main --limit 20 --no-eval        # smoke: generate 20 images + enrich
-  uv run main                             # full pipeline (all rows) + eval
-  uv run main --caption                   # text = VLM caption of the image, not the template
-  uv run main --ris                       # also swap in reverse-search images
-  uv run main --skip-gen                  # only (re)build CSV + eval existing images
+Data spans 4 metros (Paris / NYC / SF / Amsterdam). Each maps to one .pbf.
+For every listing we list the OSM POIs whose geometry falls within RADIUS
+meters, then write one new column:
+    - surroundings_50m : JSON array of cleaned POI tag dicts (descriptive
+                         tags only), ready to feed an LLM for a text summary
+Listings with zero POIs in radius are dropped (count used internally, never
+persisted as a column).
 """
-from __future__ import annotations
 
-import argparse
-import os
-import shutil
-import subprocess
+import json
 import sys
-from pathlib import Path
 
-# DINOv3 is a gated HF repo; both frozen and TAR image conditions need access.
-DINO_REPO = "facebook/dinov3-vits16-pretrain-lvd1689m"
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+from pyrosm import OSM
+
+RADIUS = 50  # meters
+
+# center = rough metro center (for nearest-city assignment)
+# utm    = metric CRS so buffer() is in real meters
+CITIES = {
+    "france": dict(pbf="data/france.pbf", center=(48.86, 2.35), utm=32631),
+    "nyc": dict(pbf="data/nyc.pbf", center=(40.71, -74.00), utm=32618),
+    "norcal": dict(pbf="data/norcal.pbf", center=(37.77, -122.42), utm=32610),
+    "holland": dict(pbf="data/holland.pbf", center=(52.37, 4.90), utm=32631),
+}
+
+ONLY = sys.argv[1] if len(sys.argv) > 1 else None  # optional: test one city
 
 
-def _project_root() -> str:
-    """Locate the repo root.
+# pyrosm metadata columns — everything else is a real OSM tag
+_META = {
+    "visible",
+    "tags",
+    "lat",
+    "changeset",
+    "lon",
+    "timestamp",
+    "version",
+    "id",
+    "geometry",
+    "osm_type",
+}
 
-    ``main`` is installed as a console script, so ``__file__`` lives in
-    site-packages — useless for finding data/ and MulTaBench/. uv runs the
-    command from the project directory, so walk up from cwd to the dir holding
-    pyproject.toml instead.
+# tags that tell an LLM what a place *is* / what it's like near the property.
+# everything else (refs, ids, edit metadata, contact info, wikidata, ...) is
+# dropped — it adds tokens and noise without shaping the free-text summary.
+KEEP_TAGS = {
+    "name",
+    "amenity",
+    "shop",
+    "tourism",
+    "leisure",
+    "craft",
+    "office",
+    "healthcare",
+    "sport",
+    "cuisine",
+    "outdoor_seating",
+    "brand",
+    "description",
+    "wheelchair",
+}
+
+# a POI's category comes from the first of these that's present
+CATEGORY_KEYS = ("amenity", "shop", "tourism", "leisure", "craft", "office")
+
+# category values that are street furniture / infrastructure — say nothing
+# about the neighbourhood feel, so the whole POI is dropped
+JUNK_VALUES = {
+    "yes",
+    "parking",
+    "parking_space",
+    "parking_entrance",
+    "bicycle_parking",
+    "motorcycle_parking",
+    "bench",
+    "waste_basket",
+    "waste_disposal",
+    "recycling",
+    "vending_machine",
+    "atm",
+    "drinking_water",
+    "post_box",
+    "telephone",
+    "charging_station",
+    "bicycle_repair_station",
+    "grit_bin",
+    "hunting_stand",
+    "clock",
+    "fire_hydrant",
+    "surveillance",
+    "shelter",
+    "street_lamp",
+    "toilets",
+}
+
+
+def clean_poi(tags):
+    """Reduce a raw tag dict to property-relevant fields, or None to drop it."""
+    cat = next((tags[k] for k in CATEGORY_KEYS if k in tags), None)
+    if cat is None or cat in JUNK_VALUES:
+        return None
+    kept = {k: v for k, v in tags.items() if k in KEEP_TAGS and v not in JUNK_VALUES}
+    return kept or None
+
+
+def poi_records(pois):
+    """One cleaned tag dict per POI (or None for street furniture / empty).
+
+    pyrosm promotes common tags to columns and dumps the rest into a JSON
+    string in `tags`; we merge both, then keep only descriptive fields.
     """
-    for p in (Path.cwd(), *Path.cwd().parents):
-        if (p / "pyproject.toml").is_file():
-            return str(p)
-    return os.getcwd()
+    tag_cols = [c for c in pois.columns if c not in _META]
+    base = pois[tag_cols].to_dict("records")
+    extra = pois["tags"].tolist()
+
+    out = []
+    for b, ex in zip(base, extra):
+        tags = {k: v for k, v in b.items() if pd.notna(v)}
+        if isinstance(ex, str) and ex:
+            try:
+                tags.update(json.loads(ex))
+            except ValueError:
+                pass
+        out.append(clean_poi(tags))
+    return out
 
 
-_HERE = _project_root()
-VENV_PY = os.path.join(_HERE, "MulTaBench", ".venv", "bin", "python")
-RAW = os.path.join(_HERE, "data", "house_price_prediction.csv")
-IMAGES = os.path.join(_HERE, "images")
-OUT = os.path.join(_HERE, "data", "house_price_multimodal.csv")
-CAPTIONS = os.path.join(_HERE, "data", "_captions.csv")
+# leaky / ID columns dropped up front (in memory) so no output variant ever
+# carries them — they pollute the eval's structured baseline (high-cardinality
+# codes ≈ row ids). Source airbnb.csv is untouched. `index` is kept as the
+# stable per-listing key (used by describe.py's incremental cache).
+DROP_COLS = ["id", "name", "host_id", "host_name", "license", "last_review"]
 
 
-def _run(argv: list[str]) -> None:
-    print(f"\n$ {' '.join(argv)}", flush=True)
-    subprocess.run(argv, cwd=_HERE, check=True)
+def main():
+    df = pd.read_csv("airbnb.csv", low_memory=False).reset_index(drop=True)
+    df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
 
+    # assign each listing to the nearest metro center (cities are far apart,
+    # so squared lat/lon distance is enough to separate them cleanly)
+    names = list(CITIES)
+    centers = np.array([CITIES[n]["center"] for n in names])
+    pts = df[["latitude", "longitude"]].to_numpy()
+    d2 = ((pts[:, None, :] - centers[None, :, :]) ** 2).sum(axis=2)
+    df["city"] = [names[i] for i in d2.argmin(axis=1)]
 
-def _pin_gpu(no_tar: bool) -> None:
-    """TAR (LoRA) conditions hard-assert ``CUDA_VISIBLE_DEVICES``. Auto-pin it when
-    a GPU is visible; otherwise tell the user to pass --no-tar *before* the run
-    wastes time on image generation and a text eval that later dies on the assert.
-    """
-    if no_tar or "CUDA_VISIBLE_DEVICES" in os.environ:
-        return
-    has_gpu = shutil.which("nvidia-smi") and \
-        subprocess.run(["nvidia-smi", "-L"], capture_output=True).returncode == 0
-    if has_gpu:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # inherited by child subprocesses
-        print("ℹ️  pinned CUDA_VISIBLE_DEVICES=0 (TAR needs it)")
-    else:
-        sys.exit("❌ TAR requested but no GPU detected. Re-run with --no-tar for a "
-                 "CPU joint-signal eval, or set CUDA_VISIBLE_DEVICES yourself.")
+    labels = {}  # listing index -> list[dict] of POI records within RADIUS
 
+    for name, cfg in CITIES.items():
+        if ONLY and name != ONLY:
+            continue
+        sub = df[df.city == name]
+        if sub.empty:
+            continue
+        print(f"[{name}] {len(sub)} listings — loading {cfg['pbf']}", flush=True)
 
-def _check_dino_access() -> None:
-    """Fail fast if the gated DINOv3 repo isn't accessible — a fresh clone with an
-    unauthorized token otherwise only discovers this deep inside the image eval,
-    after image generation and the whole text eval have already run.
-    """
-    code = ("from dotenv import load_dotenv; load_dotenv('MulTaBench/.env');"
-            f"from huggingface_hub import auth_check; auth_check({DINO_REPO!r})")
-    r = subprocess.run([VENV_PY, "-c", code], cwd=_HERE, capture_output=True, text=True)
-    if r.returncode != 0:
-        detail = (r.stderr.strip().splitlines() or ["(no detail)"])[-1]
-        sys.exit(
-            f"❌ Cannot access gated HF repo {DINO_REPO}.\n"
-            f"   1. Request access: https://huggingface.co/{DINO_REPO}\n"
-            "   2. Put an *authorized* token in MulTaBench/.env (HF_TOKEN=...).\n"
-            "      Note: the token's account must be on the allow-list — a valid\n"
-            "      token without granted access still 403s.\n"
-            f"   {detail}")
+        # only parse the PBF around the listings (crops during read, not after)
+        pad = 0.02  # ~2km, comfortably covers the 50m radius at the edges
+        bbox = [
+            sub.longitude.min() - pad,
+            sub.latitude.min() - pad,
+            sub.longitude.max() + pad,
+            sub.latitude.max() + pad,
+        ]
+        pois = OSM(cfg["pbf"], bounding_box=bbox).get_pois(
+            custom_filter={
+                "amenity": True,
+                "shop": True,
+                "tourism": True,
+                "leisure": True,
+            }
+        )
+        if pois is None or pois.empty:
+            print(f"[{name}] no POIs", flush=True)
+            continue
+        pois = pois[pois.geometry.notna()].copy()
+        pois["poi"] = poi_records(pois)
+        pois = pois[pois["poi"].notna()]  # drop street furniture / empty
+        pois = pois[["poi", "geometry"]].to_crs(cfg["utm"])
+        print(f"[{name}] {len(pois)} POIs", flush=True)
 
+        # listings -> 50m buffers in the metric CRS (need ALL POIs in radius,
+        # not just the nearest, so buffer + intersects, not sjoin_nearest)
+        g = gpd.GeoDataFrame(
+            geometry=gpd.points_from_xy(sub.longitude, sub.latitude),
+            index=sub.index,
+            crs=4326,
+        ).to_crs(cfg["utm"])
+        g["geometry"] = g.geometry.buffer(RADIUS)
 
-def main() -> None:
-    p = argparse.ArgumentParser(prog="main", description="Semi-synthetic multimodal pipeline.")
-    p.add_argument("--limit", type=int, default=None, help="process only first N rows")
-    p.add_argument("--model-id", default=None, help="override Stable Diffusion model id")
-    p.add_argument("--skip-gen", action="store_true", help="skip image generation")
-    p.add_argument("--no-eval", action="store_true", help="stop after building the CSV")
-    p.add_argument("--no-tar", action="store_true", help="eval joint-signal only (no GPU LoRA)")
-    p.add_argument("--caption", action="store_true",
-                   help="text modality = VLM caption of the generated image (not the deterministic template)")
-    p.add_argument("--caption-model", default=None, help="override the VLM captioner model id")
-    ris = p.add_mutually_exclusive_group()
-    ris.add_argument("--ris", dest="ris", action="store_true", help="enable reverse-image-search")
-    ris.add_argument("--no-ris", dest="ris", action="store_false")
-    p.set_defaults(ris=False)
-    args = p.parse_args()
+        joined = gpd.sjoin(g, pois, predicate="intersects", how="left")
+        matched = joined[joined["poi"].notna()]
+        agg = matched.groupby(level=0)["poi"].apply(list)
+        labels.update(agg.to_dict())
+        print(f"[{name}] matched {len(agg)} listings", flush=True)
 
-    if not os.path.exists(VENV_PY):
-        sys.exit(f"❌ {VENV_PY} not found — run ./init.sh first.")
+    recs = df.index.map(labels)  # list[dict] per listing, or NaN
+    n_pois = [len(x) if isinstance(x, list) else 0 for x in recs]  # local only, never a column
+    df["surroundings_50m"] = [
+        json.dumps(x, ensure_ascii=False) if isinstance(x, list) else "[]" for x in recs
+    ]
 
-    # Preflight the eval's env requirements *before* image generation, so a fresh
-    # clone fails in seconds instead of after the slow stages. Skipped for --no-eval.
-    if not args.no_eval:
-        _pin_gpu(args.no_tar)
-        _check_dino_access()
+    # drop listings with no POIs within RADIUS
+    before = len(df)
+    df = df[[n > 0 for n in n_pois]]
+    print(f"dropped {before - len(df)} empty listings, kept {len(df)}", flush=True)
 
-    limit = ["--limit", str(args.limit)] if args.limit is not None else []
-
-    # Stage 1+2: generate images (descriptions are computed inside generation).
-    if not args.skip_gen:
-        gen = [VENV_PY, "-m", "pipeline.generate_images", "--csv", RAW, "--out-dir", IMAGES, *limit]
-        if args.model_id:
-            gen += ["--model-id", args.model_id]
-        _run(gen)
-
-    # Stage 2.5 (optional): caption the generated images -> text modality.
-    if args.caption:
-        cap = [VENV_PY, "-m", "pipeline.caption_images", "--image-folder", IMAGES,
-               "--out-csv", CAPTIONS, *limit]
-        if args.caption_model:
-            cap += ["--model-id", args.caption_model]
-        _run(cap)
-
-    # Stage 3 (optional): reverse-image-search enrichment.
-    if args.ris:
-        tmp = os.path.join(_HERE, "data", "_ris_descriptions.csv")
-        _run([VENV_PY, "-c",
-              "import pandas as pd,sys;from pipeline.prompt_builder import add_descriptions;"
-              f"d=pd.read_csv({RAW!r});"
-              + (f"d=d.head({args.limit});" if args.limit is not None else "")
-              + f"add_descriptions(d.reset_index(drop=True)).to_csv({tmp!r},index=False)"])
-        _run([VENV_PY, "-m", "pipeline.reverse_search_enrich", "--csv", tmp,
-              "--image-folder", IMAGES, *limit])
-
-    # Stage 4: assemble the enriched CSV.
-    enrich = [VENV_PY, "-m", "pipeline.enrich_csv", "--raw-csv", RAW,
-              "--image-folder", IMAGES, "--out-csv", OUT, *limit]
-    if args.caption:
-        enrich += ["--caption-csv", CAPTIONS]
-    _run(enrich)
-
-    # Stage 5: eligibility eval.
-    if not args.no_eval:
-        ev = [VENV_PY, "run_multabench_eval.py", "--csv", OUT, "--image-folder", IMAGES,
-              "--target", "price", "--task", "reg"]
-        if args.no_tar:
-            ev.append("--no-tar")
-        _run(ev)
+    # two variants: vanilla = tabular only (no bulky JSON, model-ready);
+    # json = vanilla + the surroundings_50m POI JSON (input for describe.py).
+    vanilla = "airbnb_vanilla.csv"
+    enriched = "airbnb_enriched.csv"
+    df.drop(columns=["surroundings_50m"]).to_csv(vanilla, index=False)
+    df.to_csv(enriched, index=False)
+    print(f"done -> {vanilla}, {enriched}", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,16 +1,17 @@
-# Cloned by init.sh (external repos — not vendored here)
+# Cloned by init.sh (external repo — not vendored here)
 /MulTaBench/
-/reverse-img-search/
 
 # Virtualenvs
 .venv/
 venv/
 
-# Pipeline outputs / generated artifacts
-/images/
+# Large OSM extracts (1.6G) — kept local, never committed
+/data/
+
+# Dataset CSVs (raw + generated) — shipped to the GPU box via sync.sh, not git.
+# Too big / churny to track; code reproduces them from data/ + the LLM.
 /results/
-/data/house_price_multimodal.csv
-/data/_ris_descriptions.csv
+/*.csv
 
 # Logs / caches
 *.log
