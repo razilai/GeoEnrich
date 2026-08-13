@@ -15,14 +15,18 @@ import pandas as pd
 
 from pipeline.prompt_builder import row_to_prompt
 
-DEFAULT_MODEL_ID = "sd2-community/stable-diffusion-2-1"
+# SDXL: far more photorealistic + finer per-row detail than SD 2.1, so the images
+# (and their captions) vary more between rows. AutoPipelineForText2Image resolves
+# the right pipeline class from the model id, so FLUX / SD3 also work as a drop-in
+# --model-id (note: FLUX ignores negative_prompt).
+DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
 NEGATIVE_PROMPT = "blurry, distorted, text, watermark, low quality, cartoon"
 
 
 def _load_pipeline(model_id: str):
     """Lazily import diffusers/torch so the module is importable without them."""
     import torch
-    from diffusers import StableDiffusionPipeline
+    from diffusers import AutoPipelineForText2Image
 
     if torch.cuda.is_available():
         device, dtype = "cuda", torch.float16
@@ -31,11 +35,18 @@ def _load_pipeline(model_id: str):
     else:
         device, dtype = "cpu", torch.float32
 
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
+    pipe = AutoPipelineForText2Image.from_pretrained(
+        model_id, torch_dtype=dtype, use_safetensors=True
+    )
     pipe = pipe.to(device)
     pipe.set_progress_bar_config(disable=True)
-    # Disable the NSFW checker: it can blank out valid house images as false positives.
-    pipe.safety_checker = None
+    # Disable the NSFW checker (false-positives blank valid house images). Only
+    # SD-class pipelines have one; SDXL/FLUX don't, so guard the attribute.
+    if hasattr(pipe, "safety_checker"):
+        pipe.safety_checker = None
+    # SDXL's UNet is big; slicing keeps 1024px generation within reach on smaller GPUs.
+    if device == "cuda":
+        pipe.enable_attention_slicing()
     print(f"🖼️  loaded {model_id} on {device} ({dtype})")
     return pipe, device
 
@@ -47,7 +58,7 @@ def generate_images(
     limit: int | None = None,
     steps: int = 30,
     guidance: float = 7.5,
-    size: int = 512,
+    size: int = 1024,  # SDXL native; 512 degrades SDXL output
 ) -> None:
     import torch
 
@@ -67,17 +78,23 @@ def generate_images(
 
     pipe, device = _load_pipeline(model_id)
 
+    # Not every pipeline accepts negative_prompt (e.g. FLUX) — only pass what the
+    # active pipeline's __call__ actually supports.
+    import inspect
+    supported = set(inspect.signature(pipe.__call__).parameters)
+    extra = {k: v for k, v in {"negative_prompt": NEGATIVE_PROMPT}.items() if k in supported}
+
     for n, i in enumerate(pending):
         prompt = row_to_prompt(df.iloc[i])
         generator = torch.Generator(device=device).manual_seed(i)
         image = pipe(
             prompt,
-            negative_prompt=NEGATIVE_PROMPT,
             num_inference_steps=steps,
             guidance_scale=guidance,
             height=size,
             width=size,
             generator=generator,
+            **extra,
         ).images[0]
         image.save(os.path.join(out_dir, f"row_{i:05d}.png"))
         if (n + 1) % 25 == 0 or n + 1 == len(pending):
@@ -96,7 +113,7 @@ if __name__ == "__main__":
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--steps", type=int, default=30)
     p.add_argument("--guidance", type=float, default=7.5)
-    p.add_argument("--size", type=int, default=512)
+    p.add_argument("--size", type=int, default=1024)
     args = p.parse_args()
 
     generate_images(

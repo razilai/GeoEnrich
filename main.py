@@ -8,6 +8,7 @@ a multi-GB CUDA torch install.
 
 Stages:
   1+2. build NL descriptions & generate one image per row (Stable Diffusion)
+  2.5. OPTIONAL VLM-caption the generated images -> text modality (--caption)
   3.   OPTIONAL reverse-image-search enrichment (off by default)
   4.   assemble the enriched multimodal CSV
   5.   MulTaBench tri-modal curation eligibility eval
@@ -15,6 +16,7 @@ Stages:
 Examples:
   uv run main --limit 20 --no-eval        # smoke: generate 20 images + enrich
   uv run main                             # full pipeline (all rows) + eval
+  uv run main --caption                   # text = VLM caption of the image, not the template
   uv run main --ris                       # also swap in reverse-search images
   uv run main --skip-gen                  # only (re)build CSV + eval existing images
 """
@@ -50,6 +52,7 @@ VENV_PY = os.path.join(_HERE, "MulTaBench", ".venv", "bin", "python")
 RAW = os.path.join(_HERE, "data", "house_price_prediction.csv")
 IMAGES = os.path.join(_HERE, "images")
 OUT = os.path.join(_HERE, "data", "house_price_multimodal.csv")
+CAPTIONS = os.path.join(_HERE, "data", "_captions.csv")
 
 
 def _run(argv: list[str]) -> None:
@@ -100,6 +103,9 @@ def main() -> None:
     p.add_argument("--skip-gen", action="store_true", help="skip image generation")
     p.add_argument("--no-eval", action="store_true", help="stop after building the CSV")
     p.add_argument("--no-tar", action="store_true", help="eval joint-signal only (no GPU LoRA)")
+    p.add_argument("--caption", action="store_true",
+                   help="text modality = VLM caption of the generated image (not the deterministic template)")
+    p.add_argument("--caption-model", default=None, help="override the VLM captioner model id")
     ris = p.add_mutually_exclusive_group()
     ris.add_argument("--ris", dest="ris", action="store_true", help="enable reverse-image-search")
     ris.add_argument("--no-ris", dest="ris", action="store_false")
@@ -124,6 +130,14 @@ def main() -> None:
             gen += ["--model-id", args.model_id]
         _run(gen)
 
+    # Stage 2.5 (optional): caption the generated images -> text modality.
+    if args.caption:
+        cap = [VENV_PY, "-m", "pipeline.caption_images", "--image-folder", IMAGES,
+               "--out-csv", CAPTIONS, *limit]
+        if args.caption_model:
+            cap += ["--model-id", args.caption_model]
+        _run(cap)
+
     # Stage 3 (optional): reverse-image-search enrichment.
     if args.ris:
         tmp = os.path.join(_HERE, "data", "_ris_descriptions.csv")
@@ -136,8 +150,11 @@ def main() -> None:
               "--image-folder", IMAGES, *limit])
 
     # Stage 4: assemble the enriched CSV.
-    _run([VENV_PY, "-m", "pipeline.enrich_csv", "--raw-csv", RAW,
-          "--image-folder", IMAGES, "--out-csv", OUT, *limit])
+    enrich = [VENV_PY, "-m", "pipeline.enrich_csv", "--raw-csv", RAW,
+              "--image-folder", IMAGES, "--out-csv", OUT, *limit]
+    if args.caption:
+        enrich += ["--caption-csv", CAPTIONS]
+    _run(enrich)
 
     # Stage 5: eligibility eval.
     if not args.no_eval:

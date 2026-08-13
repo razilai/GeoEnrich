@@ -1,7 +1,10 @@
 """Stage 4: assemble the enriched multimodal CSV.
 
 Adds two columns to the raw tabular data:
-  - ``description``: natural-language text (text modality), and
+  - ``description``: natural-language text (text modality). By default this is the
+    deterministic ``row_to_prompt`` template; pass ``caption_csv`` to instead use a
+    VLM caption of the generated image (see caption_images.py) as the text, which
+    decouples the text from the tabular columns.
   - ``image``: the image filename that lives in the image folder (image modality).
 
 Also drops the leaky ``price_per_sqft`` column (= price / sqft_living), which
@@ -25,6 +28,7 @@ def build_multimodal_csv(
     limit: int | None = None,
     image_col: str = "image",
     require_images: bool = True,
+    caption_csv: str | None = None,
 ) -> pd.DataFrame:
     """Create the enriched CSV and return the resulting DataFrame.
 
@@ -37,10 +41,22 @@ def build_multimodal_csv(
         df = df.head(limit).copy()
     df = df.reset_index(drop=True)
 
-    df = add_descriptions(df)
-
     # Image filename convention shared with generate_images.py.
     df[image_col] = [f"row_{i:05d}.png" for i in range(len(df))]
+
+    if caption_csv:
+        # VLM caption of the generated image as the text modality (decoupled from
+        # the tabular columns). Aligned on the image filename.
+        caps = pd.read_csv(caption_csv).set_index(image_col)["description"]
+        df["description"] = df[image_col].map(caps)
+        missing_caps = df["description"].isna().sum()
+        if missing_caps:
+            raise ValueError(
+                f"{missing_caps} row(s) have no caption in {caption_csv}; "
+                "run Stage 2.5 (caption_images) over the same images first."
+            )
+    else:
+        df = add_descriptions(df)
 
     if require_images:
         missing = [
@@ -70,6 +86,8 @@ if __name__ == "__main__":
     p.add_argument("--out-csv", required=True)
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--no-require-images", action="store_true")
+    p.add_argument("--caption-csv", default=None,
+                   help="use VLM captions from this CSV as the text modality")
     args = p.parse_args()
 
     build_multimodal_csv(
@@ -78,4 +96,5 @@ if __name__ == "__main__":
         out_csv=args.out_csv,
         limit=args.limit,
         require_images=not args.no_require_images,
+        caption_csv=args.caption_csv,
     )
