@@ -15,12 +15,13 @@ import pandas as pd
 
 from pipeline.prompt_builder import row_to_prompt
 
-# SDXL: far more photorealistic + finer per-row detail than SD 2.1, so the images
-# (and their captions) vary more between rows. AutoPipelineForText2Image resolves
-# the right pipeline class from the model id, so FLUX / SD3 also work as a drop-in
-# --model-id (note: FLUX ignores negative_prompt).
-DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"
-NEGATIVE_PROMPT = "blurry, distorted, text, watermark, low quality, cartoon"
+# SD 2.1: faster than SDXL (512px, smaller UNet). AutoPipelineForText2Image still
+# resolves the right pipeline class from the model id, so SDXL / FLUX / SD3 remain
+# drop-in via --model-id (note: FLUX ignores negative_prompt).
+DEFAULT_MODEL_ID = "sd2-community/stable-diffusion-2-1"
+# Trimmed: 'low quality'/'blurry' were vetoing the look of poor-condition houses,
+# forcing every render pristine. Keep only artefact/style negatives.
+NEGATIVE_PROMPT = "text, watermark, cartoon, drawing"
 
 
 def _load_pipeline(model_id: str):
@@ -58,7 +59,7 @@ def generate_images(
     limit: int | None = None,
     steps: int = 30,
     guidance: float = 7.5,
-    size: int = 1024,  # SDXL native; 512 degrades SDXL output
+    size: int = 512,  # SD 2.1 native; faster than SDXL 1024
 ) -> None:
     import torch
 
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--steps", type=int, default=30)
     p.add_argument("--guidance", type=float, default=7.5)
-    p.add_argument("--size", type=int, default=1024)
+    p.add_argument("--size", type=int, default=512)
     args = p.parse_args()
 
     generate_images(
