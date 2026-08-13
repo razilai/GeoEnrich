@@ -3,9 +3,10 @@ name = "airbnb-surroundings-multabench"
 version = "0.1.0"
 description = "Airbnb + OSM text-tabular dataset build + MulTaBench eligibility eval"
 requires-python = ">=3.11"
-# Env holder only. Heavy stages run in MulTaBench/.venv (dataset build libs are
-# installed there by init.sh from requirements.txt), so this project ships no
-# code and needs no build backend.
+# Thin launcher env. The heavy stages (build/describe/eval) all run in
+# MulTaBench/.venv — the single env init.sh builds with tabstar/torch + the
+# dataset-build libs. This project ships only run.py, which dispatches every
+# stage to that interpreter, so `uv run main` works no matter which env uv picks.
 dependencies = [
     "geopandas>=1.1.4",
     "pandas>=3.0.5",
@@ -14,5 +15,14 @@ dependencies = [
     "python-dotenv>=1.2.2",
 ]
 
-[tool.uv]
-package = false
+# `uv run main` -> run.py:main (the whole-pipeline launcher).
+[project.scripts]
+main = "run:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# run.py is a flat top-level module (no package dir), so force-include it.
+[tool.hatch.build.targets.wheel]
+force-include = { "run.py" = "run.py" }

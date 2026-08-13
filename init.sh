@@ -72,14 +72,16 @@ cat <<'EOF'
 
 🎉 Setup complete.
 
-PY=MulTaBench/.venv/bin/python
+Run the whole pipeline (build -> describe -> eval) with one command:
+  uv run main
+  # dispatches every stage to MulTaBench/.venv, so tabstar/torch are always found.
+  # existing outputs are skipped; on a GPU box with only synced CSVs it runs the eval.
+  # forward flags to the eval after --, e.g.  uv run main -- --no-tar  (no GPU).
 
-Build the dataset:
+Or drive a single stage directly (PY=MulTaBench/.venv/bin/python):
   $PY main.py            # airbnb.csv -> airbnb_enriched.csv (OSM POIs within 50m)
   $PY describe.py 10     # -> airbnb_described.csv (LLM summary; needs .env key)
-
-Run the eval (text + tabular only — no image modality):
   $PY run_multabench_eval.py --no-image --target price \
       --csv airbnb_described.csv --image-folder /dev/null
-  # add --no-tar for joint-signal only (no GPU). TAR (LoRA) needs a GPU + HF_TOKEN.
+  # TAR (LoRA) needs a GPU + HF_TOKEN; add --no-tar for joint-signal only.
 EOF
