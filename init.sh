@@ -85,8 +85,13 @@ cat <<'EOF'
 🎉 Setup complete.
 
 To run the eval end-to-end you need:
-  - NVIDIA GPU + CUDA (TAR LoRA fine-tuning asserts CUDA_VISIBLE_DEVICES)
-  - authorized HF_TOKEN in MulTaBench/.env (facebook/dinov3-* is a gated repo)
+  - NVIDIA GPU + CUDA (TAR LoRA fine-tuning asserts CUDA_VISIBLE_DEVICES;
+    `uv run main` auto-pins it to 0 when a GPU is visible)
+  - HF_TOKEN in MulTaBench/.env whose account has been GRANTED access to the
+    gated repo facebook/dinov3-vits16-pretrain-lvd1689m — request it here:
+    https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m
+    (a valid token without granted access still 403s; `uv run main` now
+     checks this up front instead of failing mid-eval)
 
 Run the whole pipeline:
   uv run main --limit 20 --no-eval     # smoke: 20 images + enriched CSV
