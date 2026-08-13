@@ -15,7 +15,7 @@ import pandas as pd
 
 from pipeline.prompt_builder import row_to_prompt
 
-DEFAULT_MODEL_ID = "stabilityai/stable-diffusion-2-1-base"
+DEFAULT_MODEL_ID = "sd2-community/stable-diffusion-2-1"
 NEGATIVE_PROMPT = "blurry, distorted, text, watermark, low quality, cartoon"
 
 

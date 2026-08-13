@@ -5,6 +5,7 @@ pillow
 # Stage 2: local Stable Diffusion
 diffusers
 accelerate
+transformers
 # Stage 3 (optional reverse-image-search)
 requests
 beautifulsoup4
