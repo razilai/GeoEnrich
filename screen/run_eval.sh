@@ -6,9 +6,13 @@ cd "$(dirname "$0")/.."
 OUT=screen/results.txt
 : > "$OUT"
 
+# Heavy env (tabstar/torch) lives in MulTaBench/.venv, the one init.sh builds.
+# The eval imports tabstar at module top, so --no-tar still needs this interp.
+PY=MulTaBench/.venv/bin/python
+
 for csv in screen/df2_*.csv; do
   echo "########## $csv ##########" | tee -a "$OUT"
-  python run_multabench_eval.py \
+  "$PY" run_multabench_eval.py \
     --csv "$csv" --image-folder . --no-image --no-tar \
     --out "screen/report_$(basename "$csv" .csv).csv" 2>&1 | tee -a "$OUT"
   echo | tee -a "$OUT"
