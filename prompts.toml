@@ -1,0 +1,101 @@
+# Prompt library for surroundings enrichment (POI JSON -> text).
+# Generated from test_prompts.py. Experiment outputs per model live in
+# prompt_experiments{,_ling,_llama,_gemini}.json.
+#
+# Shared USER input block fed to every prompt (built in describe.py / test_prompts.py):
+#   Place types (count): {'cafe': 4, ...}
+#   Places: <deduped comma list of POI names>
+# For 09_few_shot the [fewshot] demonstrations are prepended to that block.
+
+[meta]
+chosen = "03_landmark_salience"
+model = "google/gemini-3.1-flash-lite"
+note = "Switched off 08: gemini-3.1-flash-lite describes reliably but its 1-5 score collapsed to 3/4 on all 10 batch listings (no signal). 03 keeps gemini's grounded type+example+landmark description and drops the number."
+
+[prompts.01_flatten_control]
+name = 'Flatten control (dry)'
+description = 'Research-favoured baseline: factual types+names, no judgment. Control.'
+system = """
+You convert a list of nearby places into one plain factual sentence: the main place types plus a few named examples. No opinions or adjectives of quality. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.02_local_expert]
+name = 'Local-expert role'
+description = 'Role prompt: an Amsterdam insider judges high-end vs budget from the names.'
+system = """
+You are a long-time Amsterdam local who knows which streets are prestigious and which are ordinary. In two sentences, name what's nearby and say whether these surroundings suggest a high-end, mid, or budget area, justified by the specific named places. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.03_landmark_salience]
+name = 'Landmark salience'
+description = 'Chosen. Reliable type+example description; flags any landmark/museum/market with why. No score, no tier, no number.'
+system = """
+You convert a list of nearby places into a short, reliable description of the surroundings. In one or two sentences, name the main place types with a few real examples, grouped naturally (dining, retail, nightlife, culture). If any listed place is a well-known landmark, museum, market, park or attraction, say so and note in a few words why it matters for the area. Name only places from the list, copied exactly; never invent a place. Do NOT rate, score, rank or price the location — no numbers, stars, or tiers (premium/mid/budget); describe only. Do not mention distance, metres, or radius. Plain text, no markdown.
+"""
+
+[prompts.04_desirability_verdict]
+name = 'Fact + tier verdict'
+description = 'One factual sentence, then a clause: premium / average / budget.'
+system = """
+Write one factual sentence naming the nearby places, then one short clause stating whether the immediate location is premium, average, or budget for a short-stay rental, based on what is nearby. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.05_price_implication]
+name = 'Hedonic price-signal'
+description = 'Ties surroundings to what they imply about rental price level, with why.'
+system = """
+Describe what is nearby using the named places, and state what it implies about the area's rental price level (higher or lower than average) and why, referencing specific named places. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.06_cot_then_desc]
+name = 'Reasoning then summary'
+description = 'Notes notable places + implication first, then a 2-sentence summary.'
+system = """
+First write a line 'REASONING:' noting any notable or prestigious named places and what they imply about desirability. Then a line 'SUMMARY:' with two factual sentences naming places and their value implication. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.07_tagged_output]
+name = 'Prose + machine tag'
+description = '1-2 factual sentences, then a parseable [tier|anchors|character] tag.'
+system = """
+Write 1-2 factual sentences naming nearby places. Then append one tag line exactly as: [tier: premium|mid|budget | anchors: <named notable places or 'none'> | character: <2-4 words>]. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.08_desirability_score]
+name = 'Desirability score /5'
+description = 'Description + explicit 1-5 location-desirability score with justification.'
+system = """
+Describe the nearby named places in one sentence. Then add 'Desirability: X/5 — <justification>', where famous landmarks, museums and markets raise the score and mundane services lower it, justified by the specific named places. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.09_few_shot]
+name = 'Few-shot value mapping'
+description = 'Two worked examples (landmark->premium, dentist->budget) then the target.'
+fewshot = true
+system = """
+Describe the nearby places in 1-2 sentences, naming them and conveying whether the spot is prestigious/high-demand or ordinary/low-draw, in the style of the examples. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[prompts.10_tourist_vs_resident]
+name = 'Tourist vs residential'
+description = 'Says whether area reads tourist-prominent (landmarks) or everyday, with draws.'
+system = """
+Name the nearby places by type, then state whether the area reads as tourist-prominent (famous landmarks or attractions nearby) or everyday-residential, naming the specific draws that make it so. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+"""
+
+[fewshot]
+# prepended to the user block for 09_few_shot (teaches the value mapping)
+demonstrations = """
+Example A —
+Place types (count): {'museum': 1, 'cafe': 1}
+Places: Rijksmuseum, Café Blom
+Output: Sits beside the Rijksmuseum, one of the country's major museums, with Café Blom alongside — a prestigious, high-demand cultural location.
+
+Example B —
+Place types (count): {'dentist': 1}
+Places: Zeeburg Tandartsen
+Output: Only a dentist, Zeeburg Tandartsen, sits nearby — a quiet, ordinary residential spot with little of draw.
+
+Now do the same for:
+
+"""

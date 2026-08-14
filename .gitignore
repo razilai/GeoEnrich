@@ -41,3 +41,6 @@ catboost_info/
 # Local environment variants; retain committed example templates
 .env.*
 !.env.example
+
+
+logs/

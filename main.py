@@ -48,6 +48,10 @@ _META = {
 # tags that tell an LLM what a place *is* / what it's like near the property.
 # everything else (refs, ids, edit metadata, contact info, wikidata, ...) is
 # dropped — it adds tokens and noise without shaping the free-text summary.
+# wheelchair/outdoor_seating dropped: values are ~all "no"/"limited", zero
+# neighbourhood-desirability signal. cuisine + sport kept and folded into the
+# category downstream (italian restaurant, tennis pitch) — the strongest
+# place-character signal, previously flattened away.
 KEEP_TAGS = {
     "name",
     "amenity",
@@ -59,10 +63,8 @@ KEEP_TAGS = {
     "healthcare",
     "sport",
     "cuisine",
-    "outdoor_seating",
     "brand",
     "description",
-    "wheelchair",
 }
 
 # a POI's category comes from the first of these that's present
@@ -105,6 +107,14 @@ def clean_poi(tags):
     if cat is None or cat in JUNK_VALUES:
         return None
     kept = {k: v for k, v in tags.items() if k in KEEP_TAGS and v not in JUNK_VALUES}
+    # strip redundant copies: brand mostly repeats name; healthcare repeats
+    # amenity (dentist/dentist); description sometimes repeats name.
+    if kept.get("brand") == kept.get("name"):
+        kept.pop("brand", None)
+    if kept.get("healthcare") == kept.get("amenity"):
+        kept.pop("healthcare", None)
+    if kept.get("description") == kept.get("name"):
+        kept.pop("description", None)
     return kept or None
 
 
@@ -200,6 +210,20 @@ def main():
         print(f"[{name}] matched {len(agg)} listings", flush=True)
 
     recs = df.index.map(labels)  # list[dict] per listing, or NaN
+
+    def dedupe(pois):
+        # OSM lists a place twice (node + way, or multi-tagged) -> identical
+        # cleaned dicts. Drop exact repeats within a listing, keep order.
+        seen, out = set(), []
+        for p in pois:
+            k = json.dumps(p, sort_keys=True, ensure_ascii=False)
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(p)
+        return out
+
+    recs = [dedupe(x) if isinstance(x, list) else x for x in recs]
     n_pois = [len(x) if isinstance(x, list) else 0 for x in recs]  # local only, never a column
     df["surroundings_50m"] = [
         json.dumps(x, ensure_ascii=False) if isinstance(x, list) else "[]" for x in recs
