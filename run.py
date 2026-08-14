@@ -44,10 +44,29 @@ DEFAULT_EVAL_ARGS = [
 ]
 
 
-def sh(cmd: list[str]) -> None:
+def sh(cmd: list[str], env: dict[str, str] | None = None) -> None:
     """Run a subprocess from the repo root, aborting the pipeline on failure."""
     print(f"\n$ {' '.join(cmd)}", flush=True)
-    subprocess.run(cmd, cwd=HERE, check=True)
+    subprocess.run(cmd, cwd=HERE, check=True, env=env)
+
+
+def eval_env() -> dict[str, str]:
+    """Env for the eval subprocess, pinning one GPU.
+
+    tabstar's get_device treats CUDA_VISIBLE_DEVICES=<int> as the single-GPU
+    contract, and the LoRA finetune asserts it is set (else HF Trainer would
+    DataParallel across every visible GPU). It must exist BEFORE torch imports,
+    so we set it here in the child env rather than inside the finetune. Honor an
+    existing value; else fall back to the GPU index (constants.GPU) or 0.
+    """
+    env = dict(os.environ)
+    if not env.get("CUDA_VISIBLE_DEVICES"):
+        env["CUDA_VISIBLE_DEVICES"] = env.get("GPU") or "0"
+        # GPU drove constants.DEVICE=cuda:{GPU}; now that only one GPU is
+        # visible (remapped to index 0), drop it so DEVICE stays None and
+        # get_device returns plain "cuda" for the single visible device.
+        env.pop("GPU", None)
+    return env
 
 
 def ensure_env() -> None:
@@ -90,7 +109,8 @@ def main() -> None:
     # 3. eval: the tabstar-dependent stage that was failing under `uv run`.
     #    Extra args augment the defaults (e.g. `-- --no-tar` toggles the flag)
     #    rather than replacing them, so --csv/--image-folder are always present.
-    sh([VENV_PY, "run_multabench_eval.py", *DEFAULT_EVAL_ARGS, *extra_eval_args])
+    sh([VENV_PY, "run_multabench_eval.py", *DEFAULT_EVAL_ARGS, *extra_eval_args],
+       env=eval_env())
 
 
 if __name__ == "__main__":
