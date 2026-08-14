@@ -25,7 +25,10 @@ import os
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+# Anchor to the repo root, which is the cwd `uv run main` executes from. Do NOT
+# use __file__: this module ships as an installed wheel, so __file__ resolves to
+# .venv/site-packages, not the project tree where init.sh / main.py / the CSVs live.
+HERE = os.getcwd()
 VENV_PY = os.path.join(HERE, "MulTaBench", ".venv", "bin", "python")
 INIT_SH = os.path.join(HERE, "init.sh")
 
@@ -85,7 +88,9 @@ def main() -> None:
                      "describe; build the dataset locally and sync it over first")
 
     # 3. eval: the tabstar-dependent stage that was failing under `uv run`.
-    sh([VENV_PY, "run_multabench_eval.py", *(extra_eval_args or DEFAULT_EVAL_ARGS)])
+    #    Extra args augment the defaults (e.g. `-- --no-tar` toggles the flag)
+    #    rather than replacing them, so --csv/--image-folder are always present.
+    sh([VENV_PY, "run_multabench_eval.py", *DEFAULT_EVAL_ARGS, *extra_eval_args])
 
 
 if __name__ == "__main__":
