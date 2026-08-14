@@ -1,0 +1,48 @@
+✅ wrote screen/report_df2_01_flatten_control.csv
+
+── TEXT modality ──
+  tabm         joint_signal=True   tar_gain=False  ❌
+  cat          joint_signal=False  tar_gain=False  ❌
+  light        joint_signal=False  tar_gain=False  ❌
+  tabpfnv2     joint_signal=True   tar_gain=False  ❌
+  tabpfnv2p5   joint_signal=True   tar_gain=False  ❌
+  → 0/5 learners pass both criteria  (NOT eligible for text)
+
+✅ wrote screen/report_df2_03_landmark_salience.csv
+
+── TEXT modality ──
+  tabm         joint_signal=False  tar_gain=False  ❌
+  cat          joint_signal=False  tar_gain=False  ❌
+  light        joint_signal=True   tar_gain=False  ❌
+  tabpfnv2     joint_signal=True   tar_gain=False  ❌
+  tabpfnv2p5   joint_signal=True   tar_gain=False  ❌
+  → 0/5 learners pass both criteria  (NOT eligible for text)
+
+✅ wrote screen/report_df2_05_price_implication.csv
+
+── TEXT modality ──
+  tabm         joint_signal=True   tar_gain=False  ❌
+  cat          joint_signal=False  tar_gain=False  ❌
+  light        joint_signal=False  tar_gain=False  ❌
+  tabpfnv2     joint_signal=True   tar_gain=False  ❌
+  tabpfnv2p5   joint_signal=True   tar_gain=False  ❌
+  → 0/5 learners pass both criteria  (NOT eligible for text)
+✅ wrote screen/report_df2_07_tagged_output.csv
+
+── TEXT modality ──
+  tabm         joint_signal=False  tar_gain=False  ❌
+  cat          joint_signal=False  tar_gain=False  ❌
+  light        joint_signal=False  tar_gain=False  ❌
+  tabpfnv2     joint_signal=False  tar_gain=False  ❌
+  tabpfnv2p5   joint_signal=False  tar_gain=False  ❌
+  → 0/5 learners pass both criteria  (NOT eligible for text)
+✅ wrote screen/report_df2_10_tourist_vs_resident.csv
+
+── TEXT modality ──
+  tabm         joint_signal=True   tar_gain=False  ❌
+  cat          joint_signal=False  tar_gain=False  ❌
+  light        joint_signal=False  tar_gain=False  ❌
+  tabpfnv2     joint_signal=True   tar_gain=False  ❌
+  tabpfnv2p5   joint_signal=True   tar_gain=False  ❌
+  → 0/5 learners pass both criteria  (NOT eligible for text)
+
