@@ -19,3 +19,25 @@ wandb/
 __pycache__/
 *.pyc
 .env
+
+# Python tooling, test, coverage, and build artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Model training outputs (CatBoost includes TensorBoard event files)
+catboost_info/
+
+# Local environment variants; retain committed example templates
+.env.*
+!.env.example

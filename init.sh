@@ -16,6 +16,26 @@ MULTABENCH_REPO="https://github.com/alanarazi7/MulTaBench"
 MULTABENCH_COMMIT="599bd6a5631c96f8aef297cc4cb6e4c197ae0dca"
 VENV_PY="$HERE/MulTaBench/.venv/bin/python"
 
+# uv may build/download Python during setup.  Install these headers before that
+# happens so the resulting interpreter includes the stdlib _lzma and _bz2 modules.
+if [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    if [ "${ID:-}" = "ubuntu" ]; then
+        echo "📦 ensuring Ubuntu compression build dependencies (_lzma, _bz2)"
+        if [ "$(id -u)" -eq 0 ]; then
+            apt-get update
+            apt-get install --yes liblzma-dev libbz2-dev
+        elif command -v sudo >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes liblzma-dev libbz2-dev
+        else
+            echo "❌ Ubuntu needs liblzma-dev and libbz2-dev, but sudo is unavailable"
+            exit 1
+        fi
+    fi
+fi
+
 command -v git >/dev/null || { echo "❌ git not found"; exit 1; }
 command -v uv >/dev/null || { echo "❌ uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
 
@@ -57,6 +77,42 @@ echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
 # 3. Install this project's dataset-build libs into the same venv.
 echo "📦 installing dataset-build libs into MulTaBench/.venv"
 uv pip install --python "$VENV_PY" -r requirements.txt
+
+# 3b. GPU: match the torch build to THIS GPU's compute capability.
+# Runs LAST of the venv installs so pytabkit's default (cu126) torch can't clobber it.
+# torch 2.7.1 ships only cu118/cu126/cu128 wheels:
+#   cu126 -> sm_50..sm_90 ; cu128 adds sm_100/sm_120 (Blackwell, e.g. RTX 50xx).
+# We read the cap from nvidia-smi (no torch needed), pick the wheel, then VERIFY
+# the wheel actually carries sm_<cap> and fail loud if not — so a future GPU that
+# needs a build we didn't map can't silently fall back to "no kernel image".
+if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+    CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
+           | head -n1 | tr -d ' .')"
+    case "$CAP" in
+        10*|12*|13*) CUDA_TAG="cu128" ;;  # Blackwell (sm_100/sm_120) and newer
+        "")          CUDA_TAG="cu128" ;;  # old nvidia-smi w/o compute_cap: assume new
+        *)           CUDA_TAG="cu126" ;;  # Hopper sm_90 and older
+    esac
+    echo "🎮 GPU sm_${CAP:-?} -> installing torch ${CUDA_TAG} (last, so it wins)"
+    uv pip install --python "$VENV_PY" --upgrade --force-reinstall \
+        --index-url "https://download.pytorch.org/whl/${CUDA_TAG}" \
+        torch==2.7.1 torchvision==0.22.1
+    "$VENV_PY" - "$CAP" <<'PY'
+import sys, torch
+cap = sys.argv[1]
+archs = torch.cuda.get_arch_list()
+print(f"   torch {torch.__version__} cuda {torch.version.cuda}")
+print(f"   archs {archs}")
+if cap:
+    want = f"sm_{cap}"
+    if want not in archs:
+        sys.exit(f"❌ torch wheel lacks {want} for this GPU — "
+                 f"add a case for sm_{cap} in init.sh (3b) with the right cuXXX wheel")
+    print(f"   ✅ {want} supported")
+PY
+else
+    echo "💻 no NVIDIA GPU — skipping GPU torch install (CPU / --no-tar path)"
+fi
 
 # 4. Sync the thin env-holder project (creates ./.venv).
 echo "🔗 uv sync"
