@@ -50,23 +50,21 @@ def sh(cmd: list[str], env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=HERE, check=True, env=env)
 
 
-def eval_env() -> dict[str, str]:
-    """Env for the eval subprocess, pinning one GPU.
+def pin_gpu() -> None:
+    """Pin one GPU for the whole run, before any child imports torch.
 
     tabstar's get_device treats CUDA_VISIBLE_DEVICES=<int> as the single-GPU
     contract, and the LoRA finetune asserts it is set (else HF Trainer would
     DataParallel across every visible GPU). It must exist BEFORE torch imports,
-    so we set it here in the child env rather than inside the finetune. Honor an
+    so we set it in this parent env, which every subprocess inherits. Honor an
     existing value; else fall back to the GPU index (constants.GPU) or 0.
     """
-    env = dict(os.environ)
-    if not env.get("CUDA_VISIBLE_DEVICES"):
-        env["CUDA_VISIBLE_DEVICES"] = env.get("GPU") or "0"
+    if not os.environ.get("CUDA_VISIBLE_DEVICES"):
+        os.environ["CUDA_VISIBLE_DEVICES"] = os.environ.get("GPU") or "0"
         # GPU drove constants.DEVICE=cuda:{GPU}; now that only one GPU is
         # visible (remapped to index 0), drop it so DEVICE stays None and
         # get_device returns plain "cuda" for the single visible device.
-        env.pop("GPU", None)
-    return env
+        os.environ.pop("GPU", None)
 
 
 def ensure_env() -> None:
@@ -86,6 +84,8 @@ def has_pbf_data() -> bool:
 
 def main() -> None:
     extra_eval_args = sys.argv[1:]  # anything after `uv run main`
+
+    pin_gpu()  # CUDA_VISIBLE_DEVICES=0 for the whole run (before any torch import)
 
     ensure_env()
 
@@ -109,8 +109,7 @@ def main() -> None:
     # 3. eval: the tabstar-dependent stage that was failing under `uv run`.
     #    Extra args augment the defaults (e.g. `-- --no-tar` toggles the flag)
     #    rather than replacing them, so --csv/--image-folder are always present.
-    sh([VENV_PY, "run_multabench_eval.py", *DEFAULT_EVAL_ARGS, *extra_eval_args],
-       env=eval_env())
+    sh([VENV_PY, "run_multabench_eval.py", *DEFAULT_EVAL_ARGS, *extra_eval_args])
 
 
 if __name__ == "__main__":
