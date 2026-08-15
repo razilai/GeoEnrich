@@ -1,6 +1,6 @@
 """Summarise each listing's surroundings with an LLM (via OpenRouter).
 
-Reads artifacts/airbnb_enriched.csv (from build.py — needs the `surroundings`
+Reads data/processed/airbnb_enriched.csv (from build.py — needs the `surroundings`
 column of cleaned POI JSON), asks the model for a short free-text description
 of the area, and writes a `surroundings_summary` column to airbnb_described.csv.
 
@@ -169,6 +169,7 @@ def load_cache():
 
 def save(df):
     # final variant: LLM prose replaces the raw POI JSON — drop surroundings.
+    os.makedirs(config.PROCESSED_DIR, exist_ok=True)
     df.drop(columns=["surroundings"]).to_csv(OUT_CSV, index=False)
 
 

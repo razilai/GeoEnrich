@@ -20,8 +20,8 @@ REMOTE="${REMOTE:-vast:/workspace/multabench/}"
 command -v rsync >/dev/null || { echo "❌ rsync not found"; exit 1; }
 
 # raw input + generated variants; only the ones that exist get sent.
-csvs=(data/airbnb.csv artifacts/airbnb_vanilla.csv \
-      artifacts/airbnb_enriched.csv artifacts/airbnb_described.csv)
+csvs=(data/processed/airbnb.csv data/processed/airbnb_vanilla.csv \
+      data/processed/airbnb_enriched.csv data/processed/airbnb_described.csv)
 present=()
 for f in "${csvs[@]}"; do [ -f "$f" ] && present+=("$f"); done
 [ ${#present[@]} -gt 0 ] || { echo "❌ no CSVs found — build the dataset first"; exit 1; }

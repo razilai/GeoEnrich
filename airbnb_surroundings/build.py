@@ -81,7 +81,7 @@ def load_pois(con, bbox, utm):
 
 
 def main():
-    df = pd.read_csv(config.RAW_CSV, low_memory=False).reset_index(drop=True)
+    df = pd.read_csv(config.CLEANED_CSV, low_memory=False).reset_index(drop=True)
     df = df.rename(columns={"lat": "latitude", "long": "longitude"})
     df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
     df.insert(0, "index", df.index)  # stable per-listing key for describe.py's cache
@@ -155,7 +155,7 @@ def main():
 
     # two variants: vanilla = tabular only (no bulky JSON, model-ready);
     # json = vanilla + the surroundings POI JSON (input for describe.py).
-    os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
+    os.makedirs(config.PROCESSED_DIR, exist_ok=True)
     df.drop(columns=["surroundings"]).to_csv(config.VANILLA_CSV, index=False)
     df.to_csv(config.ENRICHED_CSV, index=False)
     print(f"done -> {config.VANILLA_CSV}, {config.ENRICHED_CSV}", flush=True)

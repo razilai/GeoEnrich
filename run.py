@@ -9,10 +9,10 @@ every stage runs with MulTaBench/.venv's interpreter, regardless of which env
 `uv run` picked.
 
 Per-stage (each forwards its args; run any in isolation):
-    uv run clean [RAW.csv]   0. raw scrape  -> data/airbnb.csv          (PySpark)
-    uv run build             1. airbnb.csv  -> artifacts/airbnb_enriched.csv (Overture POIs)
-    uv run describe [N]      2. enriched    -> artifacts/airbnb_described.csv (LLM key; N = top-N test)
-    uv run eval [--no-tar]   3. described   -> results/eval_report.csv    (needs GPU)
+    uv run clean [RAW.csv]   0. data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (PySpark)
+    uv run build             1. -> data/processed/airbnb_enriched.csv   (Overture POIs)
+    uv run describe [N]      2. -> data/processed/airbnb_described.csv   (LLM key; N = top-N test)
+    uv run eval [--no-tar]   3. -> results/eval_report.csv              (needs GPU)
 
 Whole chain:
     uv run main              runs build -> describe -> eval, skipping any stage
@@ -37,9 +37,9 @@ HERE = os.getcwd()
 VENV_PY = os.path.join(HERE, "MulTaBench", ".venv", "bin", "python")
 INIT_SH = os.path.join(HERE, "init.sh")
 
-ARTIFACTS = os.path.join(HERE, "artifacts")
-ENRICHED = os.path.join(ARTIFACTS, "airbnb_enriched.csv")
-DESCRIBED = os.path.join(ARTIFACTS, "airbnb_described.csv")
+PROCESSED = os.path.join(HERE, "data", "processed")
+ENRICHED = os.path.join(PROCESSED, "airbnb_enriched.csv")
+DESCRIBED = os.path.join(PROCESSED, "airbnb_described.csv")
 
 # text-tabular dataset (no image modality); TAR (LoRA) runs since the box has a GPU.
 DEFAULT_EVAL_ARGS = [
@@ -95,17 +95,17 @@ def _stage(module: str, argv: list[str], *, gpu: bool = False) -> None:
 # the stage in MulTaBench/.venv and forwards args, so `uv run build`, `uv run
 # describe 10`, etc. Just Work regardless of which env `uv run` activated.
 def clean() -> None:
-    """`uv run clean [RAW.csv]` — stage 0: raw scrape -> data/airbnb.csv (PySpark)."""
+    """`uv run clean [RAW.csv]` — stage 0: data/raw -> data/processed/airbnb.csv (PySpark)."""
     _stage("clean", sys.argv[1:])
 
 
 def build() -> None:
-    """`uv run build` — stage 1: data/airbnb.csv -> artifacts/airbnb_enriched.csv."""
+    """`uv run build` — stage 1: -> data/processed/airbnb_enriched.csv."""
     _stage("build", sys.argv[1:])
 
 
 def describe() -> None:
-    """`uv run describe [N]` — stage 2: -> artifacts/airbnb_described.csv (LLM key)."""
+    """`uv run describe [N]` — stage 2: -> data/processed/airbnb_described.csv (LLM key)."""
     _stage("describe", sys.argv[1:])
 
 

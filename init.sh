@@ -141,8 +141,8 @@ Run the whole pipeline (build -> describe -> eval) with one command:
   # forward flags to the eval after --, e.g.  uv run main -- --no-tar  (no GPU).
 
 Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
-  uv run clean          # data/airbnb_nyc.csv -> data/airbnb.csv (PySpark; run once)
-  uv run build          # -> artifacts/airbnb_enriched.csv (Overture POIs within 400m)
-  uv run describe 10    # -> artifacts/airbnb_described.csv (LLM summary; needs .env key; 10 = cheap test)
+  uv run clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (PySpark; run once)
+  uv run build          # -> data/processed/airbnb_enriched.csv (Overture POIs within 400m)
+  uv run describe 10    # -> data/processed/airbnb_described.csv (LLM summary; needs .env key; 10 = cheap test)
   uv run eval           # MulTaBench eligibility; add --no-tar for joint-signal only (no GPU)
 EOF

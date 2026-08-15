@@ -5,13 +5,14 @@
 
 Maps the raw Airbnb schema to canonical columns, casts types, derives room
 counts, drops incomplete/invalid rows, caps the size, and writes a single CSV
-(data/airbnb.csv) that build.py reads next.
+(data/processed/airbnb.csv) that build.py reads next.
 
-    python -m airbnb_surroundings.clean          # data/airbnb_nyc.csv -> data/airbnb.csv
+    python -m airbnb_surroundings.clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv
     python -m airbnb_surroundings.clean RAW.csv --output-path OUT.csv
 """
 
 import argparse
+import os
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession
@@ -175,7 +176,7 @@ def main() -> None:
         "csv_path",
         nargs="?",
         default=config.NYC_SCRAPE_CSV,
-        help="Path to the raw source CSV (default: data/airbnb_nyc.csv).",
+        help="Path to the raw source CSV (default: data/raw/airbnb_nyc.csv).",
     )
     parser.add_argument(
         "--limit",
@@ -185,10 +186,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--output-path",
-        default=config.RAW_CSV,
+        default=config.CLEANED_CSV,
         help=(
-            "Path for the cleaned CSV (default: data/airbnb.csv — the file "
-            "build.py reads). Written as a single CSV, not a Spark part-dir."
+            "Path for the cleaned CSV (default: data/processed/airbnb.csv — the "
+            "file build.py reads). Written as a single CSV, not a Spark part-dir."
         ),
     )
     args = parser.parse_args()
@@ -205,6 +206,7 @@ def main() -> None:
         )
         # single CSV (not a Spark part-dir) so build.py can read it directly.
         # Dataset is capped at MAX_LISTINGS, so collecting to pandas is safe.
+        os.makedirs(os.path.dirname(os.path.abspath(args.output_path)), exist_ok=True)
         cleaned_listings.toPandas().to_csv(args.output_path, index=False)
         print(f"wrote {args.output_path}", flush=True)
         cleaned_listings.show(args.limit, truncate=False)
