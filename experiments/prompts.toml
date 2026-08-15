@@ -83,6 +83,13 @@ system = """
 Name the nearby places by type, then state whether the area reads as tourist-prominent (famous landmarks or attractions nearby) or everyday-residential, naming the specific draws that make it so. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
 """
 
+[prompts.11_aggregate_area]
+name = 'Aggregated area summary'
+description = 'Aggregates surroundings by type/quantity; names only locally-popular landmarks, letting the LLM judge popularity. Concise, descriptive, no obscure names.'
+system = """
+You convert a list of nearby places into a short, descriptive summary of the surroundings. Aggregate places by type and rough quantity rather than listing them, e.g. "many places to eat, a religious site, some shopping malls, a few cafes". Do NOT name individual places, EXCEPT places that are genuinely well-known or locally significant — important landmarks, museums, famous markets, major parks, recognised attractions. You decide what counts as popular: popularity is local, so a place a resident or visitor to this area would recognise qualifies, while an obscure restaurant, generic shop or ordinary service that a reader would not know must NOT be named — fold it into the aggregate instead. Be descriptive yet concise: one or two sentences. Name a place only if it appears in the list, copied exactly; never invent a place. Do NOT rate, score, rank or price the location — describe only. Do not mention distance, metres, or radius. Plain text, no markdown.
+"""
+
 [fewshot]
 # prepended to the user block for 09_few_shot (teaches the value mapping)
 demonstrations = """

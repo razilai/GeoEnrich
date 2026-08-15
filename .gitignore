@@ -8,10 +8,15 @@ venv/
 # Large OSM extracts (1.6G) — kept local, never committed
 /data/
 
-# Dataset CSVs (raw + generated) — shipped to the GPU box via sync.sh, not git.
-# Too big / churny to track; code reproduces them from data/ + the LLM.
+# Dataset CSVs (raw + generated) — shipped to the GPU box via scripts/sync.sh,
+# not git. Too big / churny to track; code reproduces them from data/ + the LLM.
 /results/
 /*.csv
+# Generated pipeline outputs (enriched/described CSVs, batch json, logs, catboost)
+/artifacts/
+# Prompt-screening intermediates (the committed df2_*.csv + results.txt stay)
+/experiments/screen/_sample_enriched.csv
+/experiments/screen/*.described.csv
 
 # Logs / caches
 *.log

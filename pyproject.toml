@@ -8,10 +8,11 @@ requires-python = ">=3.11"
 # dataset-build libs. This project ships only run.py, which dispatches every
 # stage to that interpreter, so `uv run main` works no matter which env uv picks.
 dependencies = [
+    "duckdb>=1.1.0",
     "geopandas>=1.1.4",
     "pandas>=3.0.5",
     "pydantic-ai>=2.29.0",
-    "pyrosm>=0.13.1",
+    "pyspark>=3.5.0",
     "python-dotenv>=1.2.2",
 ]
 
@@ -23,6 +24,9 @@ main = "run:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# run.py is a flat top-level module (no package dir), so force-include it.
+# Ship the pipeline package (src layout) + the flat run.py launcher module.
+# init.sh installs this `-e` into MulTaBench/.venv so `-m airbnb_surroundings.*`
+# resolves there; `uv sync` installs it into the thin ./.venv for `uv run main`.
 [tool.hatch.build.targets.wheel]
+packages = ["src/airbnb_surroundings"]
 force-include = { "run.py" = "run.py" }

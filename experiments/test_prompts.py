@@ -6,7 +6,7 @@ Rijksmuseum reads premium). Spectrum spans a dry attribute-flatten control (the
 research-favoured baseline) through role, landmark-salience, hedonic price-signal,
 chain-of-thought, structured-tag, desirability-score and few-shot variants.
 
-Run:  .venv/bin/python test_prompts.py   ->  prompt_experiments.json
+Run:  MulTaBench/.venv/bin/python experiments/test_prompts.py   ->  prompt_experiments.json
 """
 import asyncio
 import json
@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 from pydantic_ai import Agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
+
+from airbnb_surroundings import config
 
 load_dotenv()
 MODEL = os.environ.get("EXP_MODEL", "openai/gpt-4o-mini")  # sync + fast for the trial
@@ -131,7 +133,7 @@ PROMPTS = [
 
 
 async def main():
-    df = pd.read_csv("airbnb_enriched.csv", low_memory=False).set_index("index")
+    df = pd.read_csv(config.ENRICHED_CSV, low_memory=False).set_index("index")
     provider = OpenRouterProvider(api_key=API_KEY)
     model = OpenRouterModel(MODEL, provider=provider)
     sem = asyncio.Semaphore(10)

@@ -25,9 +25,10 @@ import argparse
 import os
 import sys
 
-# Make the vendored MulTaBench package importable.
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_HERE, "MulTaBench"))
+# Make the vendored MulTaBench clone (at the repo root) importable.
+from airbnb_surroundings import config
+
+sys.path.insert(0, os.path.join(config.ROOT, "MulTaBench"))
 
 import pandas as pd
 from dataclasses import asdict

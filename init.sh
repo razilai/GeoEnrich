@@ -3,8 +3,9 @@
 #
 #   1. clone MulTaBench (pinned) + patch in the local dataset id
 #   2. run MulTaBench's own init  -> builds MulTaBench/.venv (uv) with its deps
-#   3. install this project's dataset-build libs (geopandas/pyrosm/pydantic-ai)
-#      INTO MulTaBench/.venv -> build + eval all run in that one venv
+#   3. install this project's dataset-build libs (geopandas/duckdb/pydantic-ai)
+#      + the airbnb_surroundings package (editable) INTO MulTaBench/.venv
+#      -> build + eval all run in that one venv
 #   4. `uv sync` the thin env-holder project
 #   5. scaffold MulTaBench/.env for credentials (HF_TOKEN etc.)
 set -euo pipefail
@@ -78,6 +79,11 @@ echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
 echo "📦 installing dataset-build libs into MulTaBench/.venv"
 uv pip install --python "$VENV_PY" -r requirements.txt
 
+# 3a. Install this project's own package (editable, no deps — they came from
+# requirements.txt above) so the stages resolve as `-m airbnb_surroundings.*`.
+echo "📦 installing airbnb_surroundings (editable) into MulTaBench/.venv"
+uv pip install --python "$VENV_PY" --no-deps -e .
+
 # 3b. GPU: match the torch build to THIS GPU's compute capability.
 # Runs LAST of the venv installs so pytabkit's default (cu126) torch can't clobber it.
 # torch 2.7.1 ships only cu118/cu126/cu128 wheels:
@@ -135,9 +141,10 @@ Run the whole pipeline (build -> describe -> eval) with one command:
   # forward flags to the eval after --, e.g.  uv run main -- --no-tar  (no GPU).
 
 Or drive a single stage directly (PY=MulTaBench/.venv/bin/python):
-  $PY main.py            # airbnb.csv -> airbnb_enriched.csv (OSM POIs within 50m)
-  $PY describe.py 10     # -> airbnb_described.csv (LLM summary; needs .env key)
-  $PY run_multabench_eval.py --no-image --target price \
-      --csv airbnb_described.csv --image-folder /dev/null
+  $PY -m airbnb_surroundings.clean       # data/airbnb_nyc.csv -> data/airbnb.csv (PySpark clean; run once)
+  $PY -m airbnb_surroundings.build       # data/airbnb.csv -> artifacts/airbnb_enriched.csv (Overture POIs within 400m)
+  $PY -m airbnb_surroundings.describe 10  # -> artifacts/airbnb_described.csv (LLM summary; needs .env key)
+  $PY -m airbnb_surroundings.eval --no-image --target price \
+      --csv artifacts/airbnb_described.csv --image-folder /dev/null
   # TAR (LoRA) needs a GPU + HF_TOKEN; add --no-tar for joint-signal only.
 EOF

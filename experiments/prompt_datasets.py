@@ -8,7 +8,7 @@ Reuses describe.py end-to-end (POI->user-block, batching, caching, cost print):
 we monkeypatch `describe.INSTRUCTIONS` per prompt and point its IN/OUT csvs at one
 fixed sample, so all variants see the exact same listings.
 
-Does NOT run main.py / re-enrich POIs — consumes an existing enriched CSV as-is.
+Does NOT run build.py / re-enrich POIs — consumes an existing enriched CSV as-is.
 Never runs on the full dataset unless you pass --all (explicit, costs $$).
 
 Output (one per prompt), same schema as the evaluated df2.csv:
@@ -28,7 +28,9 @@ import tomllib
 
 import pandas as pd
 
-import describe
+from airbnb_surroundings import config, describe
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Columns of the evaluated df2.csv, in order. Leaky/id cols (index, lat, lon,
 # neighbourhood_group, city) are dropped so the eval's structured baseline stays
@@ -96,10 +98,10 @@ def main():
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--sample", type=int, help="stratified N-row screen (cheap)")
     g.add_argument("--all", action="store_true", help="full dataset — costs money")
-    p.add_argument("--in", dest="in_csv", default="airbnb_enriched.csv")
+    p.add_argument("--in", dest="in_csv", default=config.ENRICHED_CSV)
     p.add_argument("--prompts", nargs="+", default=DEFAULT_PROMPTS)
-    p.add_argument("--toml", default="prompts.toml")
-    p.add_argument("--outdir", default="screen")
+    p.add_argument("--toml", default=os.path.join(_HERE, "prompts.toml"))
+    p.add_argument("--outdir", default=os.path.join(_HERE, "screen"))
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
 

@@ -1,6 +1,6 @@
 """Summarise each listing's surroundings with an LLM (via OpenRouter).
 
-Reads airbnb_enriched.csv (produced by main.py — needs the `surroundings_50m`
+Reads artifacts/airbnb_enriched.csv (from build.py — needs the `surroundings`
 column of cleaned POI JSON), asks the model for a short free-text description
 of the area, and writes a `surroundings_summary` column to airbnb_described.csv.
 
@@ -14,8 +14,8 @@ all summaries exist — so the eval pipeline can consume the CSV without any LLM
 inference. Checkpoints every 200 calls, so a crash resumes instead of restarting.
 
 Usage:
-    python describe.py         # fill summaries for every listing that has POIs
-    python describe.py 10      # only the top 10 by POI count — cheap test run
+    python -m airbnb_surroundings.describe      # fill summaries for every listing with POIs
+    python -m airbnb_surroundings.describe 10   # only top 10 by POI count — cheap test run
 """
 
 import asyncio
@@ -38,8 +38,10 @@ load_dotenv()
 MODEL = os.environ.get("LLM_MODEL", "openai/gpt-4o-mini")
 API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-IN_CSV = os.environ.get("DESC_IN", "airbnb_enriched.csv")
-OUT_CSV = os.environ.get("DESC_OUT", "airbnb_described.csv")
+from airbnb_surroundings import config
+
+IN_CSV = os.environ.get("DESC_IN", config.ENRICHED_CSV)
+OUT_CSV = os.environ.get("DESC_OUT", config.DESCRIBED_CSV)
 
 # concurrent in-flight LLM calls (raise if OpenRouter rate limit allows, lower on 429)
 CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "32"))
@@ -68,7 +70,8 @@ INSTRUCTIONS = (
     "the list is empty, say the area has no notable named places nearby.\n"
     "- Do NOT rate, score, rank or price the location. No numbers, stars, or "
     "tiers (premium/mid/budget) — describe only.\n"
-    "- Do not mention distance, metres, or radius.\n"
+    "- You may note rough proximity with the given band (on the doorstep, a "
+    "short walk away). Do NOT state exact metres or radius.\n"
     "- Plain text, no lists, headings, or markdown."
 )
 
@@ -88,19 +91,11 @@ def _poi_names(pois):
 
 
 def _category(p):
-    """Place type shown to the LLM, enriched with cuisine/sport sub-type.
-
-    A bare 'restaurant' says little; 'italian restaurant' / 'tennis pitch'
-    carries the neighbourhood-character signal. cuisine/sport can be
-    semicolon-lists (italian;pizza) — take the first.
-    """
-    base = p.get("amenity") or p.get("shop") or p.get("tourism") or p.get("leisure")
-    if not base:
-        return None
-    sub = (p.get("cuisine") or p.get("sport") or "").split(";")[0]
-    if sub and sub != base:
-        return f"{sub} {base}"
-    return base
+    """Place type shown to the LLM. Overture's `category` is already the rich,
+    standardized leaf (e.g. 'italian_restaurant', 'coffee_shop') — cuisine/sub-
+    type is baked in. Just humanize the underscores."""
+    cat = p.get("category") if isinstance(p, dict) else None
+    return cat.replace("_", " ") if cat else None
 
 
 def ungrounded(summary, pois):
@@ -126,10 +121,9 @@ def build_agent():
 
 
 def prompt_for(row, note=""):
-    """Closed-world prompt: place-type counts + an explicit allow-list of names."""
-    pois = json.loads(row["surroundings_50m"])
-    # dedupe by name — OSM lists a place twice (node + way, or multi-tagged), which
-    # made the model name it twice. Keep first per name; unnamed POIs pass through.
+    """Closed-world prompt: place-type counts + a name allow-list grouped by band."""
+    pois = json.loads(row["surroundings"])
+    # dedupe by name — keep first per name; unnamed POIs pass through.
     seen, uniq = set(), []
     for p in pois:
         nm = p.get("name") if isinstance(p, dict) else None
@@ -140,11 +134,22 @@ def prompt_for(row, note=""):
         uniq.append(p)
     pois = uniq
     cats = Counter(c for p in pois if isinstance(p, dict) and (c := _category(p)))
-    names = _poi_names(pois)
-    allowed = "\n".join(f"- {n}" for n in names) or "(none — name nothing)"
+    # names grouped by proximity band, so the model can place them ("on the
+    # doorstep" vs "a short walk away") without inventing exact distances.
+    bands = {"doorstep": [], "short walk": []}
+    for p in pois:
+        nm = p.get("name") if isinstance(p, dict) else None
+        if nm:
+            bands.setdefault(p.get("prox", "short walk"), []).append(nm)
+    lines = []
+    for b in ("doorstep", "short walk"):
+        if bands[b]:
+            lines.append(f"{b}:")
+            lines += [f"  - {n}" for n in sorted(set(bands[b]))]
+    allowed = "\n".join(lines) or "(none — name nothing)"
     return (
         f"Place types (count): {dict(cats)}\n"
-        f"Places (use only these names, copied exactly):\n{allowed}{note}"
+        f"Places by proximity (use only these names, copied exactly):\n{allowed}{note}"
     )
 
 
@@ -163,8 +168,8 @@ def load_cache():
 
 
 def save(df):
-    # final variant: LLM prose replaces the raw POI JSON — drop surroundings_50m.
-    df.drop(columns=["surroundings_50m"]).to_csv(OUT_CSV, index=False)
+    # final variant: LLM prose replaces the raw POI JSON — drop surroundings.
+    df.drop(columns=["surroundings"]).to_csv(OUT_CSV, index=False)
 
 
 async def call_with_retry(agent, prompt):
@@ -315,7 +320,7 @@ async def run_chunk(agent, rows, df, done, total):
 
     async def one(idx, row):
         nonlocal done
-        pois = json.loads(row["surroundings_50m"])
+        pois = json.loads(row["surroundings"])
         async with sem:
             # regenerate while the draft names places absent from the POI data
             note = ""
@@ -332,7 +337,7 @@ async def run_chunk(agent, rows, df, done, total):
         async with lock:
             done += 1
             print(
-                f"[{done}/{total}] {row.get('neighbourhood')} (idx {row['index']})",
+                f"[{done}/{total}] idx {row['index']}",
                 flush=True,
             )
 
@@ -352,7 +357,7 @@ def main():
     df = pd.read_csv(IN_CSV, low_memory=False)
     # densest surroundings first (cheap test runs hit the richest listings).
     # count derived from JSON on the fly — never a persisted column.
-    n_pois = df["surroundings_50m"].map(lambda s: len(json.loads(s)))
+    n_pois = df["surroundings"].map(lambda s: len(json.loads(s)))
     df = df.iloc[n_pois.argsort()[::-1]]
     if k is not None:
         df = df.head(k)
