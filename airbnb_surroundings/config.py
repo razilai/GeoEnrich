@@ -33,7 +33,9 @@ EVAL_REPORT_CSV = os.path.join(RESULTS_DIR, "eval_report.csv")  # eval.py output
 
 # enrichment tuning (see build.py)
 RADIUS = 400  # meters — capture radius (5-min walk; hedonic buffers 300-800m)
-MAX_POIS = 40  # keep nearest N per listing — bounds describe.py's LLM token cost
+MAX_POIS = 30  # global cap per listing — bounds describe.py's LLM token cost
+PER_CATEGORY = 3  # nearest N per category — variety over 40 near-identical shops
+SHORTWALK_RESERVE = 10  # slots kept for short-walk POIs so range signal survives
 MIN_CONF = 0.6  # Overture confidence gate — replaces hand-maintained junk filters
 DOORSTEP = 150  # meters — proximity-band cutoff (doorstep vs short walk)
 NYC_UTM = 32618  # metric CRS for NYC so buffer() is in real meters

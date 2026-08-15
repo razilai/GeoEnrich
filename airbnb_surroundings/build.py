@@ -14,6 +14,8 @@ Quality over raw OSM: Overture ships clean categories (no benches/hydrants to
 strip) and a confidence field, so cleaning collapses to a confidence gate.
 """
 
+import collections
+import csv
 import json
 import os
 import sys
@@ -23,7 +25,15 @@ import geopandas as gpd
 import pandas as pd
 
 from airbnb_surroundings import config
-from airbnb_surroundings.config import DOORSTEP, MAX_POIS, MIN_CONF, NYC_UTM, RADIUS
+from airbnb_surroundings.config import (
+    DOORSTEP,
+    MAX_POIS,
+    MIN_CONF,
+    NYC_UTM,
+    PER_CATEGORY,
+    RADIUS,
+    SHORTWALK_RESERVE,
+)
 
 
 def band(d):
@@ -35,6 +45,50 @@ OVERTURE = (
     f"s3://overturemaps-us-west-2/release/{config.OVERTURE_RELEASE}/"
     "theme=places/type=place/*"
 )
+
+# Overture top-level category groups kept as price/character signal. Everything
+# else (professional/medical/beauty/religious/financial/government/home/auto/...)
+# says little about a listing's neighbourhood feel and floods the sample, so it's
+# filtered out at query time.
+KEEP_GROUPS = {
+    "eat_and_drink",
+    "retail",
+    "arts_and_entertainment",
+    "attractions_and_activities",
+    "active_life",
+}
+# transit is the strongest locational driver but sits in the mixed `travel` group
+# (alongside parking, car rental, tours) — cherry-pick just the transit leaves.
+TRANSIT_LEAVES = {
+    "transportation",
+    "public_transportation",
+    "train_station",
+    "metro_station",
+    "subway_station",
+    "bus_station",
+    "bus_stop",
+    "light_rail_station",
+    "ferry_terminal",
+    "tram_station",
+    "airport",
+}
+_TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv")
+
+
+def allowed_categories():
+    """Leaf category codes worth keeping: any leaf whose top-level Overture group
+    is in KEEP_GROUPS, plus the hand-picked transit leaves. Read from the vendored
+    Overture taxonomy (leaf; [group,...,leaf])."""
+    keep = set(TRANSIT_LEAVES)
+    with open(_TAXONOMY_CSV, encoding="utf-8-sig") as f:
+        for row in csv.reader(f, delimiter=";"):
+            if len(row) < 2 or row[0].strip() == "Category code":
+                continue
+            code = row[0].strip()
+            group = row[1].strip().strip("[]").split(",")[0].strip()
+            if group in KEEP_GROUPS:
+                keep.add(code)
+    return keep
 
 # leaky / ID columns dropped up front (in memory) if present, so no output
 # variant ever carries them — they pollute the eval's structured baseline.
@@ -52,13 +106,16 @@ def connect():
     return con
 
 
-def load_pois(con, bbox, utm):
-    """POIs inside `bbox` (lon/lat) above the confidence gate, in metric CRS.
+def load_pois(con, bbox, utm, categories):
+    """POIs inside `bbox` (lon/lat) above the confidence gate, restricted to the
+    price-relevant `categories`, in metric CRS.
 
     bbox is [xmin, ymin, xmax, ymax]. The bbox.* struct columns give Parquet
     row-group pushdown, so only the relevant slices are scanned over the wire.
     """
     xmin, ymin, xmax, ymax = bbox
+    # category codes are simple [a-z_] identifiers; quote for SQL all the same
+    cats = ", ".join("'" + c.replace("'", "''") + "'" for c in sorted(categories))
     q = f"""
         SELECT names.primary            AS name,
                categories.primary       AS category,
@@ -68,7 +125,7 @@ def load_pois(con, bbox, utm):
         WHERE bbox.xmin >= {xmin} AND bbox.xmax <= {xmax}
           AND bbox.ymin >= {ymin} AND bbox.ymax <= {ymax}
           AND confidence >= {MIN_CONF}
-          AND categories.primary IS NOT NULL
+          AND categories.primary IN ({cats})
     """
     df = con.execute(q).df()
     if df.empty:
@@ -94,8 +151,10 @@ def main():
         df.longitude.max() + pad,
         df.latitude.max() + pad,
     ]
-    print(f"{len(df)} NYC listings — querying Overture", flush=True)
-    pois = load_pois(con, bbox, NYC_UTM)
+    cats = allowed_categories()
+    print(f"{len(df)} NYC listings — querying Overture "
+          f"({len(cats)} price-relevant categories)", flush=True)
+    pois = load_pois(con, bbox, NYC_UTM, cats)
     if pois.empty:
         sys.exit("no POIs returned from Overture — check release id / S3 access")
     print(f"{len(pois)} POIs", flush=True)
@@ -128,19 +187,25 @@ def main():
 
     labels = {}  # listing index -> list[dict] of POI records within RADIUS
     for lid, grp in joined.groupby(level=0):
-        recs, seen = [], set()
+        seen, per_cat, picked = set(), collections.Counter(), []
         for nm, cat, d in zip(grp["nm"], grp["category"], grp["dist"]):
-            if nm:  # nearest copy per name (dedup any residual doubles)
-                if nm in seen:
-                    continue
+            if nm and nm in seen:  # nearest copy per name
+                continue
+            if per_cat[cat] >= PER_CATEGORY:  # variety: cap copies per category
+                continue
+            if nm:
                 seen.add(nm)
-            rec = {"category": cat, "prox": band(d)}
+            per_cat[cat] += 1
+            rec = {"category": cat, "prox": band(d), "dist_m": round(float(d))}
             if nm:
                 rec["name"] = nm
-            recs.append(rec)
-            if len(recs) >= MAX_POIS:
-                break
-        labels[lid] = recs
+            picked.append(rec)  # already distance-sorted
+
+        # band stratification: reserve slots for short-walk POIs (parks, landmarks,
+        # transit at range) so the global cap doesn't fill entirely at the doorstep.
+        short = [p for p in picked if p["prox"] == "short walk"][:SHORTWALK_RESERVE]
+        door = [p for p in picked if p["prox"] == "doorstep"][: MAX_POIS - len(short)]
+        labels[lid] = sorted(door + short, key=lambda p: p["dist_m"])
 
     recs = df.index.map(labels)  # list[dict] per listing, or NaN
     n_pois = [len(x) if isinstance(x, list) else 0 for x in recs]  # local only, never a column
