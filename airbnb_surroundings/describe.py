@@ -24,7 +24,6 @@ import os
 import random
 import re
 import sys
-from collections import Counter
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -60,18 +59,18 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 # every batch listing (no usable signal); the description itself carries the
 # neighbourhood character, and value can be modelled downstream from price.
 INSTRUCTIONS = (
-    "You convert a list of nearby places into a short, reliable description of "
-    "the surroundings. In one or two sentences, name the main place types with a "
-    "few named examples, grouped naturally (dining, retail, nightlife, culture). "
-    "If any listed place is a well-known landmark, museum, market, park or "
-    "attraction, say so and note in a few words why it matters for the area.\n"
+    "You write a short, reliable description of a listing's surroundings from a "
+    "summary of nearby place counts (by type, with distances) and any notable "
+    "named places. In one or two sentences, convey the neighbourhood character: "
+    "how lively and convenient it is (dining, nightlife, shops, groceries), "
+    "transit access, green space, and any notable landmark or cultural site.\n"
     "Rules:\n"
-    "- Name only places from the list, copied exactly. Never invent a place. If "
-    "the list is empty, say the area has no notable named places nearby.\n"
+    "- Base everything on the given counts/places. Do not invent specifics.\n"
+    "- Name only the notable places listed, copied exactly. If none, name none.\n"
     "- Do NOT rate, score, rank or price the location. No numbers, stars, or "
     "tiers (premium/mid/budget) — describe only.\n"
-    "- You may note rough proximity with the given band (on the doorstep, a "
-    "short walk away). Do NOT state exact metres or radius.\n"
+    "- You may note rough proximity (on the doorstep, a short walk away) from the "
+    "metres given. Do NOT state exact metres or radius.\n"
     "- Plain text, no lists, headings, or markdown."
 )
 
@@ -86,27 +85,15 @@ GROUND_RETRIES = int(os.environ.get("GROUND_RETRIES", "0"))
 USAGE = {"calls": 0, "in": 0, "out": 0, "cost": 0.0}
 
 
-# each POI is a compact list: [category, dist_m] or [category, dist_m, name].
-# Positional (no repeated keys) to keep the enrichment JSON small.
-def _name(p):
-    return p[2] if len(p) > 2 else None
+# surroundings schema: {"cats": {bucket: [count<=150m, count<=400m, nearest_m]},
+#                       "landmarks": [[name, dist_m], ...]}
+def _poi_names(surr):
+    return sorted({n for n, _ in surr.get("landmarks", [])})
 
 
-def _poi_names(pois):
-    return sorted({n for p in pois if (n := _name(p))})
-
-
-def _category(p):
-    """Place type shown to the LLM. Overture's category is already the rich,
-    standardized leaf (e.g. 'italian_restaurant', 'coffee_shop') — cuisine/sub-
-    type is baked in. Just humanize the underscores."""
-    cat = p[0] if p else None
-    return cat.replace("_", " ") if cat else None
-
-
-def ungrounded(summary, pois):
-    """Capitalised place-names in `summary` that match no POI name (hallucinated)."""
-    allowed = {n.lower() for n in _poi_names(pois)}
+def ungrounded(summary, surr):
+    """Capitalised place-names in `summary` that match no landmark name (hallucinated)."""
+    allowed = {n.lower() for n in _poi_names(surr)}
     cands = [c for c in _NAME_RE.findall(summary) if len(c) > 3]
     return [
         c for c in cands if not any(c.lower() in n or n in c.lower() for n in allowed)
@@ -127,37 +114,25 @@ def build_agent():
 
 
 def prompt_for(row, note=""):
-    """Closed-world prompt: place-type counts + a name allow-list grouped by band."""
-    pois = json.loads(row["surroundings"])
-    # dedupe by name — keep first per name; unnamed POIs pass through.
-    seen, uniq = set(), []
-    for p in pois:
-        nm = _name(p)
-        if nm and nm in seen:
-            continue
-        if nm:
-            seen.add(nm)
-        uniq.append(p)
-    pois = uniq
-    cats = Counter(c for p in pois if (c := _category(p)))
-    # only notable places (landmarks/museums) carry a name now — the rest are
-    # counted by type above. Group the named ones by proximity band (derived
-    # from dist_m) so the model can place them without inventing exact distances.
-    bands = {"doorstep": [], "short walk": []}
-    for p in pois:
-        nm = _name(p)
-        if nm:
-            b = "doorstep" if p[1] <= config.DOORSTEP else "short walk"
-            bands[b].append(nm)
+    """Prompt from the aggregate signal: per-bucket density + nearest distance,
+    plus any notable named landmarks."""
+    surr = json.loads(row["surroundings"])
+    cats = surr.get("cats", {})
+    # density lines, busiest (by within-400m count) first
     lines = []
-    for b in ("doorstep", "short walk"):
-        if bands[b]:
-            lines.append(f"{b}:")
-            lines += [f"  - {n}" for n in sorted(set(bands[b]))]
-    allowed = "\n".join(lines) or "(none — name nothing)"
+    for b, (c150, c400, near) in sorted(cats.items(), key=lambda kv: -kv[1][1]):
+        label = b.replace("_", " ")
+        block = f", {c150} within ~150m" if c150 else ""
+        lines.append(f"  {label}: {c400} within ~400m{block}, nearest ~{near}m")
+    density = "\n".join(lines) or "  (nothing notable nearby)"
+    landmarks = "\n".join(
+        f"  - {n} (~{d}m)" for n, d in surr.get("landmarks", [])
+    ) or "  (none)"
     return (
-        f"Place types (count): {dict(cats)}\n"
-        f"Places by proximity (use only these names, copied exactly):\n{allowed}{note}"
+        "Nearby place density (counts within walking distance; metres to nearest):\n"
+        f"{density}\n"
+        "Notable named places (use these names exactly, if any):\n"
+        f"{landmarks}{note}"
     )
 
 
@@ -348,13 +323,13 @@ async def run_chunk(agent, rows, df, done, total):
 
     async def one(idx, row):
         nonlocal done
-        pois = json.loads(row["surroundings"])
+        surr = json.loads(row["surroundings"])
         async with sem:
             # regenerate while the draft names places absent from the POI data
             note = ""
             for attempt in range(GROUND_RETRIES + 1):
                 res = await call_with_retry(agent, prompt_for(row, note))
-                bad = ungrounded(res.output, pois)
+                bad = ungrounded(res.output, surr)
                 if not bad or attempt == GROUND_RETRIES:
                     break
                 note = (
@@ -384,8 +359,11 @@ def main():
 
     df = pd.read_csv(IN_CSV, low_memory=False)
     # densest surroundings first (cheap test runs hit the richest listings).
-    # count derived from JSON on the fly — never a persisted column.
-    n_pois = df["surroundings"].map(lambda s: len(json.loads(s)))
+    # total POIs = sum of within-400m counts across buckets; derived on the fly.
+    def _total(s):
+        return sum(v[1] for v in json.loads(s).get("cats", {}).values())
+
+    n_pois = df["surroundings"].map(_total)
     df = df.iloc[n_pois.argsort()[::-1]]
     if k is not None:
         df = df.head(k)

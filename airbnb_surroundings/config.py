@@ -32,13 +32,10 @@ BATCH_JSON = os.path.join(ARTIFACTS_DIR, "batch_result.json")  # raw LLM batch d
 EVAL_REPORT_CSV = os.path.join(RESULTS_DIR, "eval_report.csv")  # eval.py output
 
 # enrichment tuning (see build.py)
-RADIUS = 400  # meters — capture radius (5-min walk; hedonic buffers 300-800m)
-MAX_POIS = 30  # global cap per listing — bounds describe.py's LLM token cost
-PER_CATEGORY = 3  # nearest N per category — variety over 40 near-identical shops
-SHORTWALK_RESERVE = 10  # slots kept for short-walk POIs so range signal survives
+RADIUS = 400  # meters — outer capture radius (5-min walk; hedonic buffers 300-800m)
+DOORSTEP = 150  # meters — inner horizon; counts split at <=150m (block) vs <=400m (walk)
 MIN_CONF = 0.6  # Overture confidence gate — replaces hand-maintained junk filters
 NAME_MIN_CONF = 0.9  # higher bar to keep a POI's name (fame proxy; Overture has none)
-DOORSTEP = 150  # meters — proximity-band cutoff (doorstep vs short walk)
 NYC_UTM = 32618  # metric CRS for NYC so buffer() is in real meters
 
 # Overture Places release; bump when a newer one ships:

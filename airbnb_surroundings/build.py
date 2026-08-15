@@ -14,7 +14,6 @@ Quality over raw OSM: Overture ships clean categories (no benches/hydrants to
 strip) and a confidence field, so cleaning collapses to a confidence gate.
 """
 
-import collections
 import csv
 import json
 import os
@@ -27,13 +26,10 @@ import pandas as pd
 from airbnb_surroundings import config
 from airbnb_surroundings.config import (
     DOORSTEP,
-    MAX_POIS,
     MIN_CONF,
     NAME_MIN_CONF,
     NYC_UTM,
-    PER_CATEGORY,
     RADIUS,
-    SHORTWALK_RESERVE,
 )
 
 
@@ -88,18 +84,19 @@ NAME_LEAVES = {
 _TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv")
 
 
-def _leaf_groups():
-    """leaf category code -> top-level Overture group, from the vendored taxonomy."""
+def _leaf_paths():
+    """leaf category code -> full Overture taxonomy path [group, subcat, ..., leaf]."""
     m = {}
     with open(_TAXONOMY_CSV, encoding="utf-8-sig") as f:
         for row in csv.reader(f, delimiter=";"):
             if len(row) < 2 or row[0].strip() == "Category code":
                 continue
-            m[row[0].strip()] = row[1].strip().strip("[]").split(",")[0].strip()
+            m[row[0].strip()] = [x.strip() for x in row[1].strip().strip("[]").split(",")]
     return m
 
 
-_LEAF_GROUP = _leaf_groups()
+_LEAF_PATH = _leaf_paths()
+_LEAF_GROUP = {leaf: p[0] for leaf, p in _LEAF_PATH.items()}  # leaf -> top-level group
 
 
 def allowed_categories():
@@ -114,6 +111,56 @@ def keeps_name(cat, conf):
     """True if this POI's NAME is signal: a notable-category place mapped
     confidently enough to be the real thing (not a mis-tagged co-op)."""
     return cat in NAME_LEAVES and conf >= NAME_MIN_CONF
+
+
+# --- signal buckets -------------------------------------------------------
+# Roll the 853 fine leaves up to ~13 price-relevant buckets. Deterministic:
+# every leaf lands by exact group / 2nd-level / set membership (no fuzzy match).
+# Hand-curated pieces are only: this routing, GROCERY_LEAVES, PARK_SUBS,
+# CULTURE_SUBS (grocery hides under the `shopping` 2nd-level, so the taxonomy
+# alone can't separate it). Everything else auto-routes from the taxonomy.
+GROCERY_LEAVES = {
+    "grocery_store", "asian_grocery_store", "indian_grocery_store",
+    "international_grocery_store", "japanese_grocery_store", "korean_grocery_store",
+    "kosher_grocery_store", "mexican_grocery_store", "organic_grocery_store",
+    "russian_grocery_store", "specialty_grocery_store", "ethical_grocery",
+    "supermarket", "convenience_store", "delicatessen", "farmers_market",
+    "public_market", "health_market", "seafood_market", "butcher", "greengrocer",
+    "health_food_store", "bodega",
+}
+PARK_SUBS = {  # attractions 2nd-level values that are green/open space
+    "park", "botanical_garden", "beach", "plaza", "trail", "national_park",
+    "state_park", "memorial_park",
+}
+CULTURE_SUBS = {"museum", "art_gallery", "cultural_center"}
+
+
+def bucket(leaf):
+    """Map a fine leaf category to its coarse signal bucket."""
+    g = _LEAF_GROUP.get(leaf, leaf)
+    p = _LEAF_PATH.get(leaf, [leaf])
+    sub = p[1] if len(p) > 1 else g
+    if leaf in TRANSIT_LEAVES:
+        return "transit"
+    if leaf in GROCERY_LEAVES:
+        return "grocery"
+    if g == "accommodation":
+        return "lodging"
+    if g == "eat_and_drink":
+        return {"bar": "nightlife", "cafe": "cafe"}.get(sub, "dining")
+    if g == "retail":
+        return "pharmacy" if sub in ("pharmacy", "drugstore") else "shopping"
+    if g == "active_life":
+        return "fitness_sport"
+    if g == "arts_and_entertainment":
+        return "entertainment"
+    if g == "attractions_and_activities":
+        if sub in PARK_SUBS:
+            return "park_green"
+        if sub in CULTURE_SUBS:
+            return "culture"
+        return "landmark"
+    return g
 
 # leaky / ID columns dropped up front (in memory) if present, so no output
 # variant ever carries them — they pollute the eval's structured baseline.
@@ -205,47 +252,41 @@ def main():
         .to_numpy()
     )
 
-    # noise cut at range: unnamed POIs beyond the doorstep say little
     joined["nm"] = joined["name"].fillna("")
-    keep = (joined["nm"] != "") | (joined["dist"] <= DOORSTEP)
-    joined = joined[keep].sort_values("dist")
+    joined = joined.sort_values("dist")  # nearest-first (nearest-per-bucket, landmark order)
 
-    labels = {}  # listing index -> list[dict] of POI records within RADIUS
+    # Aggregate per listing into a compact signal record (no per-POI list, no
+    # caps — density is the signal, not truncated):
+    #   cats:      bucket -> [count<=150m, count<=400m, nearest_m]
+    #   landmarks: [[name, dist_m], ...]  (major landmarks only, name-bearing)
+    labels = {}
     for lid, grp in joined.groupby(level=0):
-        seen, per_cat, picked = set(), collections.Counter(), []
-        for nm, cat, d, conf in zip(
-            grp["nm"], grp["category"], grp["dist"], grp["confidence"]
+        cats = {}  # bucket -> [c150, c400, nearest_m]
+        lm = {}  # name -> nearest dist_m
+        for cat, d, nm, conf in zip(
+            grp["category"], grp["dist"], grp["nm"], grp["confidence"]
         ):
-            if nm and nm in seen:  # nearest copy per name
-                continue
-            if per_cat[cat] >= PER_CATEGORY:  # variety: cap copies per category
-                continue
-            if nm:
-                seen.add(nm)
-            per_cat[cat] += 1
-            # compact positional record [category, dist_m] (+ name for notable
-            # places): category + distance carry the signal, and dropping the
-            # repeated "category"/"dist_m" keys keeps the JSON small.
-            rec = [cat, round(float(d))]
-            if nm and keeps_name(cat, conf):
-                rec.append(nm)
-            picked.append(rec)  # already distance-sorted
+            b = bucket(cat)
+            dm = round(float(d))
+            e = cats.get(b)
+            if e is None:
+                e = cats[b] = [0, 0, dm]
+            e[1] += 1  # within RADIUS (all joined rows are)
+            if d <= DOORSTEP:
+                e[0] += 1
+            if dm < e[2]:
+                e[2] = dm
+            if nm and keeps_name(cat, conf) and (nm not in lm or dm < lm[nm]):
+                lm[nm] = dm
+        landmarks = sorted(([n, dd] for n, dd in lm.items()), key=lambda x: x[1])
+        labels[lid] = {"cats": cats, "landmarks": landmarks}
 
-        # band stratification: reserve slots for short-walk POIs (parks, landmarks,
-        # transit at range) so the global cap doesn't fill entirely at the doorstep.
-        short = [p for p in picked if p[1] > DOORSTEP][:SHORTWALK_RESERVE]
-        door = [p for p in picked if p[1] <= DOORSTEP][: MAX_POIS - len(short)]
-        labels[lid] = sorted(door + short, key=lambda p: p[1])
-
-    recs = df.index.map(labels)  # list[dict] per listing, or NaN
-    n_pois = [len(x) if isinstance(x, list) else 0 for x in recs]  # local only, never a column
-    df["surroundings"] = [
-        json.dumps(x, ensure_ascii=False) if isinstance(x, list) else "[]" for x in recs
-    ]
+    recs = [labels.get(i, {"cats": {}, "landmarks": []}) for i in df.index]
+    df["surroundings"] = [json.dumps(x, ensure_ascii=False) for x in recs]
 
     # drop listings with no POIs within RADIUS
     before = len(df)
-    df = df[[n > 0 for n in n_pois]]
+    df = df[[bool(x["cats"]) for x in recs]]
     print(f"dropped {before - len(df)} empty listings, kept {len(df)}", flush=True)
 
     # lat/long are spent now (used only for POI matching) and would leak
