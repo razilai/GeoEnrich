@@ -82,6 +82,28 @@ NAME_LEAVES = {
     "castle", "stadium", "arena", "concert_hall", "opera_house",
 }
 _TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv")
+_LANDMARKS_JSON = os.path.join(os.path.dirname(__file__), "landmarks.json")
+
+
+def _norm_name(s):
+    """Normalize a place name for landmark matching: lowercase, strip, drop 'the'."""
+    s = (s or "").lower().strip()
+    return s[4:] if s.startswith("the ") else s
+
+
+def _load_landmark_names():
+    """Curated famous-landmark names (see landmarks.json) → normalized set.
+
+    Overture buries icons like the Empire State Building in the generic
+    landmark_and_historical_building leaf (confidence 1.0 apartment towers sit in
+    the same leaf), so category+confidence can't surface them. This hand list
+    force-keeps their names; intended to be LLM-maintained later.
+    """
+    with open(_LANDMARKS_JSON, encoding="utf-8") as f:
+        return {_norm_name(n) for n in json.load(f)["landmarks"]}
+
+
+LANDMARK_NAMES = _load_landmark_names()
 
 
 def _leaf_paths():
@@ -107,10 +129,17 @@ def allowed_categories():
     return keep
 
 
-def keeps_name(cat, conf):
-    """True if this POI's NAME is signal: a notable-category place mapped
-    confidently enough to be the real thing (not a mis-tagged co-op)."""
-    return cat in NAME_LEAVES and conf >= NAME_MIN_CONF
+def keeps_name(cat, conf, nm):
+    """True if this POI's NAME is signal: either a notable-category place mapped
+    confidently (not a mis-tagged co-op), or a curated world-famous landmark that
+    Overture buries in a generic building leaf — matched by name, gated to the
+    attractions group so a same-named restaurant isn't force-named."""
+    if cat in NAME_LEAVES and conf >= NAME_MIN_CONF:
+        return True
+    return (
+        _LEAF_GROUP.get(cat) == "attractions_and_activities"
+        and _norm_name(nm) in LANDMARK_NAMES
+    )
 
 
 # --- signal buckets -------------------------------------------------------
@@ -276,7 +305,7 @@ def main():
                 e[0] += 1
             if dm < e[2]:
                 e[2] = dm
-            if nm and keeps_name(cat, conf) and (nm not in lm or dm < lm[nm]):
+            if nm and keeps_name(cat, conf, nm) and (nm not in lm or dm < lm[nm]):
                 lm[nm] = dm
         landmarks = sorted(([n, dd] for n, dd in lm.items()), key=lambda x: x[1])
         labels[lid] = {"cats": cats, "landmarks": landmarks}
