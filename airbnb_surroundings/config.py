@@ -37,6 +37,7 @@ MAX_POIS = 30  # global cap per listing — bounds describe.py's LLM token cost
 PER_CATEGORY = 3  # nearest N per category — variety over 40 near-identical shops
 SHORTWALK_RESERVE = 10  # slots kept for short-walk POIs so range signal survives
 MIN_CONF = 0.6  # Overture confidence gate — replaces hand-maintained junk filters
+NAME_MIN_CONF = 0.9  # higher bar to keep a POI's name (fame proxy; Overture has none)
 DOORSTEP = 150  # meters — proximity-band cutoff (doorstep vs short walk)
 NYC_UTM = 32618  # metric CRS for NYC so buffer() is in real meters
 

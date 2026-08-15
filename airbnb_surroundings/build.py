@@ -29,15 +29,12 @@ from airbnb_surroundings.config import (
     DOORSTEP,
     MAX_POIS,
     MIN_CONF,
+    NAME_MIN_CONF,
     NYC_UTM,
     PER_CATEGORY,
     RADIUS,
     SHORTWALK_RESERVE,
 )
-
-
-def band(d):
-    return "doorstep" if d <= DOORSTEP else "short walk"
 
 
 # Overture Places S3 Parquet (public, requester-anonymous, region us-west-2).
@@ -72,23 +69,48 @@ TRANSIT_LEAVES = {
     "tram_station",
     "airport",
 }
+# Leaves where the POI's NAME carries signal (a specific landmark reads premium:
+# "9/11 Memorial", "American Museum of Natural History"). Everywhere else the name
+# is noise — a restaurant/shop's identity is its category, not "Dough Vale". Kept
+# deliberately tight: Overture's broad landmark_and_historical_building / art_gallery
+# leaves are ~90% minor (co-ops, tiny galleries), so they're excluded. Combined
+# with NAME_MIN_CONF (Overture ships no fame/wikidata field, confidence is the
+# best available proxy).
+NAME_LEAVES = {
+    "museum", "art_museum", "history_museum", "science_museum", "childrens_museum",
+    "contemporary_art_museum", "monument", "memorial", "memorial_park",
+    "national_park", "botanical_garden", "zoo", "aquarium", "observatory",
+    "castle", "stadium", "arena", "concert_hall", "opera_house",
+}
 _TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv")
 
 
-def allowed_categories():
-    """Leaf category codes worth keeping: any leaf whose top-level Overture group
-    is in KEEP_GROUPS, plus the hand-picked transit leaves. Read from the vendored
-    Overture taxonomy (leaf; [group,...,leaf])."""
-    keep = set(TRANSIT_LEAVES)
+def _leaf_groups():
+    """leaf category code -> top-level Overture group, from the vendored taxonomy."""
+    m = {}
     with open(_TAXONOMY_CSV, encoding="utf-8-sig") as f:
         for row in csv.reader(f, delimiter=";"):
             if len(row) < 2 or row[0].strip() == "Category code":
                 continue
-            code = row[0].strip()
-            group = row[1].strip().strip("[]").split(",")[0].strip()
-            if group in KEEP_GROUPS:
-                keep.add(code)
+            m[row[0].strip()] = row[1].strip().strip("[]").split(",")[0].strip()
+    return m
+
+
+_LEAF_GROUP = _leaf_groups()
+
+
+def allowed_categories():
+    """Leaf codes worth keeping: any leaf whose group is in KEEP_GROUPS, plus the
+    hand-picked transit leaves."""
+    keep = set(TRANSIT_LEAVES)
+    keep |= {c for c, g in _LEAF_GROUP.items() if g in KEEP_GROUPS}
     return keep
+
+
+def keeps_name(cat, conf):
+    """True if this POI's NAME is signal: a notable-category place mapped
+    confidently enough to be the real thing (not a mis-tagged co-op)."""
+    return cat in NAME_LEAVES and conf >= NAME_MIN_CONF
 
 # leaky / ID columns dropped up front (in memory) if present, so no output
 # variant ever carries them — they pollute the eval's structured baseline.
@@ -188,7 +210,9 @@ def main():
     labels = {}  # listing index -> list[dict] of POI records within RADIUS
     for lid, grp in joined.groupby(level=0):
         seen, per_cat, picked = set(), collections.Counter(), []
-        for nm, cat, d in zip(grp["nm"], grp["category"], grp["dist"]):
+        for nm, cat, d, conf in zip(
+            grp["nm"], grp["category"], grp["dist"], grp["confidence"]
+        ):
             if nm and nm in seen:  # nearest copy per name
                 continue
             if per_cat[cat] >= PER_CATEGORY:  # variety: cap copies per category
@@ -196,15 +220,17 @@ def main():
             if nm:
                 seen.add(nm)
             per_cat[cat] += 1
-            rec = {"category": cat, "prox": band(d), "dist_m": round(float(d))}
-            if nm:
+            # minimal record: category + distance carry the signal. Keep the name
+            # only for notable places (landmarks/museums), where it IS the signal.
+            rec = {"category": cat, "dist_m": round(float(d))}
+            if nm and keeps_name(cat, conf):
                 rec["name"] = nm
             picked.append(rec)  # already distance-sorted
 
         # band stratification: reserve slots for short-walk POIs (parks, landmarks,
         # transit at range) so the global cap doesn't fill entirely at the doorstep.
-        short = [p for p in picked if p["prox"] == "short walk"][:SHORTWALK_RESERVE]
-        door = [p for p in picked if p["prox"] == "doorstep"][: MAX_POIS - len(short)]
+        short = [p for p in picked if p["dist_m"] > DOORSTEP][:SHORTWALK_RESERVE]
+        door = [p for p in picked if p["dist_m"] <= DOORSTEP][: MAX_POIS - len(short)]
         labels[lid] = sorted(door + short, key=lambda p: p["dist_m"])
 
     recs = df.index.map(labels)  # list[dict] per listing, or NaN

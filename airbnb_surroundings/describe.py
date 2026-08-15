@@ -134,13 +134,15 @@ def prompt_for(row, note=""):
         uniq.append(p)
     pois = uniq
     cats = Counter(c for p in pois if isinstance(p, dict) and (c := _category(p)))
-    # names grouped by proximity band, so the model can place them ("on the
-    # doorstep" vs "a short walk away") without inventing exact distances.
+    # only notable places (landmarks/museums) carry a name now — the rest are
+    # counted by type above. Group the named ones by proximity band (derived
+    # from dist_m) so the model can place them without inventing exact distances.
     bands = {"doorstep": [], "short walk": []}
     for p in pois:
         nm = p.get("name") if isinstance(p, dict) else None
         if nm:
-            bands.setdefault(p.get("prox", "short walk"), []).append(nm)
+            b = "doorstep" if p.get("dist_m", 10**9) <= config.DOORSTEP else "short walk"
+            bands[b].append(nm)
     lines = []
     for b in ("doorstep", "short walk"):
         if bands[b]:
