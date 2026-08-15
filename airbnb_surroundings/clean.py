@@ -118,11 +118,24 @@ def transform_details(df: DataFrame) -> DataFrame:
             output_column, F.coalesce(source_value, extracted_count(pattern))
         )
 
-    return df.withColumn(
+    df = df.withColumn(
         "num_rooms",
         F.coalesce(F.col("num_bedrooms"), F.lit(0))
         + F.coalesce(F.col("num_baths"), F.lit(0)),
     )
+
+    # Reduce the free-text bath column to its numeric bath count so it stores a
+    # plain float: "1 shared bath" -> 1.0, "2.5 baths" -> 2.5, "Half-bath" -> 0.5.
+    if "details" in df.columns:
+        leading_number = F.regexp_extract(F.col("details"), r"(\d+\.?\d*)", 1)
+        df = df.withColumn(
+            "details",
+            F.when(leading_number != F.lit(""), leading_number.cast("double"))
+            .when(F.col("details").rlike(r"(?i)half-bath"), F.lit(0.5))
+            .otherwise(F.lit(None).cast("double")),
+        )
+
+    return df
 
 
 def filter_valid_prices(df: DataFrame) -> DataFrame:

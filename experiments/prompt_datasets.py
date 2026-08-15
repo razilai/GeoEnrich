@@ -32,21 +32,25 @@ from airbnb_surroundings import config, describe
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
-# Columns of the evaluated df2.csv, in order. Leaky/id cols (index, lat, lon,
-# neighbourhood_group, city) are dropped so the eval's structured baseline stays
-# clean and every variant is apples-to-apples with the df2 already scored.
+# Columns of the evaluated df2.csv, in order. `price` is the eval target; the rest
+# are the clean tabular features. Dropped: `index` (id) and `surroundings` (JSON,
+# already stripped by describe), plus `details` — the listing's own free text, a
+# leaky confound for the surroundings-text channel we're screening. Every variant
+# is apples-to-apples: identical rows and identical tabular columns, only the
+# `surroundings_summary` text differs.
 DF2_COLS = [
-    "neighbourhood", "room_type", "price", "minimum_nights", "number_of_reviews",
-    "reviews_per_month", "calculated_host_listings_count", "availability_365",
-    "number_of_reviews_ltm",
+    "price", "room_type", "ratings", "guests", "beds", "bedrooms", "bathrooms",
+    "property_number_of_reviews", "is_superhost", "num_bedrooms", "num_baths",
+    "num_rooms",
 ]
 
-# Default screen set: spans the joint-signal / TAR-headroom spectrum — dry factual
-# -> landmark salience -> explicit price signal -> machine tag -> tourist/resident.
-# All are system-prompt-only (no few-shot), so describe's user block is untouched.
+# Default screen set: spans the enrichment-style spectrum — dry factual control
+# -> neighbourhood character (chosen) -> chain-of-thought -> local-guide role ->
+# booking trade-offs. All are system-prompt-only, so describe's user block (the
+# deviation render) is untouched. Ids must exist in prompts.toml.
 DEFAULT_PROMPTS = [
-    "01_flatten_control", "03_landmark_salience", "05_price_implication",
-    "07_tagged_output", "10_tourist_vs_resident",
+    "01_factual_control", "03_neighborhood_character", "04_cot_salient",
+    "05_local_guide", "07_booking_tradeoffs",
 ]
 
 
@@ -58,13 +62,21 @@ def load_prompts(path: str) -> dict[str, str]:
 
 
 def stratified_sample(df: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
-    """~n rows, proportional per neighbourhood (keeps price regimes representative)."""
+    """~n rows, proportional per stratum (keeps the mix representative).
+
+    Stratifies on `neighbourhood` if present, else `room_type`; falls back to a
+    plain random draw if neither exists. Sorted by `index` for a stable key.
+    """
     if n >= len(df):
         return df
-    frac = n / len(df)
-    samp = df.groupby("neighbourhood", group_keys=False).sample(
-        frac=frac, random_state=seed)
-    return samp.sort_values("index").reset_index(drop=True)
+    strat = next((c for c in ("neighbourhood", "room_type") if c in df.columns), None)
+    if strat is None:
+        samp = df.sample(n=n, random_state=seed)
+    else:
+        samp = df.groupby(strat, group_keys=False).sample(
+            frac=n / len(df), random_state=seed)
+    sort_col = "index" if "index" in df.columns else df.columns[0]
+    return samp.sort_values(sort_col).reset_index(drop=True)
 
 
 def enrich_variant(pid: str, system: str, sample_csv: str, outdir: str) -> str:
@@ -82,7 +94,9 @@ def enrich_variant(pid: str, system: str, sample_csv: str, outdir: str) -> str:
     finally:
         sys.argv = argv
 
-    out = pd.read_csv(described).sort_values("index")
+    # describe drops `index` on write; row order is describe's deterministic
+    # density sort — identical across variants (same sample), so no realignment.
+    out = pd.read_csv(described)
     missing = [c for c in DF2_COLS if c not in out.columns]
     if missing:
         sys.exit(f"[{pid}] described CSV missing columns {missing}")
