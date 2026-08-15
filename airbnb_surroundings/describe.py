@@ -25,6 +25,7 @@ import random
 import re
 import sys
 
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from pydantic_ai import Agent
@@ -59,18 +60,18 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 # every batch listing (no usable signal); the description itself carries the
 # neighbourhood character, and value can be modelled downstream from price.
 INSTRUCTIONS = (
-    "You write a short, reliable description of a listing's surroundings from a "
-    "summary that lists, by type, roughly how many places are nearby and how "
-    "close, plus any well-known places. In one or two sentences, convey the "
-    "neighbourhood character: how lively and convenient it is (dining, nightlife, "
-    "shops, groceries), transit access, green space, and any notable landmark.\n"
+    "You write a short description of what makes a listing's location distinctive, "
+    "from a summary of how its surroundings compare with a typical New York block "
+    "(only the standout differences are given) plus any well-known places. In one "
+    "or two sentences, say what KIND of area this is (e.g. dense commercial, quiet "
+    "residential, nightlife-heavy, transit-poor, tourist-prominent) and what stands "
+    "out — where there are unusually many or few of something, or a notable "
+    "landmark. Do not list ordinary amenities every block has; a place with few of "
+    "something is quiet or limited, not lively.\n"
     "Rules:\n"
-    "- Base everything on the summary. Do not invent specifics or add places.\n"
-    "- Name only the well-known places listed, copied exactly. If none, name none.\n"
-    "- Do NOT rate, score, rank or price the location. No numbers, stars, or "
-    "tiers (premium/mid/budget) — describe only.\n"
-    "- Reflect the given closeness in words (on the doorstep, a short walk). Do "
-    "NOT state exact counts or metres.\n"
+    "- Use only the summary; never invent or add a place; copy any listed name "
+    "exactly. If a type isn't mentioned, it's just typical — don't call it out.\n"
+    "- Do NOT rate, score, tier, or price the location, and give no counts or metres.\n"
     "- Plain text, no lists, headings, or markdown."
 )
 
@@ -113,10 +114,6 @@ def build_agent():
     )
 
 
-# Weak-model-friendly rendering: pre-digest the raw counts/metres so the model
-# never has to reason over big integers or interpret distances. A rounded number
-# keeps the density gradient (shops ~1,800 vs entertainment ~130) that a bare
-# word band ("100+") would flatten; the word/proximity keep it legible.
 _DISPLAY = {
     "dining": "dining", "cafe": "cafes", "nightlife": "bars & nightlife",
     "grocery": "grocery stores", "shopping": "shops", "pharmacy": "pharmacies",
@@ -126,36 +123,66 @@ _DISPLAY = {
     "transit": "subway & transit",
 }
 
-
-def _count_phrase(n):
-    """Rounded magnitude + qualitative band. Small counts stay exact."""
-    if n < 10:
-        return str(n)
-    mag = 10 ** (len(str(n)) - 2)  # keep 2 significant figures
-    r = int(round(n / mag) * mag)
-    word = "dozens" if n <= 29 else "many dozens" if n <= 99 else "100+"
-    return f"~{r:,} ({word})"
+# The signal is DEVIATION from a typical block, not presence: ~98% of listings
+# have dining/shops/grocery, so listing them says nothing. We compare each
+# bucket's count against the corpus distribution and surface only the standouts.
+_REF = {}  # bucket -> sorted np.array of within-400m counts across the corpus
+_PRESENT = {}  # bucket -> fraction of listings with the bucket present
 
 
-def _prox_phrase(m):
-    return "on the doorstep" if m <= 50 else "steps away" if m <= 150 else "a short walk"
+def load_reference(df):
+    """Build the corpus count distribution per bucket (call once before prompting)."""
+    cats = df["surroundings"].map(lambda s: json.loads(s).get("cats", {}))
+    for b in {k for c in cats for k in c}:
+        arr = np.array([c.get(b, [0, 0, 0])[1] for c in cats])
+        _REF[b] = np.sort(arr)
+        _PRESENT[b] = float((arr > 0).mean())
+
+
+def _relative(bucket, v):
+    """How this bucket's count compares with the corpus — or None if unremarkable."""
+    arr = _REF.get(bucket)
+    if arr is None or len(arr) == 0:
+        return None
+    if v <= 0:  # absence is signal only where the bucket is usually present
+        return "none nearby" if _PRESENT.get(bucket, 0) >= 0.6 else None
+    pct = np.searchsorted(arr, v, side="left") / len(arr)
+    if pct >= 0.90:
+        return "far more than most blocks"
+    if pct >= 0.70:
+        return "more than most blocks"
+    if pct <= 0.15:
+        return "fewer than most blocks"
+    return None  # ~typical → omit
+
+
+_REL_ORDER = {
+    "far more than most blocks": 0, "more than most blocks": 1,
+    "none nearby": 2, "fewer than most blocks": 3,
+}
 
 
 def prompt_for(row, note=""):
-    """Weak-model-friendly prompt: per-type amount (rounded + banded) and closeness
-    in words, busiest first, plus any well-known landmark names."""
+    """Prompt built from DEVIATIONS: only the ways this block differs from a
+    typical NYC block, plus any well-known landmark. Raw counts stay in the JSON
+    for the tabular channel; the text adds the gestalt the counts can't."""
     surr = json.loads(row["surroundings"])
     cats = surr.get("cats", {})
-    lines = [
-        f"- {_DISPLAY.get(b, b.replace('_', ' '))}: {_count_phrase(c400)}, {_prox_phrase(near)}"
-        for b, (c150, c400, near) in sorted(cats.items(), key=lambda kv: -kv[1][1])
+    items = []
+    for b in _REF:  # iterate all buckets so notable ABSENCE is caught too
+        rel = _relative(b, cats.get(b, [0, 0, 0])[1])
+        if rel:
+            items.append((_REL_ORDER[rel], _DISPLAY.get(b, b.replace("_", " ")), rel))
+    items.sort()
+    lines = [f"- {label}: {rel}" for _, label, rel in items] or [
+        "- (unremarkable — typical for the city across the board)"
     ]
-    density = "\n".join(lines) or "- (nothing notable nearby)"
     names = ", ".join(n for n, _ in surr.get("landmarks", [])) or "(none)"
     return (
-        "Neighbourhood within a short walk (most common first):\n"
-        f"{density}\n"
-        f"Well-known places nearby (copy names exactly, do not add any): {names}{note}"
+        "How this block compares with a typical New York block "
+        "(only the ways it stands out are listed):\n"
+        + "\n".join(lines)
+        + f"\nWell-known places nearby (copy names exactly, do not add any): {names}{note}"
     )
 
 
@@ -381,6 +408,7 @@ def main():
     k = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
     df = pd.read_csv(IN_CSV, low_memory=False)
+    load_reference(df)  # corpus distribution for the relative (deviation) prompt
     # densest surroundings first (cheap test runs hit the richest listings).
     # total POIs = sum of within-400m counts across buckets; derived on the fly.
     def _total(s):

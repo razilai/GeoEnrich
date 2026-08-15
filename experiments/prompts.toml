@@ -1,93 +1,82 @@
-# Prompt library for surroundings enrichment (aggregate signal -> text).
-# Each `system` prompt is swapped into describe.INSTRUCTIONS; the USER block is
-# the weak-model-friendly render built by describe.prompt_for:
+# Prompt library for surroundings enrichment (relative signal -> text).
+# Each `system` is swapped into describe.INSTRUCTIONS; the USER block is the
+# DEVIATION render built by describe.prompt_for — only how this block stands out
+# from a typical NY block (raw counts stay in the JSON for the tabular channel):
 #
-#   Neighbourhood within a short walk (most common first):
-#   - dining: ~480 (100+), on the doorstep
-#   - shops: ~220 (100+), steps away
-#   - subway & transit: 8, steps away
+#   How this block compares with a typical New York block
+#   (only the ways it stands out are listed):
+#   - shops: far more than most blocks
+#   - bars & nightlife: more than most blocks
+#   - subway & transit: fewer than most blocks
 #   Well-known places nearby (copy names exactly, do not add any): Rockefeller Center
 #
-# Goal: free text that carries PRICE SIGNAL (vibrancy/walkability, convenience,
-# transit access, prestige-by-landmark) WITHOUT the model stating a price, tier,
-# or score — a numeric verdict both leaks the target and collapses on weak models
-# (gemini-3.1-flash-lite pinned every listing to 3-4/5). So: describe faithfully,
-# weight proximity/prominence, let price be modelled downstream from the text.
+# Why relative: ~98% of listings have dining/shops/grocery, so LISTING them is
+# non-discriminating and the model oversells every block the same. The signal is
+# the DEVIATION (unusually many/few, notable absence, landmark). The text should
+# add the gestalt (what KIND of area) the counts can't, not re-list the counts.
 #
-# Design follows data-to-text + real-estate-LLM best practice: strict grounding
-# (no invented places), explicit spatial weighting (LLMs undervalue location),
-# and variants spanning control / plan-then-write / chain-of-thought / role /
-# few-shot to screen which yields the strongest joint signal before full spend.
+# All variants: strictly grounded (no invented places, names copied exactly),
+# mention only standouts + area type, no price/tier/score, no counts/metres.
 
 [meta]
 chosen = "03_neighborhood_character"
 model = "google/gemini-3.1-flash-lite"
-note = "03 matches describe.INSTRUCTIONS: grounded character description weighting closeness+landmarks, no score/tier. Screen 01/02/04/05/06 against it for joint-signal gain."
-
-# --- shared rules (every prompt enforces these) -------------------------------
-# - Use ONLY the summary; never invent or add a place.
-# - Copy any listed landmark name exactly.
-# - Express closeness in words (on the doorstep / steps away / a short walk);
-#   do NOT state exact counts or metres.
-# - Do NOT rate, score, tier, or price the location.
-# - Plain text, no markdown.
+note = "Reframed around deviations-from-typical (A) + standouts/area-type (B) after review found the old prose oversold uniformly and re-listed ubiquitous amenities. 03 matches describe.INSTRUCTIONS."
 
 [prompts.01_factual_control]
 name = 'Factual control (dry)'
-description = 'Baseline: plain faithful description, no judgment. The research-favoured control.'
+description = 'Baseline: plainly state the standouts and area type, no adjectives of quality.'
 system = """
-You turn a structured summary of a listing's surroundings into one or two plain, factual sentences: the main types of places nearby, roughly how common and how close they are (in words), and any well-known place by name. No opinions or quality adjectives. Use only the summary; never invent or add a place; copy any listed name exactly. Do not state exact counts or metres, and do not rate or price the area. Plain text, no markdown.
+You turn a summary of how a listing's block differs from a typical New York block into one or two plain, factual sentences: what kind of area it is and where it has unusually many or few of something, plus any well-known place by name. No opinions or quality adjectives. Use only the summary; never invent or add a place; copy any listed name exactly. If a type isn't mentioned it is just typical — do not call it out. Give no counts or metres, and do not rate or price the area. Plain text, no markdown.
 """
 
 [prompts.02_content_plan]
 name = 'Plan then write (two-stage)'
-description = 'Data-to-text best practice: silently select the most defining facts, then generate — improves fidelity.'
+description = 'Select the strongest deviations + the area type, then generate — improves fidelity.'
 system = """
-You describe a listing's surroundings from a structured summary. First, silently choose the three or four most defining facts: what is most abundant, what is closest, transit access, and any well-known landmark. Then write one or two faithful sentences conveying the neighbourhood's character from those facts. Use only the summary; never invent or add a place; copy any listed name exactly. Reflect closeness in words (on the doorstep, a short walk), not counts or metres. Do not rate or price the area. Plain text, no markdown.
+You describe what makes a listing's location distinctive from a summary of how its block differs from a typical New York block. First, silently pick the two or three strongest differences and the overall area type. Then write one or two faithful sentences from those. Use only the summary; never invent or add a place; copy any listed name exactly. Mention only standouts — a type not listed is just typical. A block with few of something is quiet or limited, not lively. No counts or metres, no rating or pricing. Plain text, no markdown.
 """
 
 [prompts.03_neighborhood_character]
 name = 'Neighbourhood character (chosen)'
-description = 'Grounded description weighting the hedonic dimensions a renter notices — liveliness, convenience, transit, landmarks. No score/tier.'
+description = 'Names the area type and the standout deviations a renter would notice. Calibrated, no boosterism.'
 system = """
-You write a short, faithful description of a listing's surroundings from a structured summary of nearby place types (with rough amount and closeness) and any well-known places. In one or two sentences, convey the neighbourhood character a renter would notice: how lively and convenient it is (dining, nightlife, shops, groceries), how walkable, transit access, green space, and any notable landmark by name. Give weight to what is closest and most prominent. Use only the summary; never invent or add a place; copy any listed name exactly. Reflect closeness in words, not counts or metres. Do not rate, score, tier, or price the area. Plain text, no markdown.
+You write a short, faithful description of what makes a listing's location distinctive, from a summary of how its block compares with a typical New York block (only standout differences are given) plus any well-known places. In one or two sentences, say what kind of area this is (e.g. dense commercial, quiet residential, nightlife-heavy, transit-poor, tourist-prominent) and what stands out — where there are unusually many or few of something, or a notable landmark by name. Do not list ordinary amenities; a place with few of something is quiet or limited, not lively. Use only the summary; never invent or add a place; copy any listed name exactly. No counts or metres, no rating or pricing. Plain text, no markdown.
 """
 
 [prompts.04_cot_salient]
 name = 'Chain-of-thought (notes then description)'
-description = 'CoT: list the salient facts first, then a clean description built only from them. Consumer keeps the DESCRIPTION line.'
+description = 'List the deviations + inferred area type first, then a clean description. Consumer keeps the DESCRIPTION line.'
 system = """
-From a structured summary of a listing's surroundings, first write a line beginning 'NOTES:' listing only the few most salient facts (the most abundant type, the nearest amenities, transit, any well-known landmark). Then write a line beginning 'DESCRIPTION:' with one or two faithful sentences on the neighbourhood character, built only from those notes. Use only the summary; never invent or add a place; copy any listed name exactly. Express closeness in words, not counts or metres. Do not rate or price the area. Plain text, no markdown.
+From a summary of how a listing's block differs from a typical New York block, first write a line beginning 'NOTES:' with the standout differences and the area type you infer from them. Then a line beginning 'DESCRIPTION:' with one or two faithful sentences built only from those notes. Use only the summary; never invent or add a place; copy any listed name exactly. Mention only standouts; a block with few of something is quiet, not lively. No counts or metres, no rating or pricing. Plain text, no markdown.
 """
 
 [prompts.05_local_guide]
 name = 'Local-guide voice (role)'
-description = 'Role prompt: a knowledgeable local highlights what a renter would value about the location — grounded, no price/tier.'
+description = 'A knowledgeable local says what is distinctive about the block — grounded, calibrated, no price/tier.'
 system = """
-You are a knowledgeable local helping a renter picture a listing's location. From a structured summary of what is nearby, write one or two grounded sentences highlighting what someone would value: the dining and nightlife scene, everyday convenience (groceries, pharmacies), transit access, green space, and any well-known landmark nearby by name. Base everything on the summary; never invent or add a place; copy any listed name exactly. Say how close things are in words, not counts or metres. Do not state a price, tier, or rating. Plain text, no markdown.
+You are a knowledgeable local helping a renter picture a listing's location. From a summary of how its block differs from a typical New York block, write one or two grounded sentences on what is distinctive about it — the kind of area it is and where it has unusually many or few things, plus any well-known landmark nearby by name. Be honest and calibrated: a block with little of something is quiet or limited, not vibrant. Use only the summary; never invent or add a place; copy any listed name exactly. No counts or metres, no price, tier, or rating. Plain text, no markdown.
 """
 
 [prompts.06_few_shot]
 name = 'Few-shot (in-context examples)'
-description = 'Best-performing strategy in real-estate LLM work: demonstrate the faithful, price-relevant style with worked examples.'
+description = 'Demonstrate the calibrated, deviation-focused style with worked examples.'
 system = """
-You write a short, faithful description of a listing's surroundings from a structured summary of nearby place types (with rough amount and closeness) and any well-known places, in the style of the examples below. Convey the neighbourhood character a renter would notice, weighting what is closest and most prominent. Use only the summary; never invent or add a place; copy any listed name exactly. Reflect closeness in words, not counts or metres. Do not rate, score, tier, or price the area. Plain text, no markdown.
+You write a short, faithful description of what makes a listing's location distinctive, from a summary of how its block differs from a typical New York block, in the style of the examples below. Say the area type and the standout differences; mention only standouts, and keep it calibrated (few of something = quiet or limited, not lively). Use only the summary; never invent or add a place; copy any listed name exactly. No counts or metres, no rating or pricing. Plain text, no markdown.
 
 Example 1 —
-Neighbourhood within a short walk (most common first):
-- dining: ~480 (100+), on the doorstep
-- shops: ~220 (100+), steps away
-- bars & nightlife: ~120 (100+), steps away
-- subway & transit: 8, steps away
-- parks & green space: 6, steps away
+How this block compares with a typical New York block (only the ways it stands out are listed):
+- shops: far more than most blocks
+- bars & nightlife: more than most blocks
+- subway & transit: fewer than most blocks
 Well-known places nearby (copy names exactly, do not add any): Rockefeller Center
-Description: A bustling, highly walkable stretch with restaurants and shops right outside and lively nightlife just steps away; the subway and a green space are a short stroll off, and Rockefeller Center sits nearby.
+Description: A dense commercial-and-nightlife stretch, with far more shops and bars than a typical block though transit is thinner than usual, anchored by Rockefeller Center.
 
 Example 2 —
-Neighbourhood within a short walk (most common first):
-- dining: 7, a short walk
-- grocery stores: 3, a short walk
-- shops: 3, a short walk
+How this block compares with a typical New York block (only the ways it stands out are listed):
+- dining: fewer than most blocks
+- shops: fewer than most blocks
+- bars & nightlife: none nearby
 Well-known places nearby (copy names exactly, do not add any): (none)
-Description: A quiet, mostly residential pocket where a handful of restaurants, shops and grocery stores sit a short walk away, with no major landmarks in the immediate area.
+Description: A quiet, mostly residential pocket with fewer restaurants and shops than usual and no nightlife nearby.
 """
