@@ -27,7 +27,6 @@ from airbnb_surroundings import config
 from airbnb_surroundings.config import (
     DOORSTEP,
     MIN_CONF,
-    NAME_MIN_CONF,
     NYC_UTM,
     RADIUS,
 )
@@ -67,19 +66,6 @@ TRANSIT_LEAVES = {
     "ferry_terminal",
     "tram_station",
     "airport",
-}
-# Leaves where the POI's NAME carries signal (a specific landmark reads premium:
-# "9/11 Memorial", "American Museum of Natural History"). Everywhere else the name
-# is noise — a restaurant/shop's identity is its category, not "Dough Vale". Kept
-# deliberately tight: Overture's broad landmark_and_historical_building / art_gallery
-# leaves are ~90% minor (co-ops, tiny galleries), so they're excluded. Combined
-# with NAME_MIN_CONF (Overture ships no fame/wikidata field, confidence is the
-# best available proxy).
-NAME_LEAVES = {
-    "museum", "art_museum", "history_museum", "science_museum", "childrens_museum",
-    "contemporary_art_museum", "monument", "memorial", "memorial_park",
-    "national_park", "botanical_garden", "zoo", "aquarium", "observatory",
-    "castle", "stadium", "arena", "concert_hall", "opera_house",
 }
 _TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv")
 _LANDMARKS_JSON = os.path.join(os.path.dirname(__file__), "landmarks.json")
@@ -129,17 +115,11 @@ def allowed_categories():
     return keep
 
 
-def keeps_name(cat, conf, nm):
-    """True if this POI's NAME is signal: either a notable-category place mapped
-    confidently (not a mis-tagged co-op), or a curated world-famous landmark that
-    Overture buries in a generic building leaf — matched by name, gated to the
-    attractions group so a same-named restaurant isn't force-named."""
-    if cat in NAME_LEAVES and conf >= NAME_MIN_CONF:
-        return True
-    return (
-        _LEAF_GROUP.get(cat) == "attractions_and_activities"
-        and _norm_name(nm) in LANDMARK_NAMES
-    )
+def is_landmark(nm):
+    """True only if the POI's name is in the curated landmark allow-list
+    (landmarks.json). The allow-list is the sole definition of a named landmark —
+    no category/confidence heuristic. Exact match on the normalized name."""
+    return _norm_name(nm) in LANDMARK_NAMES
 
 
 # --- signal buckets -------------------------------------------------------
@@ -292,9 +272,7 @@ def main():
     for lid, grp in joined.groupby(level=0):
         cats = {}  # bucket -> [c150, c400, nearest_m]
         lm = {}  # name -> nearest dist_m
-        for cat, d, nm, conf in zip(
-            grp["category"], grp["dist"], grp["nm"], grp["confidence"]
-        ):
+        for cat, d, nm in zip(grp["category"], grp["dist"], grp["nm"]):
             b = bucket(cat)
             dm = round(float(d))
             e = cats.get(b)
@@ -305,7 +283,7 @@ def main():
                 e[0] += 1
             if dm < e[2]:
                 e[2] = dm
-            if nm and keeps_name(cat, conf, nm) and (nm not in lm or dm < lm[nm]):
+            if nm and is_landmark(nm) and (nm not in lm or dm < lm[nm]):
                 lm[nm] = dm
         landmarks = sorted(([n, dd] for n, dd in lm.items()), key=lambda x: x[1])
         labels[lid] = {"cats": cats, "landmarks": landmarks}
