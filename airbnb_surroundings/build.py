@@ -220,18 +220,19 @@ def main():
             if nm:
                 seen.add(nm)
             per_cat[cat] += 1
-            # minimal record: category + distance carry the signal. Keep the name
-            # only for notable places (landmarks/museums), where it IS the signal.
-            rec = {"category": cat, "dist_m": round(float(d))}
+            # compact positional record [category, dist_m] (+ name for notable
+            # places): category + distance carry the signal, and dropping the
+            # repeated "category"/"dist_m" keys keeps the JSON small.
+            rec = [cat, round(float(d))]
             if nm and keeps_name(cat, conf):
-                rec["name"] = nm
+                rec.append(nm)
             picked.append(rec)  # already distance-sorted
 
         # band stratification: reserve slots for short-walk POIs (parks, landmarks,
         # transit at range) so the global cap doesn't fill entirely at the doorstep.
-        short = [p for p in picked if p["dist_m"] > DOORSTEP][:SHORTWALK_RESERVE]
-        door = [p for p in picked if p["dist_m"] <= DOORSTEP][: MAX_POIS - len(short)]
-        labels[lid] = sorted(door + short, key=lambda p: p["dist_m"])
+        short = [p for p in picked if p[1] > DOORSTEP][:SHORTWALK_RESERVE]
+        door = [p for p in picked if p[1] <= DOORSTEP][: MAX_POIS - len(short)]
+        labels[lid] = sorted(door + short, key=lambda p: p[1])
 
     recs = df.index.map(labels)  # list[dict] per listing, or NaN
     n_pois = [len(x) if isinstance(x, list) else 0 for x in recs]  # local only, never a column

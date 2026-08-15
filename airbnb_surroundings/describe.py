@@ -86,15 +86,21 @@ GROUND_RETRIES = int(os.environ.get("GROUND_RETRIES", "0"))
 USAGE = {"calls": 0, "in": 0, "out": 0, "cost": 0.0}
 
 
+# each POI is a compact list: [category, dist_m] or [category, dist_m, name].
+# Positional (no repeated keys) to keep the enrichment JSON small.
+def _name(p):
+    return p[2] if len(p) > 2 else None
+
+
 def _poi_names(pois):
-    return sorted({p["name"] for p in pois if isinstance(p, dict) and p.get("name")})
+    return sorted({n for p in pois if (n := _name(p))})
 
 
 def _category(p):
-    """Place type shown to the LLM. Overture's `category` is already the rich,
+    """Place type shown to the LLM. Overture's category is already the rich,
     standardized leaf (e.g. 'italian_restaurant', 'coffee_shop') — cuisine/sub-
     type is baked in. Just humanize the underscores."""
-    cat = p.get("category") if isinstance(p, dict) else None
+    cat = p[0] if p else None
     return cat.replace("_", " ") if cat else None
 
 
@@ -126,22 +132,22 @@ def prompt_for(row, note=""):
     # dedupe by name — keep first per name; unnamed POIs pass through.
     seen, uniq = set(), []
     for p in pois:
-        nm = p.get("name") if isinstance(p, dict) else None
+        nm = _name(p)
         if nm and nm in seen:
             continue
         if nm:
             seen.add(nm)
         uniq.append(p)
     pois = uniq
-    cats = Counter(c for p in pois if isinstance(p, dict) and (c := _category(p)))
+    cats = Counter(c for p in pois if (c := _category(p)))
     # only notable places (landmarks/museums) carry a name now — the rest are
     # counted by type above. Group the named ones by proximity band (derived
     # from dist_m) so the model can place them without inventing exact distances.
     bands = {"doorstep": [], "short walk": []}
     for p in pois:
-        nm = p.get("name") if isinstance(p, dict) else None
+        nm = _name(p)
         if nm:
-            b = "doorstep" if p.get("dist_m", 10**9) <= config.DOORSTEP else "short walk"
+            b = "doorstep" if p[1] <= config.DOORSTEP else "short walk"
             bands[b].append(nm)
     lines = []
     for b in ("doorstep", "short walk"):
