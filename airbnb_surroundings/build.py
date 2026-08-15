@@ -53,6 +53,9 @@ KEEP_GROUPS = {
     "arts_and_entertainment",
     "attractions_and_activities",
     "active_life",
+    "accommodation",  # hotel/lodging density = tourist-district signal. NOTE:
+    # includes vacation_rental / service_apartments (competitor short-term rentals)
+    # — a potential target leak, kept intentionally at the user's request.
 }
 # transit is the strongest locational driver but sits in the mixed `travel` group
 # (alongside parking, car rental, tours) — cherry-pick just the transit leaves.
