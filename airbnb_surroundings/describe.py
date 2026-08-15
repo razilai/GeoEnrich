@@ -60,17 +60,17 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 # neighbourhood character, and value can be modelled downstream from price.
 INSTRUCTIONS = (
     "You write a short, reliable description of a listing's surroundings from a "
-    "summary of nearby place counts (by type, with distances) and any notable "
-    "named places. In one or two sentences, convey the neighbourhood character: "
-    "how lively and convenient it is (dining, nightlife, shops, groceries), "
-    "transit access, green space, and any notable landmark or cultural site.\n"
+    "summary that lists, by type, roughly how many places are nearby and how "
+    "close, plus any well-known places. In one or two sentences, convey the "
+    "neighbourhood character: how lively and convenient it is (dining, nightlife, "
+    "shops, groceries), transit access, green space, and any notable landmark.\n"
     "Rules:\n"
-    "- Base everything on the given counts/places. Do not invent specifics.\n"
-    "- Name only the notable places listed, copied exactly. If none, name none.\n"
+    "- Base everything on the summary. Do not invent specifics or add places.\n"
+    "- Name only the well-known places listed, copied exactly. If none, name none.\n"
     "- Do NOT rate, score, rank or price the location. No numbers, stars, or "
     "tiers (premium/mid/budget) — describe only.\n"
-    "- You may note rough proximity (on the doorstep, a short walk away) from the "
-    "metres given. Do NOT state exact metres or radius.\n"
+    "- Reflect the given closeness in words (on the doorstep, a short walk). Do "
+    "NOT state exact counts or metres.\n"
     "- Plain text, no lists, headings, or markdown."
 )
 
@@ -113,26 +113,49 @@ def build_agent():
     )
 
 
+# Weak-model-friendly rendering: pre-digest the raw counts/metres so the model
+# never has to reason over big integers or interpret distances. A rounded number
+# keeps the density gradient (shops ~1,800 vs entertainment ~130) that a bare
+# word band ("100+") would flatten; the word/proximity keep it legible.
+_DISPLAY = {
+    "dining": "dining", "cafe": "cafes", "nightlife": "bars & nightlife",
+    "grocery": "grocery stores", "shopping": "shops", "pharmacy": "pharmacies",
+    "fitness_sport": "gyms & sports", "park_green": "parks & green space",
+    "culture": "museums & galleries", "landmark": "landmarks & sights",
+    "entertainment": "entertainment venues", "lodging": "hotels",
+    "transit": "subway & transit",
+}
+
+
+def _count_phrase(n):
+    """Rounded magnitude + qualitative band. Small counts stay exact."""
+    if n < 10:
+        return str(n)
+    mag = 10 ** (len(str(n)) - 2)  # keep 2 significant figures
+    r = int(round(n / mag) * mag)
+    word = "dozens" if n <= 29 else "many dozens" if n <= 99 else "100+"
+    return f"~{r:,} ({word})"
+
+
+def _prox_phrase(m):
+    return "on the doorstep" if m <= 50 else "steps away" if m <= 150 else "a short walk"
+
+
 def prompt_for(row, note=""):
-    """Prompt from the aggregate signal: per-bucket density + nearest distance,
-    plus any notable named landmarks."""
+    """Weak-model-friendly prompt: per-type amount (rounded + banded) and closeness
+    in words, busiest first, plus any well-known landmark names."""
     surr = json.loads(row["surroundings"])
     cats = surr.get("cats", {})
-    # density lines, busiest (by within-400m count) first
-    lines = []
-    for b, (c150, c400, near) in sorted(cats.items(), key=lambda kv: -kv[1][1]):
-        label = b.replace("_", " ")
-        block = f", {c150} within ~150m" if c150 else ""
-        lines.append(f"  {label}: {c400} within ~400m{block}, nearest ~{near}m")
-    density = "\n".join(lines) or "  (nothing notable nearby)"
-    landmarks = "\n".join(
-        f"  - {n} (~{d}m)" for n, d in surr.get("landmarks", [])
-    ) or "  (none)"
+    lines = [
+        f"- {_DISPLAY.get(b, b.replace('_', ' '))}: {_count_phrase(c400)}, {_prox_phrase(near)}"
+        for b, (c150, c400, near) in sorted(cats.items(), key=lambda kv: -kv[1][1])
+    ]
+    density = "\n".join(lines) or "- (nothing notable nearby)"
+    names = ", ".join(n for n, _ in surr.get("landmarks", [])) or "(none)"
     return (
-        "Nearby place density (counts within walking distance; metres to nearest):\n"
+        "Neighbourhood within a short walk (most common first):\n"
         f"{density}\n"
-        "Notable named places (use these names exactly, if any):\n"
-        f"{landmarks}{note}"
+        f"Well-known places nearby (copy names exactly, do not add any): {names}{note}"
     )
 
 
