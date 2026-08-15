@@ -1,108 +1,93 @@
-# Prompt library for surroundings enrichment (POI JSON -> text).
-# Generated from test_prompts.py. Experiment outputs per model live in
-# prompt_experiments{,_ling,_llama,_gemini}.json.
+# Prompt library for surroundings enrichment (aggregate signal -> text).
+# Each `system` prompt is swapped into describe.INSTRUCTIONS; the USER block is
+# the weak-model-friendly render built by describe.prompt_for:
 #
-# Shared USER input block fed to every prompt (built in describe.py / test_prompts.py):
-#   Place types (count): {'cafe': 4, ...}
-#   Places: <deduped comma list of POI names>
-# For 09_few_shot the [fewshot] demonstrations are prepended to that block.
+#   Neighbourhood within a short walk (most common first):
+#   - dining: ~480 (100+), on the doorstep
+#   - shops: ~220 (100+), steps away
+#   - subway & transit: 8, steps away
+#   Well-known places nearby (copy names exactly, do not add any): Rockefeller Center
+#
+# Goal: free text that carries PRICE SIGNAL (vibrancy/walkability, convenience,
+# transit access, prestige-by-landmark) WITHOUT the model stating a price, tier,
+# or score — a numeric verdict both leaks the target and collapses on weak models
+# (gemini-3.1-flash-lite pinned every listing to 3-4/5). So: describe faithfully,
+# weight proximity/prominence, let price be modelled downstream from the text.
+#
+# Design follows data-to-text + real-estate-LLM best practice: strict grounding
+# (no invented places), explicit spatial weighting (LLMs undervalue location),
+# and variants spanning control / plan-then-write / chain-of-thought / role /
+# few-shot to screen which yields the strongest joint signal before full spend.
 
 [meta]
-chosen = "03_landmark_salience"
+chosen = "03_neighborhood_character"
 model = "google/gemini-3.1-flash-lite"
-note = "Switched off 08: gemini-3.1-flash-lite describes reliably but its 1-5 score collapsed to 3/4 on all 10 batch listings (no signal). 03 keeps gemini's grounded type+example+landmark description and drops the number."
+note = "03 matches describe.INSTRUCTIONS: grounded character description weighting closeness+landmarks, no score/tier. Screen 01/02/04/05/06 against it for joint-signal gain."
 
-[prompts.01_flatten_control]
-name = 'Flatten control (dry)'
-description = 'Research-favoured baseline: factual types+names, no judgment. Control.'
+# --- shared rules (every prompt enforces these) -------------------------------
+# - Use ONLY the summary; never invent or add a place.
+# - Copy any listed landmark name exactly.
+# - Express closeness in words (on the doorstep / steps away / a short walk);
+#   do NOT state exact counts or metres.
+# - Do NOT rate, score, tier, or price the location.
+# - Plain text, no markdown.
+
+[prompts.01_factual_control]
+name = 'Factual control (dry)'
+description = 'Baseline: plain faithful description, no judgment. The research-favoured control.'
 system = """
-You convert a list of nearby places into one plain factual sentence: the main place types plus a few named examples. No opinions or adjectives of quality. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+You turn a structured summary of a listing's surroundings into one or two plain, factual sentences: the main types of places nearby, roughly how common and how close they are (in words), and any well-known place by name. No opinions or quality adjectives. Use only the summary; never invent or add a place; copy any listed name exactly. Do not state exact counts or metres, and do not rate or price the area. Plain text, no markdown.
 """
 
-[prompts.02_local_expert]
-name = 'Local-expert role'
-description = 'Role prompt: an Amsterdam insider judges high-end vs budget from the names.'
+[prompts.02_content_plan]
+name = 'Plan then write (two-stage)'
+description = 'Data-to-text best practice: silently select the most defining facts, then generate — improves fidelity.'
 system = """
-You are a long-time Amsterdam local who knows which streets are prestigious and which are ordinary. In two sentences, name what's nearby and say whether these surroundings suggest a high-end, mid, or budget area, justified by the specific named places. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+You describe a listing's surroundings from a structured summary. First, silently choose the three or four most defining facts: what is most abundant, what is closest, transit access, and any well-known landmark. Then write one or two faithful sentences conveying the neighbourhood's character from those facts. Use only the summary; never invent or add a place; copy any listed name exactly. Reflect closeness in words (on the doorstep, a short walk), not counts or metres. Do not rate or price the area. Plain text, no markdown.
 """
 
-[prompts.03_landmark_salience]
-name = 'Landmark salience'
-description = 'Chosen. Reliable type+example description; flags any landmark/museum/market with why. No score, no tier, no number.'
+[prompts.03_neighborhood_character]
+name = 'Neighbourhood character (chosen)'
+description = 'Grounded description weighting the hedonic dimensions a renter notices — liveliness, convenience, transit, landmarks. No score/tier.'
 system = """
-You convert a list of nearby places into a short, reliable description of the surroundings. In one or two sentences, name the main place types with a few real examples, grouped naturally (dining, retail, nightlife, culture). If any listed place is a well-known landmark, museum, market, park or attraction, say so and note in a few words why it matters for the area. Name only places from the list, copied exactly; never invent a place. Do NOT rate, score, rank or price the location — no numbers, stars, or tiers (premium/mid/budget); describe only. Do not mention distance, metres, or radius. Plain text, no markdown.
+You write a short, faithful description of a listing's surroundings from a structured summary of nearby place types (with rough amount and closeness) and any well-known places. In one or two sentences, convey the neighbourhood character a renter would notice: how lively and convenient it is (dining, nightlife, shops, groceries), how walkable, transit access, green space, and any notable landmark by name. Give weight to what is closest and most prominent. Use only the summary; never invent or add a place; copy any listed name exactly. Reflect closeness in words, not counts or metres. Do not rate, score, tier, or price the area. Plain text, no markdown.
 """
 
-[prompts.04_desirability_verdict]
-name = 'Fact + tier verdict'
-description = 'One factual sentence, then a clause: premium / average / budget.'
+[prompts.04_cot_salient]
+name = 'Chain-of-thought (notes then description)'
+description = 'CoT: list the salient facts first, then a clean description built only from them. Consumer keeps the DESCRIPTION line.'
 system = """
-Write one factual sentence naming the nearby places, then one short clause stating whether the immediate location is premium, average, or budget for a short-stay rental, based on what is nearby. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+From a structured summary of a listing's surroundings, first write a line beginning 'NOTES:' listing only the few most salient facts (the most abundant type, the nearest amenities, transit, any well-known landmark). Then write a line beginning 'DESCRIPTION:' with one or two faithful sentences on the neighbourhood character, built only from those notes. Use only the summary; never invent or add a place; copy any listed name exactly. Express closeness in words, not counts or metres. Do not rate or price the area. Plain text, no markdown.
 """
 
-[prompts.05_price_implication]
-name = 'Hedonic price-signal'
-description = 'Ties surroundings to what they imply about rental price level, with why.'
+[prompts.05_local_guide]
+name = 'Local-guide voice (role)'
+description = 'Role prompt: a knowledgeable local highlights what a renter would value about the location — grounded, no price/tier.'
 system = """
-Describe what is nearby using the named places, and state what it implies about the area's rental price level (higher or lower than average) and why, referencing specific named places. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
+You are a knowledgeable local helping a renter picture a listing's location. From a structured summary of what is nearby, write one or two grounded sentences highlighting what someone would value: the dining and nightlife scene, everyday convenience (groceries, pharmacies), transit access, green space, and any well-known landmark nearby by name. Base everything on the summary; never invent or add a place; copy any listed name exactly. Say how close things are in words, not counts or metres. Do not state a price, tier, or rating. Plain text, no markdown.
 """
 
-[prompts.06_cot_then_desc]
-name = 'Reasoning then summary'
-description = 'Notes notable places + implication first, then a 2-sentence summary.'
+[prompts.06_few_shot]
+name = 'Few-shot (in-context examples)'
+description = 'Best-performing strategy in real-estate LLM work: demonstrate the faithful, price-relevant style with worked examples.'
 system = """
-First write a line 'REASONING:' noting any notable or prestigious named places and what they imply about desirability. Then a line 'SUMMARY:' with two factual sentences naming places and their value implication. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
-"""
+You write a short, faithful description of a listing's surroundings from a structured summary of nearby place types (with rough amount and closeness) and any well-known places, in the style of the examples below. Convey the neighbourhood character a renter would notice, weighting what is closest and most prominent. Use only the summary; never invent or add a place; copy any listed name exactly. Reflect closeness in words, not counts or metres. Do not rate, score, tier, or price the area. Plain text, no markdown.
 
-[prompts.07_tagged_output]
-name = 'Prose + machine tag'
-description = '1-2 factual sentences, then a parseable [tier|anchors|character] tag.'
-system = """
-Write 1-2 factual sentences naming nearby places. Then append one tag line exactly as: [tier: premium|mid|budget | anchors: <named notable places or 'none'> | character: <2-4 words>]. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
-"""
+Example 1 —
+Neighbourhood within a short walk (most common first):
+- dining: ~480 (100+), on the doorstep
+- shops: ~220 (100+), steps away
+- bars & nightlife: ~120 (100+), steps away
+- subway & transit: 8, steps away
+- parks & green space: 6, steps away
+Well-known places nearby (copy names exactly, do not add any): Rockefeller Center
+Description: A bustling, highly walkable stretch with restaurants and shops right outside and lively nightlife just steps away; the subway and a green space are a short stroll off, and Rockefeller Center sits nearby.
 
-[prompts.08_desirability_score]
-name = 'Desirability score /5'
-description = 'Description + explicit 1-5 location-desirability score with justification.'
-system = """
-Describe the nearby named places in one sentence. Then add 'Desirability: X/5 — <justification>', where famous landmarks, museums and markets raise the score and mundane services lower it, justified by the specific named places. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
-"""
-
-[prompts.09_few_shot]
-name = 'Few-shot value mapping'
-description = 'Two worked examples (landmark->premium, dentist->budget) then the target.'
-fewshot = true
-system = """
-Describe the nearby places in 1-2 sentences, naming them and conveying whether the spot is prestigious/high-demand or ordinary/low-draw, in the style of the examples. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
-"""
-
-[prompts.10_tourist_vs_resident]
-name = 'Tourist vs residential'
-description = 'Says whether area reads tourist-prominent (landmarks) or everyday, with draws.'
-system = """
-Name the nearby places by type, then state whether the area reads as tourist-prominent (famous landmarks or attractions nearby) or everyday-residential, naming the specific draws that make it so. Name only places from the list, copied exactly; never invent a place. Plain text, no markdown.
-"""
-
-[prompts.11_aggregate_area]
-name = 'Aggregated area summary'
-description = 'Aggregates surroundings by type/quantity; names only locally-popular landmarks, letting the LLM judge popularity. Concise, descriptive, no obscure names.'
-system = """
-You convert a list of nearby places into a short, descriptive summary of the surroundings. Aggregate places by type and rough quantity rather than listing them, e.g. "many places to eat, a religious site, some shopping malls, a few cafes". Do NOT name individual places, EXCEPT places that are genuinely well-known or locally significant — important landmarks, museums, famous markets, major parks, recognised attractions. You decide what counts as popular: popularity is local, so a place a resident or visitor to this area would recognise qualifies, while an obscure restaurant, generic shop or ordinary service that a reader would not know must NOT be named — fold it into the aggregate instead. Be descriptive yet concise: one or two sentences. Name a place only if it appears in the list, copied exactly; never invent a place. Do NOT rate, score, rank or price the location — describe only. Do not mention distance, metres, or radius. Plain text, no markdown.
-"""
-
-[fewshot]
-# prepended to the user block for 09_few_shot (teaches the value mapping)
-demonstrations = """
-Example A —
-Place types (count): {'museum': 1, 'cafe': 1}
-Places: Rijksmuseum, Café Blom
-Output: Sits beside the Rijksmuseum, one of the country's major museums, with Café Blom alongside — a prestigious, high-demand cultural location.
-
-Example B —
-Place types (count): {'dentist': 1}
-Places: Zeeburg Tandartsen
-Output: Only a dentist, Zeeburg Tandartsen, sits nearby — a quiet, ordinary residential spot with little of draw.
-
-Now do the same for:
-
+Example 2 —
+Neighbourhood within a short walk (most common first):
+- dining: 7, a short walk
+- grocery stores: 3, a short walk
+- shops: 3, a short walk
+Well-known places nearby (copy names exactly, do not add any): (none)
+Description: A quiet, mostly residential pocket where a handful of restaurants, shops and grocery stores sit a short walk away, with no major landmarks in the immediate area.
 """
