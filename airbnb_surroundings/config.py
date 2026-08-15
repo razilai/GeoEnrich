@@ -7,15 +7,16 @@ stage works no matter which directory it's launched from.
 
 import os
 
-# Repo root. Anchored to this file's editable-install location (src/
-# airbnb_surroundings/config.py -> three levels up), overridable via env for
+# Repo root. Anchored to this file's editable-install location
+# (airbnb_surroundings/config.py -> two levels up), overridable via env for
 # odd deployments.
 ROOT = os.environ.get("PROJECT_ROOT") or os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.path.dirname(os.path.abspath(__file__))
 )
 
 DATA_DIR = os.path.join(ROOT, "data")  # gitignored raw inputs
 ARTIFACTS_DIR = os.path.join(ROOT, "artifacts")  # gitignored generated outputs
+RESULTS_DIR = os.path.join(ROOT, "results")  # gitignored eval reports
 
 # stage I/O
 NYC_SCRAPE_CSV = os.path.join(DATA_DIR, "airbnb_nyc.csv")  # raw scrape (clean.py input)
@@ -23,6 +24,8 @@ RAW_CSV = os.path.join(DATA_DIR, "airbnb.csv")  # cleaned NYC listings (build.py
 VANILLA_CSV = os.path.join(ARTIFACTS_DIR, "airbnb_vanilla.csv")  # tabular-only
 ENRICHED_CSV = os.path.join(ARTIFACTS_DIR, "airbnb_enriched.csv")  # + POI JSON
 DESCRIBED_CSV = os.path.join(ARTIFACTS_DIR, "airbnb_described.csv")  # + LLM prose
+BATCH_JSON = os.path.join(ARTIFACTS_DIR, "batch_result.json")  # raw LLM batch dump
+EVAL_REPORT_CSV = os.path.join(RESULTS_DIR, "eval_report.csv")  # eval.py output
 
 # enrichment tuning (see build.py)
 RADIUS = 400  # meters — capture radius (5-min walk; hedonic buffers 300-800m)

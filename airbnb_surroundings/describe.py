@@ -255,10 +255,11 @@ async def _submit_batch(c, headers, rows, df):
             break
 
     # raw dump for inspection / cost audit
-    with open("batch_result.json", "w") as f:
+    os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
+    with open(config.BATCH_JSON, "w") as f:
         json.dump(j, f)
     if st != "completed":
-        print(f"batch ended {st} — see batch_result.json", flush=True)
+        print(f"batch ended {st} — see {config.BATCH_JSON}", flush=True)
         return
 
     items = (

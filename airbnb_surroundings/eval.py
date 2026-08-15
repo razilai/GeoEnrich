@@ -164,7 +164,7 @@ def main():
     p.add_argument("--task", choices=["reg", "bin", "mul"], default="reg")
     p.add_argument("--fold", type=int, default=0)
     p.add_argument("--train-examples", type=int, default=10_000)
-    p.add_argument("--out", default="results/eval_report.csv")
+    p.add_argument("--out", default=config.EVAL_REPORT_CSV)
     p.add_argument("--no-image", action="store_true",
                    help="old text-tabular dataset only (skip image conditions)")
     p.add_argument("--e5-epochs", type=int, default=None, help="override E5 LoRA epochs (TAR)")

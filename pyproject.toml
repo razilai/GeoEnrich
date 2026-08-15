@@ -28,5 +28,5 @@ build-backend = "hatchling.build"
 # init.sh installs this `-e` into MulTaBench/.venv so `-m airbnb_surroundings.*`
 # resolves there; `uv sync` installs it into the thin ./.venv for `uv run main`.
 [tool.hatch.build.targets.wheel]
-packages = ["src/airbnb_surroundings"]
+packages = ["airbnb_surroundings"]
 force-include = { "run.py" = "run.py" }
