@@ -6,6 +6,7 @@ pyspark
 # Stage 1: Overture Places POI enrichment (airbnb_surroundings/build.py)
 geopandas
 duckdb
+rapidfuzz
 # Stage 2: LLM surroundings summary (airbnb/describe.py)
 pydantic-ai
 python-dotenv

@@ -35,6 +35,8 @@ EVAL_REPORT_CSV = os.path.join(RESULTS_DIR, "eval_report.csv")  # eval.py output
 RADIUS = 400  # meters — outer capture radius (5-min walk; hedonic buffers 300-800m)
 DOORSTEP = 150  # meters — inner horizon; counts split at <=150m (block) vs <=400m (walk)
 MIN_CONF = 0.6  # Overture confidence gate — replaces hand-maintained junk filters
+LANDMARK_MIN_CONF = 0.9  # a fuzzy-matched landmark is kept only above this confidence
+FUZZ_MIN = 90  # rapidfuzz WRatio cutoff for matching a name to the landmark list
 NYC_UTM = 32618  # metric CRS for NYC so buffer() is in real meters
 
 # Overture Places release; bump when a newer one ships:

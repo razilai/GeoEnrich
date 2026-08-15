@@ -22,10 +22,14 @@ import sys
 import duckdb
 import geopandas as gpd
 import pandas as pd
+from rapidfuzz import fuzz as rf_fuzz
+from rapidfuzz import process as rf_process
 
 from airbnb_surroundings import config
 from airbnb_surroundings.config import (
     DOORSTEP,
+    FUZZ_MIN,
+    LANDMARK_MIN_CONF,
     MIN_CONF,
     NYC_UTM,
     RADIUS,
@@ -77,19 +81,20 @@ def _norm_name(s):
     return s[4:] if s.startswith("the ") else s
 
 
-def _load_landmark_names():
-    """Curated famous-landmark names (see landmarks.json) → normalized set.
+def _load_landmarks():
+    """Curated landmark names (landmarks.json) → (canonical list, normalized list).
 
     Overture buries icons like the Empire State Building in the generic
-    landmark_and_historical_building leaf (confidence 1.0 apartment towers sit in
-    the same leaf), so category+confidence can't surface them. This hand list
-    force-keeps their names; intended to be LLM-maintained later.
+    landmark_and_historical_building leaf (confidence-1.0 apartment towers sit in
+    the same leaf), so category+confidence alone can't surface them. Names are
+    fuzzy-matched against this hand list; intended to be LLM-maintained later.
     """
     with open(_LANDMARKS_JSON, encoding="utf-8") as f:
-        return {_norm_name(n) for n in json.load(f)["landmarks"]}
+        names = json.load(f)["landmarks"]
+    return names, [_norm_name(n) for n in names]
 
 
-LANDMARK_NAMES = _load_landmark_names()
+LANDMARKS, _LANDMARK_NORMS = _load_landmarks()
 
 
 def _leaf_paths():
@@ -115,11 +120,20 @@ def allowed_categories():
     return keep
 
 
-def is_landmark(nm):
-    """True only if the POI's name is in the curated landmark allow-list
-    (landmarks.json). The allow-list is the sole definition of a named landmark —
-    no category/confidence heuristic. Exact match on the normalized name."""
-    return _norm_name(nm) in LANDMARK_NAMES
+def is_landmark(nm, cat, conf):
+    """If this POI is a curated landmark, return its CANONICAL name, else None.
+
+    Fuzzy name match (rapidfuzz WRatio >= FUZZ_MIN) against landmarks.json, gated
+    by high confidence (>= LANDMARK_MIN_CONF) and the attractions_and_activities
+    group, so a low-confidence or same-named non-attraction (e.g. "Empire State
+    Building Gym") is not matched. Returns the clean list name, not the OSM
+    variant, so output is consistent and dedupes across spellings."""
+    if conf < LANDMARK_MIN_CONF or _LEAF_GROUP.get(cat) != "attractions_and_activities":
+        return None
+    m = rf_process.extractOne(
+        _norm_name(nm), _LANDMARK_NORMS, scorer=rf_fuzz.WRatio, score_cutoff=FUZZ_MIN
+    )
+    return LANDMARKS[m[2]] if m else None
 
 
 # --- signal buckets -------------------------------------------------------
@@ -272,7 +286,9 @@ def main():
     for lid, grp in joined.groupby(level=0):
         cats = {}  # bucket -> [c150, c400, nearest_m]
         lm = {}  # name -> nearest dist_m
-        for cat, d, nm in zip(grp["category"], grp["dist"], grp["nm"]):
+        for cat, d, nm, conf in zip(
+            grp["category"], grp["dist"], grp["nm"], grp["confidence"]
+        ):
             b = bucket(cat)
             dm = round(float(d))
             e = cats.get(b)
@@ -283,8 +299,9 @@ def main():
                 e[0] += 1
             if dm < e[2]:
                 e[2] = dm
-            if nm and is_landmark(nm) and (nm not in lm or dm < lm[nm]):
-                lm[nm] = dm
+            canon = is_landmark(nm, cat, conf) if nm else None
+            if canon and (canon not in lm or dm < lm[canon]):
+                lm[canon] = dm
         landmarks = sorted(([n, dd] for n, dd in lm.items()), key=lambda x: x[1])
         labels[lid] = {"cats": cats, "landmarks": landmarks}
 
