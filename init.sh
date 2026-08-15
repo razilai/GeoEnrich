@@ -140,11 +140,9 @@ Run the whole pipeline (build -> describe -> eval) with one command:
   # existing outputs are skipped; on a GPU box with only synced CSVs it runs the eval.
   # forward flags to the eval after --, e.g.  uv run main -- --no-tar  (no GPU).
 
-Or drive a single stage directly (PY=MulTaBench/.venv/bin/python):
-  $PY -m airbnb_surroundings.clean       # data/airbnb_nyc.csv -> data/airbnb.csv (PySpark clean; run once)
-  $PY -m airbnb_surroundings.build       # data/airbnb.csv -> artifacts/airbnb_enriched.csv (Overture POIs within 400m)
-  $PY -m airbnb_surroundings.describe 10  # -> artifacts/airbnb_described.csv (LLM summary; needs .env key)
-  $PY -m airbnb_surroundings.eval --no-image --target price \
-      --csv artifacts/airbnb_described.csv --image-folder /dev/null
-  # TAR (LoRA) needs a GPU + HF_TOKEN; add --no-tar for joint-signal only.
+Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
+  uv run clean          # data/airbnb_nyc.csv -> data/airbnb.csv (PySpark; run once)
+  uv run build          # -> artifacts/airbnb_enriched.csv (Overture POIs within 400m)
+  uv run describe 10    # -> artifacts/airbnb_described.csv (LLM summary; needs .env key; 10 = cheap test)
+  uv run eval           # MulTaBench eligibility; add --no-tar for joint-signal only (no GPU)
 EOF

@@ -16,9 +16,14 @@ dependencies = [
     "python-dotenv>=1.2.2",
 ]
 
-# `uv run main` -> run.py:main (the whole-pipeline launcher).
+# uv script entry points. `main` = whole pipeline; the rest drive one stage each.
+# All dispatch into MulTaBench/.venv (see run.py), so they work from `uv run`.
 [project.scripts]
 main = "run:main"
+clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (PySpark)
+build = "run:build"        # stage 1: -> artifacts/airbnb_enriched.csv (Overture POIs)
+describe = "run:describe"  # stage 2: -> artifacts/airbnb_described.csv (LLM)
+eval = "run:evaluate"      # stage 3: MulTaBench eligibility (needs GPU)
 
 [build-system]
 requires = ["hatchling"]

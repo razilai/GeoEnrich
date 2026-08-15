@@ -1,26 +1,27 @@
-"""Single entry point: `uv run main` runs the whole pipeline correctly.
+"""uv entry points for the pipeline. `uv run main` runs the whole chain; the
+per-stage scripts run one stage each.
 
-The heavy deps (tabstar, torch, autogluon, geopandas, pyrosm, pydantic-ai) all
-live in MulTaBench/.venv — the one env built by init.sh. `uv run` activates the
-thin project .venv instead, which has no tabstar, so importing the eval there
-fails with "tabstar not installed". This launcher sidesteps that: every stage is
-run with MulTaBench/.venv's interpreter, regardless of which env `uv run` picked.
+The heavy deps (tabstar, torch, autogluon, geopandas, duckdb, pyspark,
+pydantic-ai) all live in MulTaBench/.venv — the one env built by init.sh. `uv
+run` activates the thin project .venv instead, which has no tabstar, so importing
+the eval there fails with "tabstar not installed". These launchers sidestep that:
+every stage runs with MulTaBench/.venv's interpreter, regardless of which env
+`uv run` picked.
 
-Stages (each skipped when its output already exists, so it is safe to re-run).
-Each runs as a module in the airbnb_surroundings package (installed -e into
-MulTaBench/.venv by init.sh):
-    0. clean     -m airbnb_surroundings.clean     -> data/airbnb.csv (manual/upstream,
-                 PySpark; run once from the raw scrape — not in this auto-chain)
-    1. build     -m airbnb_surroundings.build     -> artifacts/airbnb_enriched.csv
-    2. describe  -m airbnb_surroundings.describe   -> artifacts/airbnb_described.csv (LLM key)
-    3. eval      -m airbnb_surroundings.eval       -> results/eval_report.csv
+Per-stage (each forwards its args; run any in isolation):
+    uv run clean [RAW.csv]   0. raw scrape  -> data/airbnb.csv          (PySpark)
+    uv run build             1. airbnb.csv  -> artifacts/airbnb_enriched.csv (Overture POIs)
+    uv run describe [N]      2. enriched    -> artifacts/airbnb_described.csv (LLM key; N = top-N test)
+    uv run eval [--no-tar]   3. described   -> results/eval_report.csv    (needs GPU)
 
-On a fresh GPU box the usual flow is: build + describe locally, `scripts/sync.sh`
-the CSVs over, then run only the eval here — so the build stage is skipped when
-a described CSV is already present.
+Whole chain:
+    uv run main              runs build -> describe -> eval, skipping any stage
+                             whose output already exists (safe to re-run). clean
+                             is upstream/manual, NOT part of this auto-chain.
+    uv run main -- --no-tar  extra args after `--` augment the eval defaults.
 
-Extra args after `--` are forwarded verbatim to the eval, overriding the
-defaults, e.g.  `uv run main -- --no-tar`  (joint-signal only, no GPU).
+On a fresh GPU box the usual flow is: clean + build + describe locally,
+`scripts/sync.sh` the CSVs over, then `uv run eval` here.
 """
 
 from __future__ import annotations
@@ -80,6 +81,40 @@ def ensure_env() -> None:
     sh(["bash", INIT_SH])
     if not os.path.exists(VENV_PY):
         sys.exit(f"init.sh finished but {VENV_PY} still absent — check its output")
+
+
+def _stage(module: str, argv: list[str], *, gpu: bool = False) -> None:
+    """Run one pipeline stage in MulTaBench/.venv, forwarding CLI args."""
+    if gpu:
+        pin_gpu()
+    ensure_env()
+    sh([VENV_PY, "-m", f"airbnb_surroundings.{module}", *argv])
+
+
+# Per-stage entry points (registered as uv scripts in pyproject.toml). Each runs
+# the stage in MulTaBench/.venv and forwards args, so `uv run build`, `uv run
+# describe 10`, etc. Just Work regardless of which env `uv run` activated.
+def clean() -> None:
+    """`uv run clean [RAW.csv]` — stage 0: raw scrape -> data/airbnb.csv (PySpark)."""
+    _stage("clean", sys.argv[1:])
+
+
+def build() -> None:
+    """`uv run build` — stage 1: data/airbnb.csv -> artifacts/airbnb_enriched.csv."""
+    _stage("build", sys.argv[1:])
+
+
+def describe() -> None:
+    """`uv run describe [N]` — stage 2: -> artifacts/airbnb_described.csv (LLM key)."""
+    _stage("describe", sys.argv[1:])
+
+
+def evaluate() -> None:
+    """`uv run eval [extra]` — stage 3: MulTaBench eligibility (needs GPU + tabstar).
+
+    Extra args augment the defaults, e.g. `uv run eval --no-tar` (joint-signal only).
+    """
+    _stage("eval", [*DEFAULT_EVAL_ARGS, *sys.argv[1:]], gpu=True)
 
 
 def main() -> None:
