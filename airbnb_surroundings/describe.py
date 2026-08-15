@@ -160,25 +160,33 @@ def load_reference(df):
 
 
 def _relative(bucket, v):
-    """How this bucket's count compares with the corpus — or None if unremarkable."""
+    """How this bucket's count compares with the corpus — or None if ~typical.
+    Finer bands (top third / bottom third, six levels) so more blocks carry a
+    distinguishing signal instead of collapsing to a shared coarse pattern."""
     arr = _REF.get(bucket)
     if arr is None or len(arr) == 0:
         return None
     if v <= 0:  # absence is signal only where the bucket is usually present
         return "none nearby" if _PRESENT.get(bucket, 0) >= 0.6 else None
     pct = np.searchsorted(arr, v, side="left") / len(arr)
-    if pct >= 0.90:
+    if pct >= 0.95:
         return "far more than most blocks"
-    if pct >= 0.70:
-        return "more than most blocks"
-    if pct <= 0.15:
-        return "fewer than most blocks"
-    return None  # ~typical → omit
+    if pct >= 0.80:
+        return "well above average"
+    if pct >= 0.65:
+        return "above average"
+    if pct <= 0.05:
+        return "almost none"
+    if pct <= 0.20:
+        return "well below average"
+    if pct <= 0.35:
+        return "below average"
+    return None  # middle third ~typical → omit
 
 
 _REL_ORDER = {
-    "far more than most blocks": 0, "more than most blocks": 1,
-    "none nearby": 2, "fewer than most blocks": 3,
+    "far more than most blocks": 0, "well above average": 1, "above average": 2,
+    "none nearby": 3, "almost none": 4, "well below average": 5, "below average": 6,
 }
 
 
@@ -223,7 +231,9 @@ def _comp_lines(surr):
     lines = []
     for b, v in sorted(cats.items(), key=lambda kv: -kv[1][1]):
         s = v[1] / total if total else 0
-        w = "mostly" if s >= 0.35 else "a lot of" if s >= 0.15 else "some" if s >= 0.05 else None
+        # finer share bands -> more distinct mixes carry signal
+        w = ("mostly" if s >= 0.30 else "lots of" if s >= 0.18 else "plenty of"
+             if s >= 0.10 else "some" if s >= 0.05 else "a little" if s >= 0.02 else None)
         if w:
             lines.append(f"- {w} {_label(b)}")
     return lines
