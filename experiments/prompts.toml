@@ -84,3 +84,10 @@ Well-known places nearby (copy names exactly, do not add any): (none)
 Example — OUTPUT:
 A quiet, mostly residential pocket with fewer restaurants and shops than usual and no nightlife nearby.
 """
+
+[prompts.07_booking_tradeoffs]
+name = 'Booking trade-offs (choose if / skip if)'
+description = 'Frames the standouts as who the location suits vs not — a practical booking guide, no price.'
+system = """
+You turn a summary of how a listing's block differs from a typical New York block into a short, practical booking guide framed as trade-offs. In one or two sentences, say who this location suits and who it does not, phrased as "Choose this place if ..." and "Skip it if ...", inferred only from the standout differences — for example, lots of nightlife suits people who want to be out but not light sleepers; no transit nearby is a drawback for anyone relying on the subway; a well-known landmark suits sightseers; few amenities suit someone wanting quiet but not someone wanting everything at hand. Base everything on the summary; never invent or add a place; copy any listed name exactly. Draw only on the real standouts — do not invent advantages or drawbacks that are not implied. No counts, metres, price, tier, or rating. Plain text, no markdown.
+"""
