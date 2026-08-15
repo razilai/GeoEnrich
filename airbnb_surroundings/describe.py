@@ -59,21 +59,41 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 # "Desirability: X/5" tail because gemini-3.1-flash-lite collapsed it to 3/4 on
 # every batch listing (no usable signal); the description itself carries the
 # neighbourhood character, and value can be modelled downstream from price.
-INSTRUCTIONS = (
-    "You write a short description of what makes a listing's location distinctive, "
-    "from a summary of how its surroundings compare with a typical New York block "
-    "(only the standout differences are given) plus any well-known places. In one "
-    "or two sentences, say what KIND of area this is (e.g. dense commercial, quiet "
-    "residential, nightlife-heavy, transit-poor, tourist-prominent) and what stands "
-    "out — where there are unusually many or few of something, or a notable "
-    "landmark. Do not list ordinary amenities every block has; a place with few of "
-    "something is quiet or limited, not lively.\n"
-    "Rules:\n"
-    "- Use only the summary; never invent or add a place; copy any listed name "
-    "exactly. If a type isn't mentioned, it's just typical — don't call it out.\n"
+# Which JSON facet drives the text — the axis for the joint-signal screen.
+# Same enrichment JSON, different information view (see the _view_* renders).
+SURR_VIEW = os.environ.get("SURR_VIEW", "deviation")
+
+_RULES = (
+    "\nRules:\n"
+    "- Use only the summary; never invent or add a place; copy any listed name exactly.\n"
     "- Do NOT rate, score, tier, or price the location, and give no counts or metres.\n"
+    "- Keep it calibrated: little of something is quiet or limited, not lively.\n"
     "- Plain text, no lists, headings, or markdown."
 )
+_VIEW_INSTRUCTIONS = {
+    "deviation": "You describe what makes a listing's location distinctive from a "
+    "summary of how its block compares with a typical New York block (only the "
+    "standout differences are given) and any well-known places. In one or two "
+    "sentences, say what kind of area it is and what stands out." + _RULES,
+    "proximity": "You describe a listing's location from a summary of how close "
+    "each kind of place is. In one or two sentences, convey how convenient and "
+    "walkable it is — what is on the doorstep versus a walk away — and note transit "
+    "access and any well-known place." + _RULES,
+    "composition": "You describe a listing's location from a summary of the MIX of "
+    "nearby places (which types dominate). In one or two sentences, say what kind of "
+    "area this is from that mix — e.g. dining-and-nightlife, retail-heavy, quiet "
+    "residential, culture-rich — and any well-known place." + _RULES,
+    "landmarks": "You describe a listing's location from the well-known places near "
+    "it. In one or two sentences, say what those places suggest about the area "
+    "(prestige, tourist draw, cultural character). If there are none, say the area "
+    "has no notable landmarks nearby." + _RULES,
+    "combined": "You describe what makes a listing's location distinctive from a "
+    "summary covering how its block compares with a typical New York block, how "
+    "close each kind of place is, the overall mix, and any well-known places. In one "
+    "or two sentences, capture the area's character, convenience, and any landmark."
+    + _RULES,
+}
+INSTRUCTIONS = _VIEW_INSTRUCTIONS.get(SURR_VIEW, _VIEW_INSTRUCTIONS["deviation"])
 
 _NAME_RE = re.compile(r"[A-Z][\w&'’]+(?:\s+[A-Z][\w&'’]+)*")
 
@@ -162,28 +182,98 @@ _REL_ORDER = {
 }
 
 
-def prompt_for(row, note=""):
-    """Prompt built from DEVIATIONS: only the ways this block differs from a
-    typical NYC block, plus any well-known landmark. Raw counts stay in the JSON
-    for the tabular channel; the text adds the gestalt the counts can't."""
-    surr = json.loads(row["surroundings"])
+def _prox_word(m):
+    return "on the doorstep" if m <= 50 else "steps away" if m <= 150 else "a short walk"
+
+
+def _label(b):
+    return _DISPLAY.get(b, b.replace("_", " "))
+
+
+def _sec(header, lines, empty):
+    return header + "\n" + "\n".join(lines or [empty])
+
+
+def _landmark_line(surr):
+    names = ", ".join(n for n, _ in surr.get("landmarks", [])) or "(none)"
+    return f"Well-known places nearby (copy names exactly, do not add any): {names}"
+
+
+# --- facet renders (same JSON, different information view) --------------------
+def _dev_lines(surr):
     cats = surr.get("cats", {})
     items = []
     for b in _REF:  # iterate all buckets so notable ABSENCE is caught too
         rel = _relative(b, cats.get(b, [0, 0, 0])[1])
         if rel:
-            items.append((_REL_ORDER[rel], _DISPLAY.get(b, b.replace("_", " ")), rel))
+            items.append((_REL_ORDER[rel], _label(b), rel))
     items.sort()
-    lines = [f"- {label}: {rel}" for _, label, rel in items] or [
-        "- (unremarkable — typical for the city across the board)"
-    ]
-    names = ", ".join(n for n, _ in surr.get("landmarks", [])) or "(none)"
-    return (
-        "How this block compares with a typical New York block "
-        "(only the ways it stands out are listed):\n"
-        + "\n".join(lines)
-        + f"\nWell-known places nearby (copy names exactly, do not add any): {names}{note}"
-    )
+    return [f"- {label}: {rel}" for _, label, rel in items]
+
+
+def _prox_lines(surr):
+    cats = surr.get("cats", {})
+    return [f"- {_label(b)}: {_prox_word(v[2])}"
+            for b, v in sorted(cats.items(), key=lambda kv: kv[1][2])]
+
+
+def _comp_lines(surr):
+    cats = surr.get("cats", {})
+    total = sum(v[1] for v in cats.values())
+    lines = []
+    for b, v in sorted(cats.items(), key=lambda kv: -kv[1][1]):
+        s = v[1] / total if total else 0
+        w = "mostly" if s >= 0.35 else "a lot of" if s >= 0.15 else "some" if s >= 0.05 else None
+        if w:
+            lines.append(f"- {w} {_label(b)}")
+    return lines
+
+
+def _view_deviation(surr):
+    return (_sec("How this block compares with a typical New York block "
+                 "(only the ways it stands out are listed):", _dev_lines(surr),
+                 "- (unremarkable — typical across the board)")
+            + "\n" + _landmark_line(surr))
+
+
+def _view_proximity(surr):
+    return (_sec("How close each kind of place is:", _prox_lines(surr),
+                 "- (nothing nearby)")
+            + "\n" + _landmark_line(surr))
+
+
+def _view_composition(surr):
+    return (_sec("The mix of places nearby (share of everything around):",
+                 _comp_lines(surr), "- (little of anything)")
+            + "\n" + _landmark_line(surr))
+
+
+def _view_landmarks(surr):
+    return _landmark_line(surr)
+
+
+def _view_combined(surr):
+    return "\n\n".join([
+        _sec("How this block compares with a typical New York block:",
+             _dev_lines(surr), "- (typical across the board)"),
+        _sec("How close each kind of place is:", _prox_lines(surr), "- (nothing nearby)"),
+        _sec("The mix of places nearby:", _comp_lines(surr), "- (little of anything)"),
+    ]) + "\n\n" + _landmark_line(surr)
+
+
+_VIEWS = {
+    "deviation": _view_deviation, "proximity": _view_proximity,
+    "composition": _view_composition, "landmarks": _view_landmarks,
+    "combined": _view_combined,
+}
+
+
+def prompt_for(row, note=""):
+    """Render the enrichment JSON under the selected SURR_VIEW facet. Raw counts
+    stay in the JSON for the tabular channel; each view exposes a different slice
+    of signal the counts can't cheaply give the model."""
+    surr = json.loads(row["surroundings"])
+    return _VIEWS.get(SURR_VIEW, _view_deviation)(surr) + note
 
 
 def _cache_csv():
