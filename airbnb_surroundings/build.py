@@ -153,10 +153,16 @@ def main():
     df = df[[n > 0 for n in n_pois]]
     print(f"dropped {before - len(df)} empty listings, kept {len(df)}", flush=True)
 
+    # lat/long are spent now (used only for POI matching) and would leak
+    # location -> price into the model, so drop them from every output.
+    df = df.drop(columns=["latitude", "longitude"])
+
     # two variants: vanilla = tabular only (no bulky JSON, model-ready);
     # json = vanilla + the surroundings POI JSON (input for describe.py).
+    # vanilla is a clean modelling baseline -> also drop the internal `index`
+    # key. enriched keeps `index` because describe.py caches on it.
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
-    df.drop(columns=["surroundings"]).to_csv(config.VANILLA_CSV, index=False)
+    df.drop(columns=["surroundings", "index"]).to_csv(config.VANILLA_CSV, index=False)
     df.to_csv(config.ENRICHED_CSV, index=False)
     print(f"done -> {config.VANILLA_CSV}, {config.ENRICHED_CSV}", flush=True)
 

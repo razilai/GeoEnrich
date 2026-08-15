@@ -153,14 +153,23 @@ def prompt_for(row, note=""):
     )
 
 
+def _cache_csv():
+    """Sidecar checkpoint path (in the misc artifacts dir). Named per OUT_CSV so
+    prompt-screen runs that repoint OUT_CSV don't share a cache. It keeps the
+    `index` key that the published dataset intentionally drops."""
+    return os.path.join(config.ARTIFACTS_DIR, os.path.basename(OUT_CSV) + ".cache")
+
+
 def load_cache():
     """index -> summary from a prior run — so we never re-pay for an existing description.
 
     Keyed on `index` (the stable per-listing id); `id` was dropped as a leaky column.
+    Read from the sidecar cache, since the published CSV no longer carries `index`.
     """
-    if not os.path.exists(OUT_CSV):
+    path = _cache_csv()
+    if not os.path.exists(path):
         return {}
-    prev = pd.read_csv(OUT_CSV, low_memory=False)
+    prev = pd.read_csv(path, low_memory=False)
     if "index" not in prev or "surroundings_summary" not in prev:
         return {}
     prev = prev[prev["surroundings_summary"].notna()]
@@ -168,9 +177,18 @@ def load_cache():
 
 
 def save(df):
-    # final variant: LLM prose replaces the raw POI JSON — drop surroundings.
+    """Checkpoint to the sidecar cache — keeps `index` for incremental resume."""
+    os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
+    cols = [c for c in ("surroundings",) if c in df.columns]
+    df.drop(columns=cols).to_csv(_cache_csv(), index=False)
+
+
+def publish(df):
+    """Write the final dataset. LLM prose replaces the POI JSON; drop the internal
+    `index` key so the published CSV has no leaky id column and renders no index."""
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
-    df.drop(columns=["surroundings"]).to_csv(OUT_CSV, index=False)
+    drop = [c for c in ("surroundings", "index") if c in df.columns]
+    df.drop(columns=drop).to_csv(OUT_CSV, index=False)
 
 
 async def call_with_retry(agent, prompt):
@@ -409,7 +427,8 @@ def main():
                 flush=True,
             )
 
-    save(df)
+    save(df)  # final checkpoint (cache, with index)
+    publish(df)  # clean published dataset (no index / lat / long)
     n = max(USAGE["calls"], 1)
     done_n = int(df["surroundings_summary"].notna().sum())
     print(f"done -> {OUT_CSV}", flush=True)
