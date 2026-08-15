@@ -30,6 +30,7 @@ from airbnb_surroundings.config import (
     DOORSTEP,
     FUZZ_MIN,
     LANDMARK_MIN_CONF,
+    LANDMARK_TARGET,
     MIN_CONF,
     NYC_UTM,
     RADIUS,
@@ -285,7 +286,8 @@ def main():
     labels = {}
     for lid, grp in joined.groupby(level=0):
         cats = {}  # bucket -> [c150, c400, nearest_m]
-        lm = {}  # name -> nearest dist_m
+        lm = {}  # curated landmark canonical name -> nearest dist_m
+        fb = {}  # uncurated named attraction (raw name) -> nearest dist_m
         for cat, d, nm, conf in zip(
             grp["category"], grp["dist"], grp["nm"], grp["confidence"]
         ):
@@ -302,7 +304,16 @@ def main():
             canon = is_landmark(nm, cat, conf) if nm else None
             if canon and (canon not in lm or dm < lm[canon]):
                 lm[canon] = dm
+            # top-up pool: named attractions that aren't on the curated list
+            elif nm and _LEAF_GROUP.get(cat) == "attractions_and_activities":
+                if nm not in fb or dm < fb[nm]:
+                    fb[nm] = dm
         landmarks = sorted(([n, dd] for n, dd in lm.items()), key=lambda x: x[1])
+        # fill empty/thin landmark slots with nearest named attractions so the
+        # high-signal proper-noun channel is not wasted (curated names first)
+        if len(landmarks) < LANDMARK_TARGET:
+            extra = sorted(([n, dd] for n, dd in fb.items()), key=lambda x: x[1])
+            landmarks += extra[: LANDMARK_TARGET - len(landmarks)]
         labels[lid] = {"cats": cats, "landmarks": landmarks}
 
     recs = [labels.get(i, {"cats": {}, "landmarks": []}) for i in df.index]

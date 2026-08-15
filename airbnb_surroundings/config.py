@@ -37,6 +37,11 @@ DOORSTEP = 150  # meters — inner horizon; counts split at <=150m (block) vs <=
 MIN_CONF = 0.6  # Overture confidence gate — replaces hand-maintained junk filters
 LANDMARK_MIN_CONF = 0.9  # a fuzzy-matched landmark is kept only above this confidence
 FUZZ_MIN = 90  # rapidfuzz WRatio cutoff for matching a name to the landmark list
+# The curated landmark channel is the highest-variance token but sits empty for
+# ~76% of blocks. Fill empty/thin slots with the nearest named attraction POI —
+# its EXACT name (no fuzzy match, so no false "Times Square" collapse), a real
+# proper noun even if not globally famous — up to this many names total.
+LANDMARK_TARGET = 2
 NYC_UTM = 32618  # metric CRS for NYC so buffer() is in real meters
 
 # Overture Places release; bump when a newer one ships:

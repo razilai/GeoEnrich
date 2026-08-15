@@ -126,11 +126,12 @@ def build_agent():
         sys.exit("OPENROUTER_API_KEY not set — edit .env")
     model = OpenRouterModel(MODEL, provider=OpenRouterProvider(api_key=API_KEY))
     # low temperature: the description should be stable and grounded, not creative.
+    # LLM_TEMPERATURE overrides for sweeps.
     return Agent(
         model,
         output_type=str,
         instructions=INSTRUCTIONS,
-        model_settings={"temperature": 0.4},
+        model_settings={"temperature": float(os.environ.get("LLM_TEMPERATURE", "0.4"))},
     )
 
 
@@ -160,34 +161,37 @@ def load_reference(df):
 
 
 def _relative(bucket, v):
-    """How this bucket's count compares with the corpus — or None if ~typical.
-    Finer bands (top third / bottom third, six levels) so more blocks carry a
-    distinguishing signal instead of collapsing to a shared coarse pattern."""
+    """(band word, extremity) for how this bucket compares with the corpus, or
+    None if ~typical. Extremity is |percentile - 0.5| so callers can rank the
+    sharpest deviations first. Finer bands (six levels) keep the gradation in
+    prose; absence (where the bucket is usually present) scores max extremity."""
     arr = _REF.get(bucket)
     if arr is None or len(arr) == 0:
         return None
     if v <= 0:  # absence is signal only where the bucket is usually present
-        return "none nearby" if _PRESENT.get(bucket, 0) >= 0.6 else None
+        return ("none nearby", 0.5) if _PRESENT.get(bucket, 0) >= 0.6 else None
     pct = np.searchsorted(arr, v, side="left") / len(arr)
+    ext = abs(pct - 0.5)
     if pct >= 0.95:
-        return "far more than most blocks"
+        return "far more than most blocks", ext
     if pct >= 0.80:
-        return "well above average"
+        return "well above average", ext
     if pct >= 0.65:
-        return "above average"
+        return "above average", ext
     if pct <= 0.05:
-        return "almost none"
+        return "almost none", ext
     if pct <= 0.20:
-        return "well below average"
+        return "well below average", ext
     if pct <= 0.35:
-        return "below average"
+        return "below average", ext
     return None  # middle third ~typical → omit
 
 
-_REL_ORDER = {
-    "far more than most blocks": 0, "well above average": 1, "above average": 2,
-    "none nearby": 3, "almost none": 4, "well below average": 5, "below average": 6,
-}
+# Cram 9 standouts into "one or two sentences" and the model averages them to a
+# generic "dense area" — the band distinctions collapse. Surface only the few
+# sharpest so it writes the distinctive thing (keeps the most price-relevant
+# deviations, kills the cross-block prose collapse).
+_DEV_CAP = 3
 
 
 def _prox_word(m):
@@ -208,15 +212,16 @@ def _landmark_line(surr):
 
 
 # --- facet renders (same JSON, different information view) --------------------
-def _dev_lines(surr):
+def _dev_lines(surr, cap=_DEV_CAP):
     cats = surr.get("cats", {})
     items = []
     for b in _REF:  # iterate all buckets so notable ABSENCE is caught too
-        rel = _relative(b, cats.get(b, [0, 0, 0])[1])
-        if rel:
-            items.append((_REL_ORDER[rel], _label(b), rel))
-    items.sort()
-    return [f"- {label}: {rel}" for _, label, rel in items]
+        r = _relative(b, cats.get(b, [0, 0, 0])[1])
+        if r:
+            rel, ext = r
+            items.append((ext, _label(b), rel))
+    items.sort(key=lambda t: (-t[0], t[1]))  # sharpest deviation first
+    return [f"- {label}: {rel}" for _, label, rel in items[:cap]]
 
 
 def _prox_lines(surr):
@@ -375,7 +380,7 @@ async def _submit_batch(c, headers, rows, df):
                     {"role": "system", "content": INSTRUCTIONS},
                     {"role": "user", "content": prompt_for(row)},
                 ],
-                "temperature": 0.4,
+                "temperature": float(os.environ.get("LLM_TEMPERATURE", "0.4")),
                 "max_tokens": BATCH_MAX_TOKENS,  # caps the up-front credit reservation
                 "usage": {"include": True},  # ask OpenRouter to return usage.cost
             },
@@ -514,10 +519,16 @@ def main():
     def _total(s):
         return sum(v[1] for v in json.loads(s).get("cats", {}).values())
 
-    n_pois = df["surroundings"].map(_total)
-    df = df.iloc[n_pois.argsort()[::-1]]
-    if k is not None:
-        df = df.head(k)
+    # DESC_SAMPLE=random draws a random k (seed DESC_SEED) for a representative
+    # distinctiveness check; default keeps densest-first for cheap rich test runs.
+    if os.environ.get("DESC_SAMPLE") == "random":
+        n = k if k is not None else len(df)
+        df = df.sample(n=min(n, len(df)), random_state=int(os.environ.get("DESC_SEED", "0")))
+    else:
+        n_pois = df["surroundings"].map(_total)
+        df = df.iloc[n_pois.argsort()[::-1]]
+        if k is not None:
+            df = df.head(k)
 
     # reuse any summary already computed in a prior OUT_CSV; only NULLs hit the LLM.
     # object dtype: an all-NaN map() yields float64, which rejects string .at[] writes
