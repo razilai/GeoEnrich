@@ -63,7 +63,7 @@ def load_pois(con, bbox, utm):
         SELECT names.primary            AS name,
                categories.primary       AS category,
                confidence,
-               ST_AsText(ST_GeomFromWKB(geometry)) AS wkt
+               ST_AsText(geometry) AS wkt
         FROM read_parquet('{OVERTURE}')
         WHERE bbox.xmin >= {xmin} AND bbox.xmax <= {xmax}
           AND bbox.ymin >= {ymin} AND bbox.ymax <= {ymax}
