@@ -61,7 +61,10 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 # neighbourhood character, and value can be modelled downstream from price.
 # Which JSON facet drives the text — the axis for the joint-signal screen.
 # Same enrichment JSON, different information view (see the _view_* renders).
-SURR_VIEW = os.environ.get("SURR_VIEW", "deviation")
+# LOCKED to the 08 variant (deviation_exact): local-guide voice over exact citywide
+# percentiles. The prompt screen picked it, so the pipeline no longer branches on an
+# env var — the other views/instructions are kept only for reference in this module.
+SURR_VIEW = "deviation_exact"
 
 _RULES = (
     "\nRules:\n"
@@ -92,8 +95,24 @@ _VIEW_INSTRUCTIONS = {
     "close each kind of place is, the overall mix, and any well-known places. In one "
     "or two sentences, capture the area's character, convenience, and any landmark."
     + _RULES,
+    # local-guide voice over exact citywide percentiles (was experiments prompt 08).
+    # Self-contained: carries its own rules (do not quote raw numbers/percentiles),
+    # so it does NOT append _RULES. Pair with SURR_VIEW=deviation_exact input view.
+    "deviation_exact": "You are a knowledgeable local helping a renter picture a "
+    "listing's location. You are given exact figures for how its block ranks among "
+    'all New York blocks: each standout amenity as a citywide percentile — "top X% '
+    'of NYC blocks" means it has more of that than most blocks (the smaller the X, '
+    'the denser), "bottom X%" means it has unusually few. In one or two grounded '
+    "sentences, translate these ranks into natural, calibrated language — say what "
+    "kind of area it is and where it has unusually many or few things, letting the "
+    "rank set how strongly you phrase it (top 5% = far more than usual; top 30% = "
+    "somewhat more; bottom 10% = unusually few). Do not quote the raw numbers, "
+    "percentiles, counts, or metres in your answer. Be honest: a block low on "
+    "something is quiet or limited, not vibrant. Use only what is given; never invent "
+    "or add a place; copy any listed name exactly. No price, tier, or rating. Plain "
+    "text, no markdown.",
 }
-INSTRUCTIONS = _VIEW_INSTRUCTIONS.get(SURR_VIEW, _VIEW_INSTRUCTIONS["deviation"])
+INSTRUCTIONS = _VIEW_INSTRUCTIONS[SURR_VIEW]  # 08 variant, locked
 
 _NAME_RE = re.compile(r"[A-Z][\w&'’]+(?:\s+[A-Z][\w&'’]+)*")
 
@@ -136,11 +155,17 @@ def build_agent():
 
 
 _DISPLAY = {
-    "dining": "dining", "cafe": "cafes", "nightlife": "bars & nightlife",
-    "grocery": "grocery stores", "shopping": "shops", "pharmacy": "pharmacies",
-    "fitness_sport": "gyms & sports", "park_green": "parks & green space",
-    "culture": "museums & galleries", "landmark": "landmarks & sights",
-    "entertainment": "entertainment venues", "lodging": "hotels",
+    "dining": "dining",
+    "cafe": "cafes",
+    "nightlife": "bars & nightlife",
+    "grocery": "grocery stores",
+    "shopping": "shops",
+    "fitness_sport": "gyms & sports",
+    "park_green": "parks & green space",
+    "culture": "museums & galleries",
+    "landmark": "attractions",
+    "entertainment": "entertainment venues",
+    "lodging": "hotels",
     "transit": "subway & transit",
 }
 
@@ -195,7 +220,9 @@ _DEV_CAP = 3
 
 
 def _prox_word(m):
-    return "on the doorstep" if m <= 50 else "steps away" if m <= 150 else "a short walk"
+    return (
+        "on the doorstep" if m <= 50 else "steps away" if m <= 150 else "a short walk"
+    )
 
 
 def _label(b):
@@ -206,9 +233,34 @@ def _sec(header, lines, empty):
     return header + "\n" + "\n".join(lines or [empty])
 
 
+# Landmark distance bands (air metres, matching build.py dist_m). Convex spacing:
+# landmark price premium is steepest at the doorstep, so bands are tight near and
+# wide far — resolution where the signal lives, not evenly across the 800m reach.
+_LM_BANDS = [
+    (100, "right by"),
+    (250, "a couple minutes from"),
+    (500, "a short walk from"),
+    (float("inf"), "about 10 minutes from"),
+]
+
+
 def _landmark_line(surr):
-    names = ", ".join(n for n, _ in surr.get("landmarks", [])) or "(none)"
-    return f"Well-known places nearby (copy names exactly, do not add any): {names}"
+    groups = {}  # band phrase -> [names]; landmarks arrive nearest-first (build.py)
+    for n, m in surr.get("landmarks", []):
+        for cutoff, phrase in _LM_BANDS:
+            if m <= cutoff:
+                groups.setdefault(phrase, []).append(n)
+                break
+    lines = [
+        f"- {phrase}: {', '.join(groups[phrase])}"
+        for _, phrase in _LM_BANDS
+        if phrase in groups
+    ]
+    if not lines:
+        return "There are no well-known landmarks nearby."
+    return _sec(
+        "Well-known places nearby (copy names exactly, do not add any):", lines, ""
+    )
 
 
 # --- facet renders (same JSON, different information view) --------------------
@@ -224,10 +276,47 @@ def _dev_lines(surr, cap=_DEV_CAP):
     return [f"- {label}: {rel}" for _, label, rel in items[:cap]]
 
 
+def _dev_exact(bucket, v):
+    """(extremity, exact-relative phrase) vs the corpus, or None if ~typical.
+    Same signal as _relative but numeric — the citywide percentile, phrased as a
+    self-describing rank (top/bottom X% of NYC blocks) so the LLM reads it at face
+    value with no scale to misinterpret. Absence is surfaced only where the bucket
+    is usually present."""
+    arr = _REF.get(bucket)
+    if arr is None or len(arr) == 0:
+        return None
+    pct = np.searchsorted(arr, v, side="left") / len(arr)
+    ext = abs(pct - 0.5)
+    p = round(pct * 100)
+    if v <= 0:
+        if _PRESENT.get(bucket, 0) < 0.6:
+            return None  # absent-and-usually-absent → no signal
+        return ext, "none nearby (most NYC blocks have some)"
+    if ext < 0.15:
+        return None  # middle third ~typical → omit (mirrors the banded view)
+    if pct >= 0.5:
+        return ext, f"top {100 - p}% of NYC blocks"
+    return ext, f"bottom {p}% of NYC blocks"
+
+
+def _dev_lines_exact(surr, cap=_DEV_CAP):
+    cats = surr.get("cats", {})
+    items = []
+    for b in _REF:  # iterate all buckets so notable ABSENCE is caught too
+        r = _dev_exact(b, cats.get(b, [0, 0, 0])[1])
+        if r:
+            ext, txt = r
+            items.append((ext, _label(b), txt))
+    items.sort(key=lambda t: (-t[0], t[1]))  # sharpest deviation first
+    return [f"- {label}: {txt}" for _, label, txt in items[:cap]]
+
+
 def _prox_lines(surr):
     cats = surr.get("cats", {})
-    return [f"- {_label(b)}: {_prox_word(v[2])}"
-            for b, v in sorted(cats.items(), key=lambda kv: kv[1][2])]
+    return [
+        f"- {_label(b)}: {_prox_word(v[2])}"
+        for b, v in sorted(cats.items(), key=lambda kv: kv[1][2])
+    ]
 
 
 def _comp_lines(surr):
@@ -237,30 +326,70 @@ def _comp_lines(surr):
     for b, v in sorted(cats.items(), key=lambda kv: -kv[1][1]):
         s = v[1] / total if total else 0
         # finer share bands -> more distinct mixes carry signal
-        w = ("mostly" if s >= 0.30 else "lots of" if s >= 0.18 else "plenty of"
-             if s >= 0.10 else "some" if s >= 0.05 else "a little" if s >= 0.02 else None)
+        w = (
+            "mostly"
+            if s >= 0.30
+            else "lots of"
+            if s >= 0.18
+            else "plenty of"
+            if s >= 0.10
+            else "some"
+            if s >= 0.05
+            else "a little"
+            if s >= 0.02
+            else None
+        )
         if w:
             lines.append(f"- {w} {_label(b)}")
     return lines
 
 
 def _view_deviation(surr):
-    return (_sec("How this block compares with a typical New York block "
-                 "(only the ways it stands out are listed):", _dev_lines(surr),
-                 "- (unremarkable — typical across the board)")
-            + "\n" + _landmark_line(surr))
+    return (
+        _sec(
+            "How this block compares with a typical New York block "
+            "(only the ways it stands out are listed):",
+            _dev_lines(surr),
+            "- (unremarkable — typical across the board)",
+        )
+        + "\n"
+        + _landmark_line(surr)
+    )
+
+
+def _view_deviation_exact(surr):
+    return (
+        _sec(
+            "How this block ranks among all New York blocks "
+            "(citywide percentile; only standouts listed):",
+            _dev_lines_exact(surr),
+            "- (unremarkable — typical across the board)",
+        )
+        + "\n"
+        + _landmark_line(surr)
+    )
 
 
 def _view_proximity(surr):
-    return (_sec("How close each kind of place is:", _prox_lines(surr),
-                 "- (nothing nearby)")
-            + "\n" + _landmark_line(surr))
+    return (
+        _sec(
+            "How close each kind of place is:", _prox_lines(surr), "- (nothing nearby)"
+        )
+        + "\n"
+        + _landmark_line(surr)
+    )
 
 
 def _view_composition(surr):
-    return (_sec("The mix of places nearby (share of everything around):",
-                 _comp_lines(surr), "- (little of anything)")
-            + "\n" + _landmark_line(surr))
+    return (
+        _sec(
+            "The mix of places nearby (share of everything around):",
+            _comp_lines(surr),
+            "- (little of anything)",
+        )
+        + "\n"
+        + _landmark_line(surr)
+    )
 
 
 def _view_landmarks(surr):
@@ -268,17 +397,37 @@ def _view_landmarks(surr):
 
 
 def _view_combined(surr):
-    return "\n\n".join([
-        _sec("How this block compares with a typical New York block:",
-             _dev_lines(surr), "- (typical across the board)"),
-        _sec("How close each kind of place is:", _prox_lines(surr), "- (nothing nearby)"),
-        _sec("The mix of places nearby:", _comp_lines(surr), "- (little of anything)"),
-    ]) + "\n\n" + _landmark_line(surr)
+    return (
+        "\n\n".join(
+            [
+                _sec(
+                    "How this block compares with a typical New York block:",
+                    _dev_lines(surr),
+                    "- (typical across the board)",
+                ),
+                _sec(
+                    "How close each kind of place is:",
+                    _prox_lines(surr),
+                    "- (nothing nearby)",
+                ),
+                _sec(
+                    "The mix of places nearby:",
+                    _comp_lines(surr),
+                    "- (little of anything)",
+                ),
+            ]
+        )
+        + "\n\n"
+        + _landmark_line(surr)
+    )
 
 
 _VIEWS = {
-    "deviation": _view_deviation, "proximity": _view_proximity,
-    "composition": _view_composition, "landmarks": _view_landmarks,
+    "deviation": _view_deviation,
+    "deviation_exact": _view_deviation_exact,
+    "proximity": _view_proximity,
+    "composition": _view_composition,
+    "landmarks": _view_landmarks,
     "combined": _view_combined,
 }
 
@@ -288,7 +437,7 @@ def prompt_for(row, note=""):
     stay in the JSON for the tabular channel; each view exposes a different slice
     of signal the counts can't cheaply give the model."""
     surr = json.loads(row["surroundings"])
-    return _VIEWS.get(SURR_VIEW, _view_deviation)(surr) + note
+    return _VIEWS[SURR_VIEW](surr) + note  # 08 variant, locked
 
 
 def _cache_csv():
@@ -362,11 +511,11 @@ async def call_with_retry(agent, prompt):
 
 
 BATCH_URL = "https://openrouter.ai/api/beta/batches"
-BATCH_POLL = float(os.environ.get("BATCH_POLL", "15"))  # seconds between status polls
+BATCH_POLL = float(os.environ.get("BATCH_POLL", "20"))  # seconds between status polls
 # OpenRouter reserves credits up front = requests × max completion tokens. Cap the
 # per-request completion and cap the batch size so the reservation stays small enough
 # to clear against the account balance (an over-large reservation returns 402).
-BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "2000"))  # requests per submitted batch
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "3000"))  # requests per submitted batch
 BATCH_MAX_TOKENS = int(os.environ.get("BATCH_MAX_TOKENS", "400"))  # summary is short
 
 
@@ -457,7 +606,9 @@ async def run_batch(rows, df):
     async with httpx.AsyncClient(timeout=120) as c:
         for b in range(n_batches):
             sub = rows[b * BATCH_SIZE : (b + 1) * BATCH_SIZE]
-            print(f"--- sub-batch {b + 1}/{n_batches} ({len(sub)} rows) ---", flush=True)
+            print(
+                f"--- sub-batch {b + 1}/{n_batches} ({len(sub)} rows) ---", flush=True
+            )
             await _submit_batch(c, headers, sub, df)
             save(df)  # checkpoint — a crash resumes from here, not from scratch
     print(
@@ -514,6 +665,7 @@ def main():
 
     df = pd.read_csv(IN_CSV, low_memory=False)
     load_reference(df)  # corpus distribution for the relative (deviation) prompt
+
     # densest surroundings first (cheap test runs hit the richest listings).
     # total POIs = sum of within-400m counts across buckets; derived on the fly.
     def _total(s):
@@ -523,7 +675,9 @@ def main():
     # distinctiveness check; default keeps densest-first for cheap rich test runs.
     if os.environ.get("DESC_SAMPLE") == "random":
         n = k if k is not None else len(df)
-        df = df.sample(n=min(n, len(df)), random_state=int(os.environ.get("DESC_SEED", "0")))
+        df = df.sample(
+            n=min(n, len(df)), random_state=int(os.environ.get("DESC_SEED", "0"))
+        )
     else:
         n_pois = df["surroundings"].map(_total)
         df = df.iloc[n_pois.argsort()[::-1]]

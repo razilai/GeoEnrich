@@ -16,7 +16,7 @@ Output (one per prompt), same schema as the evaluated df2.csv:
 
 Usage:
     python prompt_datasets.py --sample 800
-    python prompt_datasets.py --sample 800 --prompts 01_flatten_control 05_price_implication
+    python prompt_datasets.py --sample 800 --prompts 03_neighborhood_character 05_local_guide
     python prompt_datasets.py --all                       # full set — costs money
 """
 from __future__ import annotations
@@ -44,13 +44,11 @@ DF2_COLS = [
     "num_rooms",
 ]
 
-# Default screen set: spans the enrichment-style spectrum — dry factual control
-# -> neighbourhood character (chosen) -> chain-of-thought -> local-guide role ->
-# booking trade-offs. All are system-prompt-only, so describe's user block (the
+# Default screen set: neighbourhood character (chosen) -> chain-of-thought ->
+# local-guide role. All are system-prompt-only, so describe's user block (the
 # deviation render) is untouched. Ids must exist in prompts.toml.
 DEFAULT_PROMPTS = [
-    "01_factual_control", "03_neighborhood_character", "04_cot_salient",
-    "05_local_guide", "07_booking_tradeoffs",
+    "03_neighborhood_character", "04_cot_salient", "05_local_guide",
 ]
 
 
@@ -148,7 +146,8 @@ def main():
         print(f"=== {pid} ===", flush=True)
         paths.append(enrich_variant(pid, system, sample_csv, args.outdir))
 
-    print("\n5 prompt-variant datasets — same listings, only surroundings_summary differs:")
+    print(f"\n{len(paths)} prompt-variant datasets — same listings, "
+          "only surroundings_summary differs:")
     for pth in paths:
         print(f"  {pth}", flush=True)
 

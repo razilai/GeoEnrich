@@ -1,0 +1,397 @@
+{
+  "prompt_id": "08_local_guide_exact",
+  "view": "deviation_exact",
+  "seed": 0,
+  "system": "You are a knowledgeable local helping a renter picture a listing's location. You are given exact figures for how its block ranks among all New York blocks: each standout amenity as a citywide percentile — \"top X% of NYC blocks\" means it has more of that than most blocks (the smaller the X, the denser), \"bottom X%\" means it has unusually few. In one or two grounded sentences, translate these ranks into natural, calibrated language — say what kind of area it is and where it has unusually many or few things, letting the rank set how strongly you phrase it (top 5% = far more than usual; top 30% = somewhat more; bottom 10% = unusually few). Do not quote the raw numbers, percentiles, counts, or metres in your answer. Be honest: a block low on something is quiet or limited, not vibrant. Use only what is given; never invent or add a place; copy any listed name exactly. No price, tier, or rating. Plain text, no markdown.",
+  "listings": [
+    {
+      "index": 233,
+      "price": 231,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- subway & transit: top 29% of NYC blocks\n- bars & nightlife: top 30% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- about 10 minutes from: American Museum of Natural History, Prospect Park"
+    },
+    {
+      "index": 572,
+      "price": 240,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- entertainment venues: none nearby (most NYC blocks have some)\n- hotels: none nearby (most NYC blocks have some)\n- parks & green space: none nearby (most NYC blocks have some)\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    },
+    {
+      "index": 1914,
+      "price": 342,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- cafes: none nearby (most NYC blocks have some)\n- entertainment venues: none nearby (most NYC blocks have some)\n- museums & galleries: none nearby (most NYC blocks have some)\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    },
+    {
+      "index": 2417,
+      "price": 448,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- subway & transit: top 21% of NYC blocks\n- hotels: top 26% of NYC blocks\n- cafes: bottom 31% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    },
+    {
+      "index": 2909,
+      "price": 106,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- attractions: none nearby (most NYC blocks have some)\n- bars & nightlife: none nearby (most NYC blocks have some)\n- hotels: none nearby (most NYC blocks have some)\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    },
+    {
+      "index": 2946,
+      "price": 300,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- museums & galleries: top 3% of NYC blocks\n- shops: top 23% of NYC blocks\n- attractions: top 25% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- a couple minutes from: The Metropolitan Museum of Art\n- a short walk from: Empire State Building, Central Park\n- about 10 minutes from: Solomon R. Guggenheim Museum"
+    },
+    {
+      "index": 4036,
+      "price": 188,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- attractions: bottom 12% of NYC blocks\n- subway & transit: bottom 29% of NYC blocks\n- hotels: bottom 31% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    },
+    {
+      "index": 5579,
+      "price": 396,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- gyms & sports: top 14% of NYC blocks\n- grocery stores: top 18% of NYC blocks\n- parks & green space: bottom 19% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    },
+    {
+      "index": 5673,
+      "price": 420,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- parks & green space: top 5% of NYC blocks\n- attractions: top 10% of NYC blocks\n- hotels: top 15% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- a short walk from: Chrysler Building\n- about 10 minutes from: Central Park, Grand Central Terminal, Summit One Vanderbilt, One Vanderbilt"
+    },
+    {
+      "index": 8131,
+      "price": 250,
+      "user_block": "How this block ranks among all New York blocks (citywide percentile; only standouts listed):\n- parks & green space: none nearby (most NYC blocks have some)\n- subway & transit: bottom 17% of NYC blocks\n- shops: bottom 18% of NYC blocks\nWell-known places nearby (copy names exactly, do not add any):\n- no landmarks within walking distance"
+    }
+  ],
+  "models": [
+    {
+      "slug": "google/gemini-3.7-flash",
+      "base": "google/gemini-3.7-flash",
+      "kind": "thinking",
+      "settings": {
+        "openrouter_reasoning": {
+          "effort": "medium"
+        }
+      },
+      "results": [
+        {
+          "index": 233,
+          "price": 231,
+          "summary": "This location features better-than-average transit access and a solid selection of nearby bars and nightlife, putting you about ten minutes from American Museum of Natural History and Prospect Park.",
+          "reasoning": "**Analyzing Transit and Nightlife**\n\nI've been processing recent data indicating slightly improved transit access and a moderate increase in bars and nightlife options. This suggests a subtly more vibrant and connected urban environment, a trend I'm continuing to monitor.\n\n**Observing Local Attractions**\n\nI'm noting solid public transit connections here, complemented by a somewhat livelier-than-average bar and nightlife scene. This configuration positions one roughly ten minutes away from significant locales like the American Museum of Natural History and Prospect Park.\n\n",
+          "usage": {
+            "input_tokens": 294,
+            "output_tokens": 505
+          }
+        },
+        {
+          "index": 572,
+          "price": 240,
+          "summary": "This is a quiet and limited area with noticeably fewer conveniences than most parts of the city, lacking any nearby parks, green space, entertainment venues, or hotels. You will also find no landmarks within walking distance.",
+          "reasoning": "**Mapping Local Offerings**\n\nMy recent focus has been on assessing the immediate vicinity for amenities. It appears there's a notable scarcity of entertainment venues and hotels within very close proximity, which deviates from typical Manhattan block characteristics.\n\n**Assessing Immediate Surroundings**\n\nI've been looking at what's right here. It's surprisingly quiet and limited, with a real lack of parks, entertainment, hotels, and landmarks close by. It’s an unusual block for the area.\n\n",
+          "usage": {
+            "input_tokens": 299,
+            "output_tokens": 571
+          }
+        },
+        {
+          "index": 1914,
+          "price": 342,
+          "summary": "This is an especially quiet location with virtually no cafes, entertainment venues, or museums and galleries nearby, making it noticeably more sparse on amenities than most of the city. You also will not find any well-known landmarks within walking distance.",
+          "reasoning": "**Identifying Local Absence**\n\nMy current thought process is focused on translating the observed lack of cafes and entertainment venues on a given block into a descriptive phrase that an expert would find precise and informative, highlighting its unusual scarcity.\n\n**Describing Block Vacancy**\n\nI'm refining the description of this block's emptiness. My aim is to accurately convey its quiet nature and lack of amenities like cafes or cultural spots using grounded, expert-level language, without resorting to specific data.\n\n",
+          "usage": {
+            "input_tokens": 298,
+            "output_tokens": 482
+          }
+        },
+        {
+          "index": 2417,
+          "price": 448,
+          "summary": "This area offers better transit connections and more nearby hotels than many parts of the city, though local cafe options are relatively sparse.",
+          "reasoning": "**Analyzing Location Metrics**\n\nMy analysis of the location data is progressing, with a focus on transit and hotel density. I've noted that the subway and transit access falls within the top 21% of NYC blocks, indicating good transit options. Hotel density is also above average, ranking in the top 26%.\n\n**Evaluating Local Amenities**\n\nI'm currently refining the language to describe local amenities. My focus is on accurately reflecting the findings: transit is indeed better than average, and hotels are noticeably present. I'm also ensuring the limited cafe options are conveyed without sounding overly negative, aiming for a natural local voice.\n\n",
+          "usage": {
+            "input_tokens": 294,
+            "output_tokens": 473
+          }
+        },
+        {
+          "index": 2909,
+          "price": 106,
+          "summary": "This is a particularly quiet part of the city that lacks the nightlife, bars, hotels, and attractions found around most New York blocks. There are also no well-known landmarks within walking distance.",
+          "reasoning": "**Exploring Local Opportunities**\n\nI'm currently assessing the immediate surroundings, noting a surprising lack of typical urban amenities like attractions, bars, or hotels within close proximity. This presents an interesting challenge to identify potential points of interest that might be overlooked in a more standard setting.\n\n**Observing Urban Dynamics**\n\nMy current focus is on observing the distinct urban pulse of this locale. I'm noting a pronounced quietude, a stark contrast to bustling city centers, with an almost complete absence of commercial venues, entertainment options, or prominent landmarks within easy reach.\n\n",
+          "usage": {
+            "input_tokens": 297,
+            "output_tokens": 439
+          }
+        },
+        {
+          "index": 2946,
+          "price": 300,
+          "summary": "This area is a standout cultural hub with far more museums and galleries than almost anywhere else in the city, along with a solid selection of shops and attractions. It puts you a couple minutes from The Metropolitan Museum of Art, a short walk from Empire State Building and Central Park, and about 10 minutes from Solomon R. Guggenheim Museum.",
+          "reasoning": "**Analyzing Percentiles**\n\nMy analysis of the provided percentiles reveals a strong lean towards museums and galleries, placing them in the top 3%. Shops are performing above average at the top 23%. Further evaluation of attraction data is needed to complete the picture.\n\n**Exploring Nearby Attractions**\n\nI’m continuing to refine the description of nearby amenities. My current focus is on accurately conveying the density of cultural institutions, noting the very high concentration of museums and galleries. I'm also working on integrating the specific landmarks into a natural-sounding narrative.\n\n",
+          "usage": {
+            "input_tokens": 325,
+            "output_tokens": 610
+          }
+        },
+        {
+          "index": 4036,
+          "price": 188,
+          "summary": "This is a quiet, non-touristy area with very few attractions and no landmarks within walking distance. Subway and transit options are also noticeably more limited than across much of the city, alongside a scarcity of hotels.",
+          "reasoning": "**Mapping Location Potential**\n\nI'm currently evaluating the provided data to ascertain the locational value. The information suggests a rather sparse concentration of attractions in the immediate vicinity, which is an unusual observation, and I'm also considering the subway access as a key factor.\n\n**Assessing Site Suitability**\n\nI'm focusing on the limited transit access, which falls in the bottom twenty-nine percent of NYC blocks. Additionally, the area exhibits a scarcity of hotels, ranking in the bottom thirty-one percent. There are no notable landmarks immediately accessible on foot.\n\n",
+          "usage": {
+            "input_tokens": 294,
+            "output_tokens": 514
+          }
+        },
+        {
+          "index": 5579,
+          "price": 396,
+          "summary": "This block offers great everyday convenience with a much higher concentration of gyms and grocery stores than most of the city. However, parks and green spaces are notably scarce in the immediate area.",
+          "reasoning": "**Analyzing Location Data**\n\nMy analysis reveals a strong presence in gyms and sports facilities, ranking in the top 14%, and a good selection of grocery stores at the 18% mark. However, parks and green spaces are currently in the bottom 19%.\n\n**Observing Current Landscape**\n\nI'm noting a significant abundance of fitness and grocery options, placing them in the top tiers. Conversely, access to parks and green spaces is notably limited, and there are no immediate landmarks to consider.\n\n",
+          "usage": {
+            "input_tokens": 298,
+            "output_tokens": 501
+          }
+        },
+        {
+          "index": 5673,
+          "price": 420,
+          "summary": "This location features far more parks and green space than most of the city, alongside a heavy concentration of attractions and plenty of hotels. It is situated a short walk from Chrysler Building and about 10 minutes from Central Park, Grand Central Terminal, Summit One Vanderbilt, and One Vanderbilt.",
+          "reasoning": "**Analyzing Spatial Densities**\n\nI'm currently deep into parsing the spatial data, specifically focusing on block-level concentrations. My analysis indicates an exceptionally high density of both parks and attractions, significantly exceeding typical urban distributions. I'm particularly interested in how these dense clusters interact and influence surrounding areas.\n\n**Exploring Urban Richness**\n\nMy current focus is on refining the description of these areas, noting a strong presence of parks and attractions. I've identified numerous notable landmarks nearby, including the Chrysler Building, Central Park, Grand Central Terminal, and Summit One Vanderbilt, all within easy reach. This concentration suggests a uniquely vibrant urban environment.\n\n**Synthesizing Location Details**\n\nI'm now working on consolidating my findings, refining sentences to better convey the unique richness of this area. My aim is to highlight the extraordinary density of green spaces and attractions, ensuring key landmarks are clearly mentioned within a natural flow.\n\n",
+          "usage": {
+            "input_tokens": 318,
+            "output_tokens": 716
+          }
+        },
+        {
+          "index": 8131,
+          "price": 250,
+          "summary": "This is a quiet area with no parks nearby and noticeably fewer transit options and shops than typical city blocks. You also will not find any well-known landmarks within walking distance.",
+          "reasoning": "**Assessing Neighborhood Access**\n\nI'm evaluating the surrounding area, noting a distinct lack of parks. Transit options are also quite limited, falling within the bottom percentile for accessibility across the city.\n\n**Exploring Local Amenities**\n\nMy assessment reveals a quiet, somewhat sparse environment. I'm noting a distinct lack of nearby parks and fewer shopping opportunities than typically expected. Transit access also appears quite restricted compared to other parts of the city.\n\n",
+          "usage": {
+            "input_tokens": 298,
+            "output_tokens": 515
+          }
+        }
+      ]
+    },
+    {
+      "slug": "google/gemini-2.5-flash-lite",
+      "base": "google/gemini-2.5-flash-lite",
+      "kind": "plain",
+      "settings": {
+        "temperature": 0.4,
+        "openrouter_reasoning": {
+          "enabled": false
+        }
+      },
+      "results": [
+        {
+          "index": 233,
+          "price": 231,
+          "summary": "This block offers good access to public transportation and a lively bar scene, placing it in the top third of NYC blocks for both. It's also conveniently located about ten minutes from major attractions like the American Museum of Natural History and Prospect Park.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 294,
+            "output_tokens": 49
+          }
+        },
+        {
+          "index": 572,
+          "price": 240,
+          "summary": "This block is unusually quiet, with very few entertainment venues or hotels nearby. There's also a distinct lack of parks and green space. No well-known places are within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 299,
+            "output_tokens": 38
+          }
+        },
+        {
+          "index": 1914,
+          "price": 342,
+          "summary": "This block is unusually quiet, with very few cafes, entertainment venues, or museums and galleries. There are also no well-known landmarks within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 298,
+            "output_tokens": 31
+          }
+        },
+        {
+          "index": 2417,
+          "price": 448,
+          "summary": "This block is well-served by subway and transit options, with a good number of hotels nearby. However, it has fewer cafes than most blocks in the city. There are no well-known landmarks within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 294,
+            "output_tokens": 44
+          }
+        },
+        {
+          "index": 2909,
+          "price": 106,
+          "summary": "This block has very little in the way of attractions, bars, or hotels, making it a quiet area with limited entertainment options. There are also no well-known landmarks within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 297,
+            "output_tokens": 38
+          }
+        },
+        {
+          "index": 2946,
+          "price": 300,
+          "summary": "This block is exceptionally rich in cultural institutions, boasting far more museums and galleries than most of the city. It also has a good number of shops and attractions, and is conveniently located near major landmarks like The Metropolitan Museum of Art, Empire State Building, Central Park, and Solomon R. Guggenheim Museum.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 325,
+            "output_tokens": 60
+          }
+        },
+        {
+          "index": 4036,
+          "price": 188,
+          "summary": "This block is unusually quiet, with few attractions and limited subway access. There are also few hotels nearby, and no well-known places within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 294,
+            "output_tokens": 31
+          }
+        },
+        {
+          "index": 5579,
+          "price": 396,
+          "summary": "This block is in an area with a good number of gyms and grocery stores, ranking in the top 14% and 18% of NYC blocks respectively. However, it has fewer parks and green spaces than most of the city, falling into the bottom 19%. There are no well-known places within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 298,
+            "output_tokens": 68
+          }
+        },
+        {
+          "index": 5673,
+          "price": 420,
+          "summary": "This block is exceptionally well-served by parks and green space, and also has a notable density of attractions and hotels. It's a short walk from the Chrysler Building and about 10 minutes from Central Park, Grand Central Terminal, Summit One Vanderbilt, and One Vanderbilt.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 318,
+            "output_tokens": 56
+          }
+        },
+        {
+          "index": 8131,
+          "price": 250,
+          "summary": "This block is unusually quiet and has very few shops, with little in the way of parks or green space. It also has limited access to public transportation.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 298,
+            "output_tokens": 31
+          }
+        }
+      ]
+    },
+    {
+      "slug": "openai/gpt-5.6-luna-pro",
+      "base": "openai/gpt-5.6-luna-pro",
+      "kind": "thinking",
+      "settings": {
+        "openrouter_reasoning": {
+          "effort": "medium"
+        }
+      },
+      "results": [
+        {
+          "index": 233,
+          "price": 231,
+          "summary": "This is a somewhat more transit-connected area than most, with a somewhat above-average selection of bars and nightlife. It’s about 10 minutes from American Museum of Natural History and Prospect Park.",
+          "reasoning": "**Clarifying transit and nightlife details**\n\nI need to provide 1-2 sentences about the area’s transit and nightlife without inventing information. I can say this block has better subway access and nightlife compared to most NYC blocks. Also, it's roughly 10 minutes away from the American Museum of Natural History and Prospect Park, which seems okay to include. I wonder if this captures the feel I'm aiming for; I hope it reflects the area well!",
+          "usage": {
+            "input_tokens": 3072,
+            "output_tokens": 775
+          }
+        },
+        {
+          "index": 572,
+          "price": 240,
+          "summary": "This is a notably quiet, low-amenity block, with unusually few nearby entertainment venues, hotels, or parks and green space. There are no landmarks within walking distance.",
+          "reasoning": "**Crafting concise descriptions**\n\nI need to create a couple of sentences about the area. It seems like there are very few entertainment options, hotels, parks, or notable landmarks nearby. I can say it’s a quiet place with limited amenities without resorting to phrases like \"no landmarks.\" So, I'll phrase it as: \"This is a notably quiet, low-amenity block, with unusually few nearby entertainment venues, hotels, or parks, and no landmarks within walking distance.\" That feels like a solid description!",
+          "usage": {
+            "input_tokens": 3025,
+            "output_tokens": 643
+          }
+        },
+        {
+          "index": 1914,
+          "price": 342,
+          "summary": "This is an unusually quiet, amenity-light block, with no nearby cafes, entertainment venues, or museums and galleries. There are also no well-known landmarks within walking distance.",
+          "reasoning": "**Describing a location's amenities**\n\nI need to create 1-2 sentences that convey the lack of cafes, entertainment options, and museums in the area. It’s important not to exaggerate, but I want to note that it’s an unusually quiet block with limited amenities and no landmarks for walking. I think I could phrase it like, \"This is an unusually quiet, amenity-light block,\" while emphasizing that there’s a notable absence of places to go.",
+          "usage": {
+            "input_tokens": 3020,
+            "output_tokens": 895
+          }
+        },
+        {
+          "index": 2417,
+          "price": 448,
+          "summary": "This is a somewhat transit-connected area with more hotels than usual, but relatively few cafes. There are no landmarks within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 3126,
+            "output_tokens": 704
+          }
+        },
+        {
+          "index": 2909,
+          "price": 106,
+          "summary": "This is a notably quiet, low-amenity block, with unusually few nearby attractions, bars and nightlife, or hotels. There are no well-known landmarks within walking distance.",
+          "reasoning": "**Crafting a natural description**\n\nI need to write 1-2 sentences that don't mention attractions, bars or nightlife, hotels, or landmarks. I should avoid using raw numbers. Perhaps something like, \"This is a notably quiet, low-key block, with unusually few nearby attractions, nightlife options, or hotels. There aren't any well-known landmarks within walking distance.\" The phrase \"most NYC blocks have some\" highlights that this block has only a few, which is interesting to note.",
+          "usage": {
+            "input_tokens": 3022,
+            "output_tokens": 774
+          }
+        },
+        {
+          "index": 2946,
+          "price": 300,
+          "summary": "This is a museum-rich, culturally distinctive area, with far more museums and galleries than most New York blocks. It also has somewhat more shops and attractions than usual, and is a couple minutes from The Metropolitan Museum of Art, a short walk from Empire State Building and Central Park, and about 10 minutes from Solomon R. Guggenheim Museum.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 2994,
+            "output_tokens": 416
+          }
+        },
+        {
+          "index": 4036,
+          "price": 188,
+          "summary": "This is a quiet, low-attraction area with unusually few nearby things to do and somewhat limited subway and transit access. Hotels are also less common than in most New York blocks, and there are no landmarks within walking distance.",
+          "reasoning": "**Clarifying travel details**\n\nI need to make sure I provide 1-2 clear sentences. It's important to mention that there are unusually few attractions and that transit and hotels are somewhat limited. I want to distinguish between the bottom 12 locations with very few attractions and the bottom 29, which are a bit better off. Saying something like, \"This is a quiet, low-attraction area with no well-known landmarks within walking distance\" is crucial, but I should avoid stating “no landmarks” too directly.",
+          "usage": {
+            "input_tokens": 2864,
+            "output_tokens": 385
+          }
+        },
+        {
+          "index": 5579,
+          "price": 396,
+          "summary": "This is a notably fitness-oriented, convenient area with more gyms and sports facilities and grocery stores than most NYC blocks. Parks and green space are unusually limited, and there are no landmarks within walking distance.",
+          "reasoning": null,
+          "usage": {
+            "input_tokens": 2902,
+            "output_tokens": 765
+          }
+        },
+        {
+          "index": 5673,
+          "price": 420,
+          "summary": "This is an unusually green, attraction-rich area, with far more parks and green space than most NYC blocks, many attractions, and a notably strong concentration of hotels. It’s a short walk from Chrysler Building and about 10 minutes from Central Park, Grand Central Terminal, Summit One Vanderbilt, and One Vanderbilt.",
+          "reasoning": "**Crafting park descriptions**\n\nI’m working on creating 1-2 natural sentences to describe the area. I want to highlight how it has more parks and green spaces compared to most NYC blocks, and mention the attractions and hotels nearby without using raw numbers. It would sound good to say something like: \"This is an unusually green, attraction-rich area, with far more parks and many hotels, just a short walk from the Chrysler Building and about 10 minutes from key landmarks like Central Park.\"",
+          "usage": {
+            "input_tokens": 3267,
+            "output_tokens": 1056
+          }
+        },
+        {
+          "index": 8131,
+          "price": 250,
+          "summary": "This is a relatively quiet, low-amenity block, with no nearby parks or green space and unusually limited subway access and shopping. There are no well-known landmarks within walking distance.",
+          "reasoning": "**Refining descriptions**\n\nI need to create 1-2 sentences that convey key information without raw numbers. I should mention the lack of parks, limited transit options, and absence of landmarks. Perhaps I can phrase it as “This is a notably quiet, low-amenity block, with no nearby parks or green spaces, and unusually limited subway/transit and shops.” I want to ensure “quiet” is valid based on limited shopping and transit; it might be better to say “relatively quiet.”",
+          "usage": {
+            "input_tokens": 3118,
+            "output_tokens": 739
+          }
+        }
+      ]
+    }
+  ]
+}

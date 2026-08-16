@@ -22,15 +22,12 @@ import sys
 import duckdb
 import geopandas as gpd
 import pandas as pd
-from rapidfuzz import fuzz as rf_fuzz
-from rapidfuzz import process as rf_process
+from shapely import wkt as shapely_wkt
 
 from airbnb_surroundings import config
 from airbnb_surroundings.config import (
     DOORSTEP,
-    FUZZ_MIN,
-    LANDMARK_MIN_CONF,
-    LANDMARK_TARGET,
+    LANDMARK_RADIUS,
     MIN_CONF,
     NYC_UTM,
     RADIUS,
@@ -76,26 +73,29 @@ _TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv
 _LANDMARKS_JSON = os.path.join(os.path.dirname(__file__), "landmarks.json")
 
 
-def _norm_name(s):
-    """Normalize a place name for landmark matching: lowercase, strip, drop 'the'."""
-    s = (s or "").lower().strip()
-    return s[4:] if s.startswith("the ") else s
-
-
 def _load_landmarks():
-    """Curated landmark names (landmarks.json) → (canonical list, normalized list).
+    """Curated landmarks (landmarks.json) → (names, geometries in NYC_UTM).
 
     Overture buries icons like the Empire State Building in the generic
     landmark_and_historical_building leaf (confidence-1.0 apartment towers sit in
-    the same leaf), so category+confidence alone can't surface them. Names are
-    fuzzy-matched against this hand list; intended to be LLM-maintained later.
+    the same leaf), and multiple unrelated POIs share a famous name, so matching
+    landmarks against POI *names* collapsed same-named places across the city onto
+    one canonical entry (every listing "near Central Park"). Instead each landmark
+    carries its own geocoded OSM geometry (WKT); a listing gets a landmark purely by
+    geometric distance to that geometry — no POI name matching. Geometries returned
+    in NYC_UTM, index-aligned with `names`, so distance() is in metres and a polygon
+    park uses its EDGE (a listing across the street measures ~0m). LLM-maintainable.
     """
     with open(_LANDMARKS_JSON, encoding="utf-8") as f:
-        names = json.load(f)["landmarks"]
-    return names, [_norm_name(n) for n in names]
+        entries = json.load(f)["landmarks"]  # {name: {lat, lon, type, wkt}}
+    names = list(entries)
+    geoms = gpd.GeoSeries(
+        [shapely_wkt.loads(entries[n]["wkt"]) for n in names], crs=4326
+    ).to_crs(NYC_UTM)
+    return names, geoms
 
 
-LANDMARKS, _LANDMARK_NORMS = _load_landmarks()
+LANDMARKS, _LANDMARK_GEOMS = _load_landmarks()
 
 
 def _leaf_paths():
@@ -119,22 +119,6 @@ def allowed_categories():
     keep = set(TRANSIT_LEAVES)
     keep |= {c for c, g in _LEAF_GROUP.items() if g in KEEP_GROUPS}
     return keep
-
-
-def is_landmark(nm, cat, conf):
-    """If this POI is a curated landmark, return its CANONICAL name, else None.
-
-    Fuzzy name match (rapidfuzz WRatio >= FUZZ_MIN) against landmarks.json, gated
-    by high confidence (>= LANDMARK_MIN_CONF) and the attractions_and_activities
-    group, so a low-confidence or same-named non-attraction (e.g. "Empire State
-    Building Gym") is not matched. Returns the clean list name, not the OSM
-    variant, so output is consistent and dedupes across spellings."""
-    if conf < LANDMARK_MIN_CONF or _LEAF_GROUP.get(cat) != "attractions_and_activities":
-        return None
-    m = rf_process.extractOne(
-        _norm_name(nm), _LANDMARK_NORMS, scorer=rf_fuzz.WRatio, score_cutoff=FUZZ_MIN
-    )
-    return LANDMARKS[m[2]] if m else None
 
 
 # --- signal buckets -------------------------------------------------------
@@ -173,7 +157,7 @@ def bucket(leaf):
     if g == "eat_and_drink":
         return {"bar": "nightlife", "cafe": "cafe"}.get(sub, "dining")
     if g == "retail":
-        return "pharmacy" if sub in ("pharmacy", "drugstore") else "shopping"
+        return "shopping"  # pharmacies/drugstores fold into shops (little price signal)
     if g == "active_life":
         return "fitness_sport"
     if g == "arts_and_entertainment":
@@ -255,8 +239,9 @@ def main():
         sys.exit("no POIs returned from Overture — check release id / S3 access")
     print(f"{len(pois)} POIs", flush=True)
 
-    # candidate POIs within RADIUS: buffer the point + intersect. Keep the
-    # unbuffered points too, to measure the real listing->POI distance.
+    # candidate POIs within RADIUS: buffer the point + intersect. Keep the unbuffered
+    # points too, to measure the real listing->POI distance. (Landmarks are handled
+    # separately from their own geometry below, so RADIUS is the only horizon here.)
     gpts = gpd.GeoDataFrame(
         geometry=gpd.points_from_xy(df.longitude, df.latitude),
         index=df.index,
@@ -276,47 +261,43 @@ def main():
         .to_numpy()
     )
 
-    joined["nm"] = joined["name"].fillna("")
-    joined = joined.sort_values("dist")  # nearest-first (nearest-per-bucket, landmark order)
+    joined = joined.sort_values("dist")  # nearest-first (nearest-per-bucket)
 
-    # Aggregate per listing into a compact signal record (no per-POI list, no
+    # Curated landmarks come straight from their own geocoded geometry (landmarks.json),
+    # NOT from POI names: distance from each listing point to each landmark geometry,
+    # keep those within LANDMARK_RADIUS. Vectorized per landmark (77 columns). Uses the
+    # geometry EDGE, so a listing across the street from a big park measures ~0m.
+    lm_by_listing = {i: [] for i in df.index}
+    for name, geom in zip(LANDMARKS, _LANDMARK_GEOMS):
+        d = gpts.geometry.distance(geom)  # metres, listing -> landmark (broadcast)
+        for lid, dm in d[d <= LANDMARK_RADIUS].round().astype(int).items():
+            lm_by_listing[lid].append([name, int(dm)])
+
+    # Aggregate POIs per listing into a compact density record (no per-POI list, no
     # caps — density is the signal, not truncated):
     #   cats:      bucket -> [count<=150m, count<=400m, nearest_m]
-    #   landmarks: [[name, dist_m], ...]  (major landmarks only, name-bearing)
+    #   landmarks: [[name, dist_m], ...]  nearest-first, from the geometry pass above
     labels = {}
     for lid, grp in joined.groupby(level=0):
         cats = {}  # bucket -> [c150, c400, nearest_m]
-        lm = {}  # curated landmark canonical name -> nearest dist_m
-        fb = {}  # uncurated named attraction (raw name) -> nearest dist_m
-        for cat, d, nm, conf in zip(
-            grp["category"], grp["dist"], grp["nm"], grp["confidence"]
-        ):
-            b = bucket(cat)
+        for cat, d in zip(grp["category"], grp["dist"]):
+            # density buckets stay within the tighter RADIUS
+            if d > RADIUS:
+                continue
             dm = round(float(d))
+            b = bucket(cat)
             e = cats.get(b)
             if e is None:
                 e = cats[b] = [0, 0, dm]
-            e[1] += 1  # within RADIUS (all joined rows are)
+            e[1] += 1  # within RADIUS
             if d <= DOORSTEP:
                 e[0] += 1
             if dm < e[2]:
                 e[2] = dm
-            canon = is_landmark(nm, cat, conf) if nm else None
-            if canon and (canon not in lm or dm < lm[canon]):
-                lm[canon] = dm
-            # top-up pool: named attractions that aren't on the curated list
-            elif nm and _LEAF_GROUP.get(cat) == "attractions_and_activities":
-                if nm not in fb or dm < fb[nm]:
-                    fb[nm] = dm
-        landmarks = sorted(([n, dd] for n, dd in lm.items()), key=lambda x: x[1])
-        # fill empty/thin landmark slots with nearest named attractions so the
-        # high-signal proper-noun channel is not wasted (curated names first)
-        if len(landmarks) < LANDMARK_TARGET:
-            extra = sorted(([n, dd] for n, dd in fb.items()), key=lambda x: x[1])
-            landmarks += extra[: LANDMARK_TARGET - len(landmarks)]
+        landmarks = sorted(lm_by_listing[lid], key=lambda x: x[1])
         labels[lid] = {"cats": cats, "landmarks": landmarks}
 
-    recs = [labels.get(i, {"cats": {}, "landmarks": []}) for i in df.index]
+    recs = [labels.get(i, {"cats": {}, "landmarks": lm_by_listing.get(i, [])}) for i in df.index]
     df["surroundings"] = [json.dumps(x, ensure_ascii=False) for x in recs]
 
     # drop listings with no POIs within RADIUS

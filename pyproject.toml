@@ -15,6 +15,7 @@ dependencies = [
     "pyspark>=3.5.0",
     "rapidfuzz>=3.0.0",
     "python-dotenv>=1.2.2",
+    "matplotlib>=3.11.1",
 ]
 
 # uv script entry points. `main` = whole pipeline; the rest drive one stage each.
