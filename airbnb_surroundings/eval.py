@@ -123,6 +123,63 @@ _abstract_model.fit_text_encoders = _cached_fit_text_encoders
 _abstract_model.fit_image_encoders = _cached_fit_image_encoders
 # ────────────────────────────────────────────────────────────────────────────
 
+# ── E5 finetune/encode speedups (option B: monkeypatched, baselines untouched) ──
+# Measured: the text column is ≤122 tokens, but E5 finetune + encode padded every
+# example to 512 (attention is O(L²)), and everything ran in fp32. We:
+#   • pad to 256 (conservative headroom over the 122-token max) for training
+#     (via _e5_kwargs(max_length=...)) and encoding (via the wrapper below);
+#   • run E5 *training* in bf16 (fp16 fallback on pre-Ampere) through the Trainer;
+#   • enable TF32 for remaining fp32 matmuls (helps the fp32 encode too);
+#   • raise the inference-encode batch (E5 hardcoded 32) to 256.
+# Encode stays fp32: autocast there yields bf16 tensors that break the encoder's
+# `.cpu().numpy()`; the pad-256 + batch-256 + TF32 wins already dominate the encode.
+import torch
+
+from multabench.e5 import e5_finetune as _e5_finetune
+from multabench.baselines.preprocessing import text_embeddings as _text_embeddings
+
+_MAX_LEN = 256       # data max ≈122 tok; 256 = conservative (was 512 → ~4x less attention)
+_ENCODE_BATCH = 256  # inference-encode batch (E5 default was 32)
+
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+
+def _amp_dtype():
+    """bf16 if the GPU supports it, else fp16; None on CPU (no mixed precision)."""
+    if not torch.cuda.is_available():
+        return None
+    return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+
+
+# Inject bf16/fp16 into the Trainer without editing e5_finetune (it does
+# `from transformers import TrainingArguments`, so patch that bound name).
+_orig_training_args = _e5_finetune.TrainingArguments
+
+
+def _mixed_precision_training_args(*args, **kwargs):
+    dt = _amp_dtype()
+    if dt is not None and "bf16" not in kwargs and "fp16" not in kwargs:
+        kwargs["bf16" if dt is torch.bfloat16 else "fp16"] = True
+    return _orig_training_args(*args, **kwargs)
+
+
+_e5_finetune.TrainingArguments = _mixed_precision_training_args
+
+# Faster encode: shorter padding + bigger batch. text_embeddings imports
+# encode_texts_with_e5 by name, so patch it in that namespace (covers frozen + tuned).
+_orig_encode = _text_embeddings.encode_texts_with_e5
+
+
+def _fast_encode_texts_with_e5(*args, **kwargs):
+    kwargs.setdefault("batch_size", _ENCODE_BATCH)
+    kwargs.setdefault("max_length", _MAX_LEN)
+    return _orig_encode(*args, **kwargs)
+
+
+_text_embeddings.encode_texts_with_e5 = _fast_encode_texts_with_e5
+# ────────────────────────────────────────────────────────────────────────────
+
 DATASET_ID = KaggleDatasetID.REG_IMAGE_HOUSE_PRICE_KING_COUNTY
 LEARNERS = {
     "tabm": TabM,
@@ -146,7 +203,7 @@ def _e5_kwargs(epochs: int | None = None) -> dict:
     a = E5TrainArgs()
     return dict(lora_rank=a.lora_rank, text_layers=a.text_layers, learning_rate=a.learning_rate,
                 epochs=epochs or a.epochs, patience=a.patience, weight_decay=a.weight_decay,
-                batch_size=a.batch_size)
+                batch_size=a.batch_size, max_length=_MAX_LEN)
 
 
 def build_structured(df: pd.DataFrame, target: str) -> pd.DataFrame:
