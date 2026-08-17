@@ -23,6 +23,7 @@ dependencies = [
 [project.scripts]
 main = "run:main"
 clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (PySpark)
+clean-pandas = "run:clean_pandas"  # stage 0, pandas twin (no JVM)
 build = "run:build"        # stage 1: -> artifacts/airbnb_enriched.csv (Overture POIs)
 describe = "run:describe"  # stage 2: -> artifacts/airbnb_described.csv (LLM)
 eval = "run:evaluate"      # stage 3: MulTaBench eligibility (needs GPU)

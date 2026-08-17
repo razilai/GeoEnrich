@@ -99,6 +99,11 @@ def clean() -> None:
     _stage("clean", sys.argv[1:])
 
 
+def clean_pandas() -> None:
+    """`uv run clean-pandas [RAW.csv]` — stage 0, pandas twin of clean (no JVM)."""
+    _stage("clean_pandas", sys.argv[1:])
+
+
 def build() -> None:
     """`uv run build` — stage 1: -> data/processed/airbnb_enriched.csv."""
     _stage("build", sys.argv[1:])
