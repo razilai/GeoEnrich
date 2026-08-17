@@ -216,7 +216,7 @@ def _relative(bucket, v):
 # generic "dense area" — the band distinctions collapse. Surface only the few
 # sharpest so it writes the distinctive thing (keeps the most price-relevant
 # deviations, kills the cross-block prose collapse).
-_DEV_CAP = 3
+_DEV_CAP = 5
 
 
 def _prox_word(m):
