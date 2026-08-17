@@ -46,138 +46,22 @@ from multabench.baselines.tabm import TabM
 from multabench.baselines.tabpfnv2 import TabPFNv2, TabPFNv2p5
 from multabench.finetune.train_args import DinoTrainArgs, E5TrainArgs
 
-# ── Encoder cache (optimizations A + B) ─────────────────────────────────────
-# The E5/DINO fit (frozen encode AND LoRA finetune) happens inside every
-# learner's fit_preprocessor, but its output is learner-independent: it depends
-# only on the text/image column values, the train-row set, the tune flag, and the
-# train kwargs — never on model_cls. eval.py runs 5 learners × several conditions,
-# so the same encoder was being fit up to 5× (A: the LoRA finetune, the dominant
-# cost) and even twice per learner for frozen text (unstructured_text +
-# joint_text_frozen share the same column — B).
+# ── E5 speedups + cross-learner encoder cache (now first-class in the MulTaBench fork) ──
+# The E5 finetune bf16/fp16 + TF32 speedups now live in the fork itself, so nothing here
+# has to touch it. The remaining knobs are dataset-specific, so we pass them to MulTaBench
+# as *supported config* rather than monkeypatching: this dataset's text column is ≤122
+# tokens, so we pad to 256 (vs the 512 default — attention is O(L²)) for both finetune
+# (via _e5_kwargs) and encode (via e5_encode_kwargs), and raise the encode batch (default
+# 32) to 256.
 #
-# We memoize the fitted encoders across the whole evaluate_dataset run. The key
-# includes a content hash of the exact columns + rows fed in, so the two split
-# groups (USE_VAL_SPLIT learners get x_train−val; TabPFN gets full x_train) fall
-# into distinct cache entries and never cross-contaminate. Learners inside a group
-# share rows deterministically (do_split is seeded), so they hit the cache.
-#
-# Patched into the abstract_model namespace (which imports these by name), so the
-# MulTaBench baselines stay untouched.
-import hashlib
+# The cross-learner encoder cache — the E5/DINO fit is learner-independent but ran up to
+# 5× per run — is now an opt-in MulTaBench feature. We turn it on for the whole run with
+# the encoder_cache() context manager in evaluate_dataset (it clears on entry/exit and
+# keeps the val-split learner groups isolated by hashing the exact rows fed in).
+from multabench.baselines.encoder_cache import encoder_cache
 
-from multabench.baselines import abstract_model as _abstract_model
-from multabench.baselines.preprocessing.feature_types import detect_image_features as _detect_image_features
-
-_ENCODER_CACHE: dict = {}
-
-
-def _hash_frame(obj) -> str:
-    """Stable content hash of a DataFrame/Series (values + index)."""
-    return hashlib.sha1(pd.util.hash_pandas_object(obj, index=True).values.tobytes()).hexdigest()
-
-
-def _kwargs_key(d) -> tuple:
-    return tuple(sorted((d or {}).items()))
-
-
-_orig_fit_text = _abstract_model.fit_text_encoders
-_orig_fit_image = _abstract_model.fit_image_encoders
-
-
-def _cached_fit_text_encoders(**kw):
-    cols = sorted(kw.get("text_features") or set())
-    if not cols:
-        return _orig_fit_text(**kw)
-    tune, y = kw.get("tune_e5", False), kw.get("y")
-    key = ("text", kw.get("e5_model_name"), tune, _kwargs_key(kw.get("e5_train_kwargs")),
-           kw.get("is_cls"), kw.get("d_output"), kw.get("pca_components"), kw.get("no_pca"),
-           tuple(cols), _hash_frame(kw["x"][cols]),
-           _hash_frame(y) if (tune and y is not None) else None)
-    if key in _ENCODER_CACHE:
-        print(f"  ♻️  reuse E5 encoder (tune={tune}) — cache hit")
-        return _ENCODER_CACHE[key]
-    enc = _orig_fit_text(**kw)
-    _ENCODER_CACHE[key] = enc
-    return enc
-
-
-def _cached_fit_image_encoders(**kw):
-    x = kw["x"]
-    img_cols = sorted(_detect_image_features(x=x))
-    if not img_cols or kw.get("image_folder") is None:
-        return _orig_fit_image(**kw)
-    tune, y = kw.get("tune_dino", False), kw.get("y")
-    key = ("image", kw.get("dino_model_name"), kw.get("image_folder"), tune,
-           _kwargs_key(kw.get("dino_train_kwargs")), kw.get("is_cls"), kw.get("d_output"),
-           kw.get("pca_components"), kw.get("no_pca"), tuple(img_cols),
-           _hash_frame(x[img_cols]), _hash_frame(y) if (tune and y is not None) else None)
-    if key in _ENCODER_CACHE:
-        print(f"  ♻️  reuse DINO encoder (tune={tune}) — cache hit")
-        return _ENCODER_CACHE[key]
-    out = _orig_fit_image(**kw)
-    _ENCODER_CACHE[key] = out
-    return out
-
-
-_abstract_model.fit_text_encoders = _cached_fit_text_encoders
-_abstract_model.fit_image_encoders = _cached_fit_image_encoders
-# ────────────────────────────────────────────────────────────────────────────
-
-# ── E5 finetune/encode speedups (option B: monkeypatched, baselines untouched) ──
-# Measured: the text column is ≤122 tokens, but E5 finetune + encode padded every
-# example to 512 (attention is O(L²)), and everything ran in fp32. We:
-#   • pad to 256 (conservative headroom over the 122-token max) for training
-#     (via _e5_kwargs(max_length=...)) and encoding (via the wrapper below);
-#   • run E5 *training* in bf16 (fp16 fallback on pre-Ampere) through the Trainer;
-#   • enable TF32 for remaining fp32 matmuls (helps the fp32 encode too);
-#   • raise the inference-encode batch (E5 hardcoded 32) to 256.
-# Encode stays fp32: autocast there yields bf16 tensors that break the encoder's
-# `.cpu().numpy()`; the pad-256 + batch-256 + TF32 wins already dominate the encode.
-import torch
-
-from multabench.e5 import e5_finetune as _e5_finetune
-from multabench.baselines.preprocessing import text_embeddings as _text_embeddings
-
-_MAX_LEN = 256       # data max ≈122 tok; 256 = conservative (was 512 → ~4x less attention)
-_ENCODE_BATCH = 256  # inference-encode batch (E5 default was 32)
-
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-
-
-def _amp_dtype():
-    """bf16 if the GPU supports it, else fp16; None on CPU (no mixed precision)."""
-    if not torch.cuda.is_available():
-        return None
-    return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-
-
-# Inject bf16/fp16 into the Trainer without editing e5_finetune (it does
-# `from transformers import TrainingArguments`, so patch that bound name).
-_orig_training_args = _e5_finetune.TrainingArguments
-
-
-def _mixed_precision_training_args(*args, **kwargs):
-    dt = _amp_dtype()
-    if dt is not None and "bf16" not in kwargs and "fp16" not in kwargs:
-        kwargs["bf16" if dt is torch.bfloat16 else "fp16"] = True
-    return _orig_training_args(*args, **kwargs)
-
-
-_e5_finetune.TrainingArguments = _mixed_precision_training_args
-
-# Faster encode: shorter padding + bigger batch. text_embeddings imports
-# encode_texts_with_e5 by name, so patch it in that namespace (covers frozen + tuned).
-_orig_encode = _text_embeddings.encode_texts_with_e5
-
-
-def _fast_encode_texts_with_e5(*args, **kwargs):
-    kwargs.setdefault("batch_size", _ENCODE_BATCH)
-    kwargs.setdefault("max_length", _MAX_LEN)
-    return _orig_encode(*args, **kwargs)
-
-
-_text_embeddings.encode_texts_with_e5 = _fast_encode_texts_with_e5
+_MAX_LEN = 256                                                    # data max ≈122 tok; 256 = conservative (vs 512 default)
+_E5_ENCODE_KWARGS = {"batch_size": 256, "max_length": _MAX_LEN}   # encode: bigger batch (default 32) + shorter padding
 # ────────────────────────────────────────────────────────────────────────────
 
 DATASET_ID = KaggleDatasetID.REG_IMAGE_HOUSE_PRICE_KING_COUNTY
@@ -229,6 +113,7 @@ def score(model_cls, x, y, task, image_folder, fold, train_examples, device,
         model_cls=model_cls, dataset=dataset, fold=fold, device=device,
         train_examples=train_examples,
         tune_e5=tune_e5, e5_train_kwargs=_e5_kwargs(e5_epochs) if tune_e5 else None,
+        e5_encode_kwargs=_E5_ENCODE_KWARGS,
         tune_dino=tune_dino, dino_train_kwargs=_dino_kwargs(dino_epochs) if tune_dino else None,
     )
     return float(ret["test_score"])
@@ -236,7 +121,6 @@ def score(model_cls, x, y, task, image_folder, fold, train_examples, device,
 
 def evaluate_dataset(csv, image_folder, target, task, fold, train_examples,
                      with_image: bool, e5_epochs=None, dino_epochs=None, with_tar=True):
-    _ENCODER_CACHE.clear()  # fresh encoder cache per run (A+B share fits across learners)
     device = get_device(device=DEVICE)
     df = pd.read_csv(csv)
     y = df[target]
@@ -245,24 +129,26 @@ def evaluate_dataset(csv, image_folder, target, task, fold, train_examples,
     x_img = df[[IMAGE_COL]] if with_image else None
 
     rows = []
-    for name, cls in LEARNERS.items():
-        def run(x, **kw):
-            return score(cls, x, y, task, image_folder, fold, train_examples, device,
-                         e5_epochs=e5_epochs, dino_epochs=dino_epochs, **kw)
+    # Share the learner-independent E5/DINO fits across all learners + conditions in this run.
+    with encoder_cache():
+        for name, cls in LEARNERS.items():
+            def run(x, **kw):
+                return score(cls, x, y, task, image_folder, fold, train_examples, device,
+                             e5_epochs=e5_epochs, dino_epochs=dino_epochs, **kw)
 
-        rec = {"learner": name}
-        rec["structured"] = run(x_struct)
-        rec["unstructured_text"] = run(x_text)
-        rec["joint_text_frozen"] = run(pd.concat([x_struct, x_text], axis=1))
-        rec["joint_text_tar"] = (run(pd.concat([x_struct, x_text], axis=1), tune_e5=True)
-                                 if with_tar else float("nan"))
-        if with_image:
-            rec["unstructured_image"] = run(x_img)
-            rec["joint_image_frozen"] = run(pd.concat([x_struct, x_img], axis=1))
-            rec["joint_image_tar"] = (run(pd.concat([x_struct, x_img], axis=1), tune_dino=True)
-                                      if with_tar else float("nan"))
-        rows.append(rec)
-        print(f"  {name}: {rec}")
+            rec = {"learner": name}
+            rec["structured"] = run(x_struct)
+            rec["unstructured_text"] = run(x_text)
+            rec["joint_text_frozen"] = run(pd.concat([x_struct, x_text], axis=1))
+            rec["joint_text_tar"] = (run(pd.concat([x_struct, x_text], axis=1), tune_e5=True)
+                                     if with_tar else float("nan"))
+            if with_image:
+                rec["unstructured_image"] = run(x_img)
+                rec["joint_image_frozen"] = run(pd.concat([x_struct, x_img], axis=1))
+                rec["joint_image_tar"] = (run(pd.concat([x_struct, x_img], axis=1), tune_dino=True)
+                                          if with_tar else float("nan"))
+            rows.append(rec)
+            print(f"  {name}: {rec}")
     return pd.DataFrame(rows)
 
 
