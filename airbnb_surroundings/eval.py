@@ -46,6 +46,83 @@ from multabench.baselines.tabm import TabM
 from multabench.baselines.tabpfnv2 import TabPFNv2, TabPFNv2p5
 from multabench.finetune.train_args import DinoTrainArgs, E5TrainArgs
 
+# ── Encoder cache (optimizations A + B) ─────────────────────────────────────
+# The E5/DINO fit (frozen encode AND LoRA finetune) happens inside every
+# learner's fit_preprocessor, but its output is learner-independent: it depends
+# only on the text/image column values, the train-row set, the tune flag, and the
+# train kwargs — never on model_cls. eval.py runs 5 learners × several conditions,
+# so the same encoder was being fit up to 5× (A: the LoRA finetune, the dominant
+# cost) and even twice per learner for frozen text (unstructured_text +
+# joint_text_frozen share the same column — B).
+#
+# We memoize the fitted encoders across the whole evaluate_dataset run. The key
+# includes a content hash of the exact columns + rows fed in, so the two split
+# groups (USE_VAL_SPLIT learners get x_train−val; TabPFN gets full x_train) fall
+# into distinct cache entries and never cross-contaminate. Learners inside a group
+# share rows deterministically (do_split is seeded), so they hit the cache.
+#
+# Patched into the abstract_model namespace (which imports these by name), so the
+# MulTaBench baselines stay untouched.
+import hashlib
+
+from multabench.baselines import abstract_model as _abstract_model
+from multabench.baselines.preprocessing.feature_types import detect_image_features as _detect_image_features
+
+_ENCODER_CACHE: dict = {}
+
+
+def _hash_frame(obj) -> str:
+    """Stable content hash of a DataFrame/Series (values + index)."""
+    return hashlib.sha1(pd.util.hash_pandas_object(obj, index=True).values.tobytes()).hexdigest()
+
+
+def _kwargs_key(d) -> tuple:
+    return tuple(sorted((d or {}).items()))
+
+
+_orig_fit_text = _abstract_model.fit_text_encoders
+_orig_fit_image = _abstract_model.fit_image_encoders
+
+
+def _cached_fit_text_encoders(**kw):
+    cols = sorted(kw.get("text_features") or set())
+    if not cols:
+        return _orig_fit_text(**kw)
+    tune, y = kw.get("tune_e5", False), kw.get("y")
+    key = ("text", kw.get("e5_model_name"), tune, _kwargs_key(kw.get("e5_train_kwargs")),
+           kw.get("is_cls"), kw.get("d_output"), kw.get("pca_components"), kw.get("no_pca"),
+           tuple(cols), _hash_frame(kw["x"][cols]),
+           _hash_frame(y) if (tune and y is not None) else None)
+    if key in _ENCODER_CACHE:
+        print(f"  ♻️  reuse E5 encoder (tune={tune}) — cache hit")
+        return _ENCODER_CACHE[key]
+    enc = _orig_fit_text(**kw)
+    _ENCODER_CACHE[key] = enc
+    return enc
+
+
+def _cached_fit_image_encoders(**kw):
+    x = kw["x"]
+    img_cols = sorted(_detect_image_features(x=x))
+    if not img_cols or kw.get("image_folder") is None:
+        return _orig_fit_image(**kw)
+    tune, y = kw.get("tune_dino", False), kw.get("y")
+    key = ("image", kw.get("dino_model_name"), kw.get("image_folder"), tune,
+           _kwargs_key(kw.get("dino_train_kwargs")), kw.get("is_cls"), kw.get("d_output"),
+           kw.get("pca_components"), kw.get("no_pca"), tuple(img_cols),
+           _hash_frame(x[img_cols]), _hash_frame(y) if (tune and y is not None) else None)
+    if key in _ENCODER_CACHE:
+        print(f"  ♻️  reuse DINO encoder (tune={tune}) — cache hit")
+        return _ENCODER_CACHE[key]
+    out = _orig_fit_image(**kw)
+    _ENCODER_CACHE[key] = out
+    return out
+
+
+_abstract_model.fit_text_encoders = _cached_fit_text_encoders
+_abstract_model.fit_image_encoders = _cached_fit_image_encoders
+# ────────────────────────────────────────────────────────────────────────────
+
 DATASET_ID = KaggleDatasetID.REG_IMAGE_HOUSE_PRICE_KING_COUNTY
 LEARNERS = {
     "tabm": TabM,
@@ -102,6 +179,7 @@ def score(model_cls, x, y, task, image_folder, fold, train_examples, device,
 
 def evaluate_dataset(csv, image_folder, target, task, fold, train_examples,
                      with_image: bool, e5_epochs=None, dino_epochs=None, with_tar=True):
+    _ENCODER_CACHE.clear()  # fresh encoder cache per run (A+B share fits across learners)
     device = get_device(device=DEVICE)
     df = pd.read_csv(csv)
     y = df[target]
