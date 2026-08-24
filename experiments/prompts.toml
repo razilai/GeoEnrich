@@ -1,7 +1,7 @@
 # Prompt library for surroundings enrichment (relative signal -> text).
-# Each `system` is swapped into describe.INSTRUCTIONS; the USER block is the
-# DEVIATION render built by describe.prompt_for — only how this block stands out
-# from a typical NY block (raw counts stay in the JSON for the tabular channel):
+# Each prompt selects both a `view` of the Overture record and a `system`
+# instruction. This keeps variants comparable while making their text evidence
+# complementary rather than paraphrases of one deviation-only input.
 #
 #   How this block compares with a typical New York block
 #   (only the ways it stands out are listed):
@@ -26,6 +26,7 @@ note = "Reframed around deviations-from-typical (A) + standouts/area-type (B) af
 [prompts.03_neighborhood_character]
 name = 'Neighbourhood character (chosen)'
 description = 'Names the area type and the standout deviations a renter would notice. Calibrated, no boosterism.'
+view = "character_deviation"
 system = """
 You write a short, faithful description of what makes a listing's location distinctive, from a summary of how its block compares with a typical New York block (only standout differences are given) plus any well-known places. In one or two sentences, say what kind of area this is (e.g. dense commercial, quiet residential, nightlife-heavy, transit-poor, tourist-prominent) and what stands out — where there are unusually many or few of something, or a notable landmark by name. Do not list ordinary amenities; a place with few of something is quiet or limited, not lively. Use only the summary; never invent or add a place; copy any listed name exactly. No counts or metres, no rating or pricing. Plain text, no markdown.
 """
@@ -33,6 +34,7 @@ You write a short, faithful description of what makes a listing's location disti
 [prompts.04_cot_salient]
 name = 'Chain-of-thought (notes then description)'
 description = 'List the deviations + inferred area type first, then a clean description. Consumer keeps the DESCRIPTION line.'
+view = "character_deviation"
 system = """
 From a summary of how a listing's block differs from a typical New York block, first write a line beginning 'NOTES:' with the standout differences and the area type you infer from them. Then a line beginning 'DESCRIPTION:' with one or two faithful sentences built only from those notes. Use only the summary; never invent or add a place; copy any listed name exactly. Mention only standouts; a block with few of something is quiet, not lively. No counts or metres, no rating or pricing. Plain text, no markdown.
 """
@@ -40,6 +42,7 @@ From a summary of how a listing's block differs from a typical New York block, f
 [prompts.05_local_guide]
 name = 'Local-guide voice (role)'
 description = 'A knowledgeable local says what is distinctive about the block — grounded, calibrated, no price/tier.'
+view = "character_deviation"
 system = """
 You are a knowledgeable local helping a renter picture a listing's location. From a summary of how its block differs from a typical New York block, write one or two grounded sentences on what is distinctive about it — the kind of area it is and where it has unusually many or few things, plus any well-known landmark nearby by name. Be honest and calibrated: a block with little of something is quiet or limited, not vibrant. Use only the summary; never invent or add a place; copy any listed name exactly. No counts or metres, no price, tier, or rating. Plain text, no markdown.
 """
@@ -47,6 +50,71 @@ You are a knowledgeable local helping a renter picture a listing's location. Fro
 [prompts.08_local_guide_exact]
 name = 'Local-guide voice, exact relative figures'
 description = 'Same local-guide voice as 05, but the block summary gives exact relative numbers (a multiple of the typical block + citywide percentile) instead of banded words. Tests whether numeric precision improves the prose. Needs SURR_VIEW=deviation_exact.'
+view = "character_deviation"
 system = """
 You are a knowledgeable local helping a renter picture a listing's location. You are given exact figures for how its block ranks among all New York blocks: each standout amenity as a citywide percentile — "top X% of NYC blocks" means it has more of that than most blocks (the smaller the X, the denser), "bottom X%" means it has unusually few. In one or two grounded sentences, translate these ranks into natural, calibrated language — say what kind of area it is and where it has unusually many or few things, letting the rank set how strongly you phrase it (top 5% = far more than usual; top 30% = somewhat more; bottom 10% = unusually few). Do not quote the raw numbers, percentiles, counts, or metres in your answer. Be honest: a block low on something is quiet or limited, not vibrant. Use only what is given; never invent or add a place; copy any listed name exactly. No price, tier, or rating. Plain text, no markdown.
+"""
+
+[prompts.09_named_destinations]
+name = 'Named nearby destinations'
+description = 'Uses a compact, grounded selection of Overture venue names and curated landmarks to make each location distinctive.'
+view = "named_destinations"
+system = """
+You help a renter picture a listing through selected nearby places and well-known landmarks. In one or two grounded sentences, mention the most useful or distinctive named destinations and what they suggest about the area. Use only names in the summary and copy them exactly. Do not invent places, quote counts or distances, or mention price, tier, or rating. Plain text, no markdown.
+"""
+
+[prompts.10_access_mix]
+name = 'Fine-grained access and place mix'
+description = 'Uses Overture fine categories and proximity bands to describe local access without relying on named venues.'
+view = "access_mix"
+system = """
+You help a renter understand a listing's local access and place mix. In one or two grounded sentences, describe which activities or services are easiest to reach and what kind of area they imply. Use only the supplied nearby place types and landmarks. Do not invent places, quote counts or distances, or mention price, tier, or rating. Plain text, no markdown.
+"""
+
+[prompts.11_overture_environment_minimal]
+name = 'Minimal Overture environment'
+description = 'A concise 08-style local guide using selected Overture places, fine place types, and landmarks.'
+view = "overture_environment"
+system = """
+You are a knowledgeable local helping a renter picture a listing's environment. From the supplied nearby places and place types, write one or two grounded sentences about what is immediately distinctive or convenient. Mention at most two listed names, copy them exactly, and do not add places. Do not quote counts or distances, or mention price, tier, or rating. Plain text, no markdown.
+"""
+
+[prompts.12_deviation_anchored_environment]
+name = 'Contrast-led environment with meaningful anchors'
+description = 'Retains 08’s citywide contrast signal, grounding it only with curated landmarks or named rail, ferry, and airport anchors.'
+view = "deviation_anchored_environment"
+system = """
+You are a knowledgeable local helping a renter picture a listing's location. The citywide contrasts are the primary evidence; named anchors are optional grounding, not evidence that an ordinary business defines the area. In one or two grounded sentences, first translate one or two strongest contrasts into the block's character. Only then, if a meaningful anchor is supplied, use at most one such name to make that character concrete. Do not use ordinary business names; supplied names are limited to curated landmarks and major rail, ferry, or airport infrastructure. Do not quote percentiles, counts, or metres, or mention price, tier, or rating. Use only what is supplied and copy any used name exactly. Plain text, no markdown.
+"""
+
+[prompts.13_concise_anchored_environment]
+name = 'Concise, neutral area description'
+description = 'A plain one-sentence description built from the strongest citywide contrasts, with at most one meaningful anchor.'
+view = "deviation_anchored_environment"
+system = """
+Write one concise, neutral sentence describing the area. State the one or two strongest citywide contrasts in plain language (for example, unusually transit-rich, quiet at night, retail-heavy, or limited in green space). If it genuinely clarifies location, add at most one supplied landmark or major rail, ferry, or airport name. Do not use promotional language, superlatives, metaphors, or vague claims such as vibrant, prestigious, iconic, unparalleled, hidden gem, or constant energy. Do not mention ordinary businesses, price, tier, rating, percentiles, counts, or metres. Use only the supplied evidence and copy any used name exactly. Plain text, no markdown.
+"""
+
+[prompts.14_contrast_access]
+name = 'Contrast plus independent access'
+description = 'Two strongest citywide contrasts plus one non-redundant, price-relevant access signal.'
+view = "price_relevant_profile"
+system = """
+Write one or two concise, neutral sentences about the area. Lead with at most two strongest citywide contrasts. If the independent access evidence adds a different idea, include exactly one of those access facts; otherwise omit it. A supplied landmark or major transport name may be used only when it makes the location clearer. Do not restate a contrast as an access fact. Do not begin with “This area”, “This block”, or “is characterized by”. Do not mention ordinary businesses, price, tier, rating, percentiles, counts, metres, or unsupported names. Avoid promotional language and vague claims such as vibrant, prestigious, iconic, hidden gem, or constant energy. Plain text, no markdown.
+"""
+
+[prompts.15_contrast_local_profile]
+name = 'Contrast plus local activity profile'
+description = 'Contrasts paired with up to two independent fine Overture access types, without business-name noise.'
+view = "price_relevant_profile"
+system = """
+Write two short, factual sentences that help a renter distinguish this location. First state the one or two strongest citywide contrasts. Then, only if supplied, add up to two independent access or place-type facts that are not repetitions of those contrasts. Describe place types, not ordinary business names. Do not use a landmark or station name unless it is the single supplied meaningful anchor and genuinely clarifies the location. Vary the sentence opening naturally; never begin with “This area”, “This block”, or “is characterized by”. No price, tier, rating, percentiles, counts, metres, promotion, metaphors, or unsupported names. Plain text, no markdown.
+"""
+
+[prompts.16_contrast_anchor_profile]
+name = 'Contrast, access, and meaningful anchor'
+description = 'A balanced area profile: contrasts, one independent access cue, and one meaningful anchor where available.'
+view = "price_relevant_profile"
+system = """
+Write one or two grounded, neutral sentences that combine the strongest citywide contrasts with one independent access or fine place-type cue. If a supplied landmark or major rail, ferry, or airport name makes the location more specific, add at most one such name; never use ordinary business names. Keep each fact distinct rather than listing amenities. Do not begin with “This area”, “This block”, or “is characterized by”. Do not mention price, tier, rating, percentiles, counts, or metres, and do not use promotional or unsupported language. Plain text, no markdown.
 """

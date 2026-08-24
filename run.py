@@ -12,6 +12,7 @@ Per-stage (each forwards its args; run any in isolation):
     uv run clean [RAW.csv]   0. data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (PySpark)
     uv run build             1. -> data/processed/airbnb_enriched.csv   (Overture POIs)
     uv run describe [N]      2. -> data/processed/airbnb_described.csv   (LLM key; N = top-N test)
+    uv run enrich            -> data/processed/airbnb_described_16.csv  (fixed prompt 16)
     uv run eval [--no-tar]   3. -> results/eval_report.csv              (needs GPU)
 
 Whole chain:
@@ -112,6 +113,11 @@ def build() -> None:
 def describe() -> None:
     """`uv run describe [N]` — stage 2: -> data/processed/airbnb_described.csv (LLM key)."""
     _stage("describe", sys.argv[1:])
+
+
+def enrich() -> None:
+    """`uv run enrich` — full fine-schema corpus with the fixed prompt-16 profile."""
+    _stage("enrich", sys.argv[1:])
 
 
 def evaluate() -> None:

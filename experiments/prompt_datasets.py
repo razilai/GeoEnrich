@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import sys
 import tomllib
@@ -44,15 +45,15 @@ DF2_COLS = [
     "num_rooms",
 ]
 
-# Default screen set: neighbourhood character (chosen) -> chain-of-thought ->
-# local-guide role. All are system-prompt-only, so describe's user block (the
-# deviation render) is untouched. Ids must exist in prompts.toml.
+# Default screen set: three complementary Overture evidence views. Every variant
+# uses the same listings and structured columns, but receives a different slice
+# of the surrounding-place record rather than a paraphrase prompt.
 DEFAULT_PROMPTS = [
-    "03_neighborhood_character", "04_cot_salient", "05_local_guide",
+    "14_contrast_access", "15_contrast_local_profile", "16_contrast_anchor_profile",
 ]
 
 
-def load_prompts(path: str) -> dict[str, str]:
+def load_prompts(path: str) -> dict[str, dict]:
     with open(path, "rb") as f:
         toml = tomllib.load(f)
     return {k.split(".", 1)[-1] if "." in k else k: v
@@ -73,32 +74,81 @@ def stratified_sample(df: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
     else:
         samp = df.groupby(strat, group_keys=False).sample(
             frac=n / len(df), random_state=seed)
+        # Fractional group sampling rounds per group, so it can miss the requested
+        # total by a row or two. Fill from the unsampled rows (or trim deterministically)
+        # to make --sample N mean exactly N records.
+        if len(samp) < n:
+            remaining = df.loc[~df.index.isin(samp.index)]
+            extra = remaining.sample(n=n - len(samp), random_state=seed)
+            samp = pd.concat([samp, extra])
+        elif len(samp) > n:
+            samp = samp.sample(n=n, random_state=seed)
     sort_col = "index" if "index" in df.columns else df.columns[0]
     return samp.sort_values(sort_col).reset_index(drop=True)
 
 
-def enrich_variant(pid: str, system: str, sample_csv: str, outdir: str) -> str:
-    """Run describe.py on the fixed sample with `system` as the prompt; return df2 path."""
+def enrich_variant(
+    pid: str, prompt: dict, sample_csv: str, outdir: str, reference_csv: str | None
+) -> str:
+    """Run describe.py on a fixed sample with one configured view and prompt."""
     described = os.path.join(outdir, f"{pid}.described.csv")
+    view = prompt.get("view", "character_deviation")
+    if view not in describe._VIEWS:
+        sys.exit(f"prompt '{pid}' has unsupported view '{view}'")
 
-    # patch describe's module state: same sample in, per-prompt cache out, new prompt
-    describe.INSTRUCTIONS = system.strip()
+    # Patch describe's module state: same sample in, per-prompt cache out, and a
+    # deliberately distinct Overture information view.
+    reference_stat = os.stat(reference_csv) if reference_csv else None
+    cache_material = "\0".join(
+        [
+            prompt["system"].strip(),
+            view,
+            describe._VIEW_CACHE_VERSIONS.get(view, "v1"),
+            os.path.abspath(reference_csv or sample_csv),
+            str(reference_stat.st_size if reference_stat else 0),
+            str(reference_stat.st_mtime_ns if reference_stat else 0),
+        ]
+    )
+    cache_tag = hashlib.sha256(cache_material.encode()).hexdigest()[:16]
+    previous = (
+        describe.INSTRUCTIONS,
+        describe.IN_CSV,
+        describe.OUT_CSV,
+        describe.SURR_VIEW,
+        describe.REFERENCE_CSV,
+        describe.CACHE_TAG,
+    )
+    describe.INSTRUCTIONS = prompt["system"].strip()
     describe.IN_CSV = sample_csv
     describe.OUT_CSV = described
+    describe.SURR_VIEW = view
+    describe.REFERENCE_CSV = reference_csv
+    describe.CACHE_TAG = cache_tag
     argv = sys.argv
     sys.argv = ["describe"]           # k=None -> enrich every row of the sample
     try:
         describe.main()
     finally:
         sys.argv = argv
+        (
+            describe.INSTRUCTIONS,
+            describe.IN_CSV,
+            describe.OUT_CSV,
+            describe.SURR_VIEW,
+            describe.REFERENCE_CSV,
+            describe.CACHE_TAG,
+        ) = previous
 
     # describe drops `index` on write; row order is describe's deterministic
     # density sort — identical across variants (same sample), so no realignment.
     out = pd.read_csv(described)
+    # Preview inputs can contain a reduced structured schema. Keep every canonical
+    # field that is present; evaluation can use that stable subset directly.
+    selected_cols = [c for c in DF2_COLS if c in out.columns]
     missing = [c for c in DF2_COLS if c not in out.columns]
     if missing:
-        sys.exit(f"[{pid}] described CSV missing columns {missing}")
-    df2 = out[DF2_COLS + ["surroundings_summary"]]
+        print(f"[{pid}] preview is missing structured columns: {missing}", flush=True)
+    df2 = out[selected_cols + ["surroundings_summary"]]
     df2_path = os.path.join(outdir, f"df2_{pid}.csv")
     df2.to_csv(df2_path, index=False)
     return df2_path
@@ -111,6 +161,10 @@ def main():
     g.add_argument("--sample", type=int, help="stratified N-row screen (cheap)")
     g.add_argument("--all", action="store_true", help="full dataset — costs money")
     p.add_argument("--in", dest="in_csv", default=config.ENRICHED_CSV)
+    p.add_argument(
+        "--reference-in",
+        help="full enriched corpus for citywide deviation percentiles (defaults to --in)",
+    )
     p.add_argument("--prompts", nargs="+", default=DEFAULT_PROMPTS)
     p.add_argument("--toml", default=os.path.join(_HERE, "prompts.toml"))
     p.add_argument("--outdir", default=os.path.join(_HERE, "screen"))
@@ -126,7 +180,9 @@ def main():
             sys.exit(f"prompt id '{pid}' not in {args.toml} ({sorted(prompts)})")
         if prompts[pid].get("fewshot"):
             sys.exit(f"prompt '{pid}' is few-shot (needs demo block) — not supported here")
-        chosen[pid] = prompts[pid]["system"]
+        if "view" not in prompts[pid]:
+            sys.exit(f"prompt '{pid}' has no Overture input view")
+        chosen[pid] = prompts[pid]
 
     df = pd.read_csv(args.in_csv, low_memory=False)
     if "index" not in df.columns:
@@ -135,6 +191,10 @@ def main():
     # ONE fixed sample, reused for every prompt -> identical listings across variants
     sample = df if args.all else stratified_sample(df, args.sample, args.seed)
     sample_csv = os.path.join(args.outdir, "_sample_enriched.csv")
+    # Do not overwrite a user-supplied source preview when screening a smaller
+    # subset from it; write that derived subset alongside the source instead.
+    if os.path.abspath(sample_csv) == os.path.abspath(args.in_csv) and len(sample) < len(df):
+        sample_csv = os.path.join(args.outdir, f"_sample_{len(sample)}_enriched.csv")
     sample.to_csv(sample_csv, index=False)
     print(f"sample: {len(sample)} listings (of {len(df)}) -> {sample_csv}", flush=True)
     print(f"prompts: {list(chosen)}", flush=True)
@@ -142,9 +202,13 @@ def main():
           f"({len(sample)} listings x {len(chosen)} prompts)\n", flush=True)
 
     paths = []
-    for pid, system in chosen.items():
+    for pid, prompt in chosen.items():
         print(f"=== {pid} ===", flush=True)
-        paths.append(enrich_variant(pid, system, sample_csv, args.outdir))
+        paths.append(
+            enrich_variant(
+                pid, prompt, sample_csv, args.outdir, args.reference_in or args.in_csv
+            )
+        )
 
     print(f"\n{len(paths)} prompt-variant datasets — same listings, "
           "only surroundings_summary differs:")

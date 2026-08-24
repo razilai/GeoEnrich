@@ -25,7 +25,14 @@ NYC_SCRAPE_CSV = os.path.join(RAW_DIR, "airbnb_nyc.csv")  # raw scrape (clean.py
 CLEANED_CSV = os.path.join(PROCESSED_DIR, "airbnb.csv")  # cleaned listings (build.py input)
 VANILLA_CSV = os.path.join(PROCESSED_DIR, "airbnb_vanilla.csv")  # tabular-only
 ENRICHED_CSV = os.path.join(PROCESSED_DIR, "airbnb_enriched.csv")  # + POI JSON
+# Versioned schema-v2 Overture record used for fine-category prompt screens. Keeping
+# this separate preserves the coarse-only corpus behind the existing prompt-13 run.
+ENRICHED_FINE_CSV = os.path.join(PROCESSED_DIR, "airbnb_enriched_fine.csv")
 DESCRIBED_CSV = os.path.join(PROCESSED_DIR, "airbnb_described.csv")  # + LLM prose
+# Full-corpus output pinned to the selected prompt-16 Overture profile.  Kept
+# separate from the legacy described corpus so a reproducible prompt upgrade
+# never overwrites a prior model run.
+DESCRIBED_16_CSV = os.path.join(PROCESSED_DIR, "airbnb_described_16.csv")
 
 # non-dataset outputs
 BATCH_JSON = os.path.join(ARTIFACTS_DIR, "batch_result.json")  # raw LLM batch dump (audit)
@@ -34,7 +41,7 @@ EVAL_REPORT_CSV = os.path.join(RESULTS_DIR, "eval_report.csv")  # eval.py output
 # enrichment tuning (see build.py)
 RADIUS = 450  # meters — outer capture radius, Euclidean (~570m walk at Manhattan
 # grid detour ~1.27; hedonic lit centers ~650m walk / 500m+ buffers)
-DOORSTEP = 150  # meters — inner horizon; counts split at <=150m (block) vs <=400m (walk)
+DOORSTEP = 150  # meters — inner horizon; counts split at <=150m (block) vs <=450m (walk)
 MIN_CONF = 0.6  # Overture confidence gate — replaces hand-maintained junk filters
 # Curated landmarks (landmarks.json) are the highest-variance token, so the channel
 # reaches farther than the density buckets: a famous landmark 800m out is still a

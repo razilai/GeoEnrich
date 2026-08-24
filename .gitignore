@@ -17,7 +17,7 @@ venv/
 # Prompt-screening intermediates (the committed df2_*.csv + results.txt stay)
 /experiments/screen/_sample_enriched.csv
 /experiments/screen/*.described.csv
-
+/experiments/datasets-analysis/
 # Logs / caches
 *.log
 wandb/
@@ -49,3 +49,4 @@ catboost_info/
 
 
 logs/
+paper/

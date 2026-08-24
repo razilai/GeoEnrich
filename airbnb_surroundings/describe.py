@@ -7,6 +7,7 @@ of the area, and writes a `surroundings_summary` column to airbnb_described.csv.
 Config comes from .env:
     OPENROUTER_API_KEY  — your OpenRouter key
     LLM_MODEL           — model slug, e.g. openai/gpt-4o-mini
+    LLM_THINKING        — set to false to explicitly disable model reasoning
 
 Incremental: reuses summaries already in airbnb_described.csv (keyed by listing
 `id`) and only calls the LLM for rows still missing one. Rerunning is free once
@@ -38,10 +39,25 @@ load_dotenv()
 MODEL = os.environ.get("LLM_MODEL", "openai/gpt-4o-mini")
 API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
+
+def _thinking_disabled() -> bool:
+    """Whether to explicitly request OpenRouter's no-reasoning mode."""
+    return os.environ.get("LLM_THINKING", "").strip().lower() in {
+        "0", "false", "no", "off", "none",
+    }
+
 from airbnb_surroundings import config
 
 IN_CSV = os.environ.get("DESC_IN", config.ENRICHED_CSV)
 OUT_CSV = os.environ.get("DESC_OUT", config.DESCRIBED_CSV)
+# An optional full enriched corpus used only to compute citywide reference
+# distributions. Prompt screens can therefore enrich a small fixed sample while
+# retaining genuinely citywide percentile language in deviation-based views.
+REFERENCE_CSV = os.environ.get("DESC_REFERENCE_CSV")
+# Prompt screens set this to a stable fingerprint of the prompt/view/reference
+# configuration. It prevents one variant from reusing drafts made with an earlier
+# version of that configuration while preserving normal incremental production runs.
+CACHE_TAG = os.environ.get("DESC_CACHE_TAG")
 
 # concurrent in-flight LLM calls (raise if OpenRouter rate limit allows, lower on 429)
 CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "32"))
@@ -109,8 +125,33 @@ _VIEW_INSTRUCTIONS = {
     "somewhat more; bottom 10% = unusually few). Do not quote the raw numbers, "
     "percentiles, counts, or metres in your answer. Be honest: a block low on "
     "something is quiet or limited, not vibrant. Use only what is given; never invent "
-    "or add a place; copy any listed name exactly. No price, tier, or rating. Plain "
+    "or add a place; copy any listed name exactly. Plain "
     "text, no markdown.",
+    "named_destinations": "You describe a listing's location through a short, "
+    "grounded set of named nearby places and well-known landmarks. In one or two "
+    "sentences, explain what these destinations suggest about the area and its "
+    "convenience. Name only places in the supplied summary, copy names exactly, and "
+    "do not invent places, price, scores, counts, or distances. Plain text, no markdown.",
+    "access_mix": "You describe a listing's local access and place mix from the "
+    "nearby place types and distance bands provided. In one or two grounded sentences, "
+    "say what is convenient or limited and what kind of activity dominates. Use only "
+    "the supplied summary; do not invent places, price, scores, counts, or distances. "
+    "Plain text, no markdown.",
+    "overture_environment": "You are a knowledgeable local helping a renter picture "
+    "a listing's environment. From the supplied nearby places and place types, write "
+    "one or two grounded sentences about what is immediately distinctive or convenient. "
+    "Mention at most two listed names, copy them exactly, and do not add places. Do not "
+    "quote counts or distances, or mention price, tier, or rating. Plain text, no markdown.",
+    "deviation_anchored_environment": "You are a knowledgeable local helping a renter "
+    "picture a listing's location. The citywide contrasts are the primary evidence; "
+    "named anchors are optional grounding, not evidence that an ordinary business "
+    "defines the area. In one or two grounded sentences, first translate one or two "
+    "strongest contrasts into the block's character. Only then, if a meaningful anchor "
+    "is supplied, use at most one such name to make that character concrete. Do not use "
+    "ordinary business names; supplied names are limited to curated landmarks and major "
+    "rail, ferry, or airport infrastructure. Do not quote percentiles, counts, or "
+    "metres, or mention price, tier, or rating. Use only what is supplied and copy any "
+    "used name exactly. Plain text, no markdown.",
 }
 INSTRUCTIONS = _VIEW_INSTRUCTIONS[SURR_VIEW]  # 08 variant, locked
 
@@ -125,10 +166,16 @@ GROUND_RETRIES = int(os.environ.get("GROUND_RETRIES", "0"))
 USAGE = {"calls": 0, "in": 0, "out": 0, "cost": 0.0}
 
 
-# surroundings schema: {"cats": {bucket: [count<=150m, count<=400m, nearest_m]},
-#                       "landmarks": [[name, dist_m], ...]}
+# surroundings schema: {
+#   "cats": {coarse_bucket: [count<=150m, count<=450m, nearest_m]},
+#   "fine_cats": {overture_leaf: [count<=150m, count<=450m, nearest_m]},
+#   "pois": [{"name", "category", "bucket", "distance_m", "ring"}, ...],
+#   "landmarks": [[name, dist_m], ...],
+# }
 def _poi_names(surr):
-    return sorted({n for n, _ in surr.get("landmarks", [])})
+    landmarks = {n for n, _ in surr.get("landmarks", [])}
+    overture_places = {p["name"] for p in surr.get("pois", []) if p.get("name")}
+    return sorted(landmarks | overture_places)
 
 
 def ungrounded(summary, surr):
@@ -146,11 +193,14 @@ def build_agent():
     model = OpenRouterModel(MODEL, provider=OpenRouterProvider(api_key=API_KEY))
     # low temperature: the description should be stable and grounded, not creative.
     # LLM_TEMPERATURE overrides for sweeps.
+    settings = {"temperature": float(os.environ.get("LLM_TEMPERATURE", "0.4"))}
+    if _thinking_disabled():
+        settings["thinking"] = False
     return Agent(
         model,
         output_type=str,
         instructions=INSTRUCTIONS,
-        model_settings={"temperature": float(os.environ.get("LLM_TEMPERATURE", "0.4"))},
+        model_settings=settings,
     )
 
 
@@ -172,17 +222,63 @@ _DISPLAY = {
 # The signal is DEVIATION from a typical block, not presence: ~98% of listings
 # have dining/shops/grocery, so listing them says nothing. We compare each
 # bucket's count against the corpus distribution and surface only the standouts.
-_REF = {}  # bucket -> sorted np.array of within-400m counts across the corpus
+_REF = {}  # bucket -> sorted np.array of within-450m counts across the corpus
 _PRESENT = {}  # bucket -> fraction of listings with the bucket present
+_FINE_REF = {}  # Overture leaf -> sorted corpus count (schema-v2 inputs only)
+
+# Fine Overture leaves that add a distinct residential or visitor-access signal.
+# Ordinary shops/services are deliberately absent: their names and mere presence add
+# lexical variety but little independent price signal after coarse density is known.
+_PROFILE_FINE_CLASSES = {
+    "rapid transit": (
+        "transit",
+        {
+            "train_station", "metro_station", "subway_station", "light_rail_station",
+            "tram_station", "ferry_terminal", "airport",
+        },
+    ),
+    "parks and open space": (
+        "park_green",
+        {
+            "park", "botanical_garden", "beach", "plaza", "trail", "national_park",
+            "state_park", "memorial_park",
+        },
+    ),
+    "cultural venues": (
+        "culture",
+        {
+            "museum", "art_gallery", "cultural_center", "performing_arts_theater",
+            "movie_theater", "theater",
+        },
+    ),
+    "grocery and markets": (
+        "grocery",
+        {
+            "supermarket", "grocery_store", "organic_grocery_store", "farmers_market",
+            "public_market", "health_market",
+        },
+    ),
+    "hotels": ("lodging", {"hotel", "resort_hotel", "boutique_hotel", "motel"}),
+    "sports facilities": (
+        "fitness_sport", {"stadium", "sports_center", "sports_club", "gym", "swimming_pool"}
+    ),
+}
 
 
 def load_reference(df):
     """Build the corpus count distribution per bucket (call once before prompting)."""
+    _REF.clear()
+    _PRESENT.clear()
+    _FINE_REF.clear()
     cats = df["surroundings"].map(lambda s: json.loads(s).get("cats", {}))
     for b in {k for c in cats for k in c}:
         arr = np.array([c.get(b, [0, 0, 0])[1] for c in cats])
         _REF[b] = np.sort(arr)
         _PRESENT[b] = float((arr > 0).mean())
+    fine_cats = df["surroundings"].map(lambda s: json.loads(s).get("fine_cats", {}))
+    for category in {k for values in fine_cats for k in values}:
+        arr = np.array([values.get(category, [0, 0, 0])[1] for values in fine_cats])
+        _FINE_REF[category] = np.sort(arr)
 
 
 def _relative(bucket, v):
@@ -261,6 +357,131 @@ def _landmark_line(surr):
     return _sec(
         "Well-known places nearby (copy names exactly, do not add any):", lines, ""
     )
+
+
+_RING_LABELS = {
+    "doorstep": "on the doorstep",
+    "nearby": "nearby",
+    "walk": "a short walk away",
+}
+
+
+def _fine_label(category: str) -> str:
+    """Make an Overture leaf code readable without changing its meaning."""
+    return category.replace("_", " ")
+
+
+def _named_poi_lines(surr):
+    """Render the deterministic Overture representatives grouped by distance ring."""
+    grouped: dict[str, list[str]] = {}
+    for poi in surr.get("pois", []):
+        name = poi.get("name")
+        if not name:
+            continue
+        label = _fine_label(str(poi.get("category", poi.get("bucket", "place"))))
+        grouped.setdefault(str(poi.get("ring", "walk")), []).append(f"{name} ({label})")
+    return [
+        f"- {_RING_LABELS[ring]}: {', '.join(grouped[ring])}"
+        for ring in ("doorstep", "nearby", "walk")
+        if ring in grouped
+    ]
+
+
+_MEANINGFUL_TRANSIT_CATEGORIES = {
+    "train_station",
+    "metro_station",
+    "subway_station",
+    "light_rail_station",
+    "tram_station",
+    "ferry_terminal",
+    "airport",
+}
+
+
+def _meaningful_anchor_lines(surr, cap=2):
+    """Return only named POIs that can genuinely anchor area character.
+
+    The representative-POI selection deliberately covers every amenity bucket, so
+    it often includes a useful-but-generic local business. Those names add lexical
+    variety but should not be allowed to define a block's price-relevant character.
+    Curated landmarks are rendered separately. Overture names are limited to major
+    rail/ferry/airport infrastructure: a nearby business, gallery, or even a small
+    park is too weak a signal to define a listing's location in prose.
+    """
+    anchors = []
+    seen = set()
+    for poi in surr.get("pois", []):
+        name = poi.get("name")
+        if not name or poi.get("category") not in _MEANINGFUL_TRANSIT_CATEGORIES:
+            continue
+        key = " ".join(str(name).split()).casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        label = _fine_label(str(poi.get("category", poi["bucket"])))
+        ring = _RING_LABELS.get(str(poi.get("ring", "walk")), "nearby")
+        anchors.append(f"- {ring}: {name} ({label})")
+        if len(anchors) == cap:
+            break
+    return anchors
+
+
+def _fine_access_lines(surr, cap=8):
+    """Select useful fine Overture categories by local density then proximity."""
+    items = []
+    for category, values in surr.get("fine_cats", {}).items():
+        doorstep, total, nearest_m = values
+        items.append((total, doorstep, nearest_m, category))
+    items.sort(key=lambda item: (-item[0], -item[1], item[2], item[3]))
+    return [
+        f"- {_fine_label(category)}: {_prox_word(nearest_m)}"
+        for _, _, nearest_m, category in items[:cap]
+    ]
+
+
+def _profile_fine_lines(surr, excluded_buckets: set[str], cap=2):
+    """Pick independent, price-relevant fine Overture evidence.
+
+    A fine class already represented by a primary coarse contrast is skipped. This
+    gives the prose a second axis (for example, park access beside retail density)
+    instead of restating that a dense commercial block has shops nearby.
+    """
+    fine = surr.get("fine_cats", {})
+    choices = []
+    for label, (bucket, leaves) in _PROFILE_FINE_CLASSES.items():
+        if bucket in excluded_buckets:
+            continue
+        observed = [
+            (leaf, values) for leaf, values in fine.items()
+            if leaf in leaves and values[1] > 0
+        ]
+        if not observed:
+            continue
+
+        def rank(item):
+            leaf, values = item
+            arr = _FINE_REF.get(leaf)
+            pct = (
+                np.searchsorted(arr, values[1], side="left") / len(arr)
+                if arr is not None and len(arr)
+                else 0.5
+            )
+            return (abs(pct - 0.5), -values[2], leaf)
+
+        leaf, values = max(observed, key=rank)
+        arr = _FINE_REF.get(leaf)
+        pct = (
+            np.searchsorted(arr, values[1], side="left") / len(arr)
+            if arr is not None and len(arr)
+            else 0.5
+        )
+        score = abs(pct - 0.5) + (0.25 if values[2] <= 150 else 0.0)
+        choices.append((score, values[2], label))
+    choices.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return [
+        f"- {label}: {_prox_word(nearest_m)}"
+        for _, nearest_m, label in choices[:cap]
+    ]
 
 
 # --- facet renders (same JSON, different information view) --------------------
@@ -370,6 +591,102 @@ def _view_deviation_exact(surr):
     )
 
 
+def _view_named_destinations(surr):
+    return (
+        _sec(
+            "Selected named places nearby (copy names exactly, do not add any):",
+            _named_poi_lines(surr),
+            "- (no selected named places nearby)",
+        )
+        + "\n"
+        + _landmark_line(surr)
+    )
+
+
+def _view_access_mix(surr):
+    return (
+        _sec(
+            "Nearby place types and access:",
+            _fine_access_lines(surr),
+            "- (no nearby place types recorded)",
+        )
+        + "\n"
+        + _landmark_line(surr)
+    )
+
+
+def _view_overture_environment(surr):
+    """Compact combined Overture context for the minimalist production candidate."""
+    return "\n\n".join(
+        [
+            _sec(
+                "Selected named places nearby (copy names exactly, do not add any):",
+                _named_poi_lines(surr),
+                "- (no selected named places nearby)",
+            ),
+            _sec(
+                "Nearby place types and access:",
+                _fine_access_lines(surr, cap=6),
+                "- (no nearby place types recorded)",
+            ),
+            _landmark_line(surr),
+        ]
+    )
+
+
+def _view_deviation_anchored_environment(surr):
+    """Strong citywide contrast signal, grounded only by meaningful local anchors."""
+    return "\n\n".join(
+        [
+            _sec(
+                "Primary evidence — how this block ranks among all New York blocks "
+                "(citywide percentile; only strongest contrasts listed):",
+                _dev_lines_exact(surr, cap=4),
+                "- (unremarkable — typical across the measured place types)",
+            ),
+            _sec(
+                "Optional meaningful Overture anchors (ground the description only; "
+                "do not let ordinary businesses define the area):",
+                _meaningful_anchor_lines(surr),
+                "- (no named rail, ferry, or airport anchor selected)",
+            ),
+            _landmark_line(surr),
+        ]
+    )
+
+
+def _view_price_relevant_profile(surr):
+    """Middle-ground view: coarse contrasts plus non-redundant fine access."""
+    cats = surr.get("cats", {})
+    ranked = []
+    for bucket in _REF:
+        result = _dev_exact(bucket, cats.get(bucket, [0, 0, 0])[1])
+        if result:
+            ranked.append((result[0], bucket))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    selected_buckets = {bucket for _, bucket in ranked[:3]}
+    return "\n\n".join(
+        [
+            _sec(
+                "Primary evidence — strongest citywide contrasts:",
+                _dev_lines_exact(surr, cap=3),
+                "- (unremarkable — typical across the measured place types)",
+            ),
+            _sec(
+                "Independent price-relevant access evidence (use only if it adds a new idea):",
+                _profile_fine_lines(surr, selected_buckets, cap=2),
+                "- (no additional selected access evidence)",
+            ),
+            _sec(
+                "Optional meaningful anchors (copy a used name exactly):",
+                _meaningful_anchor_lines(surr, cap=1),
+                "- (no named rail, ferry, or airport anchor selected)",
+            ),
+            _landmark_line(surr),
+        ]
+    )
+
+
 def _view_proximity(surr):
     return (
         _sec(
@@ -425,10 +742,22 @@ def _view_combined(surr):
 _VIEWS = {
     "deviation": _view_deviation,
     "deviation_exact": _view_deviation_exact,
+    "character_deviation": _view_deviation_exact,
+    "named_destinations": _view_named_destinations,
+    "access_mix": _view_access_mix,
+    "overture_environment": _view_overture_environment,
+    "deviation_anchored_environment": _view_deviation_anchored_environment,
+    "price_relevant_profile": _view_price_relevant_profile,
     "proximity": _view_proximity,
     "composition": _view_composition,
     "landmarks": _view_landmarks,
     "combined": _view_combined,
+}
+# Bump a view's value whenever its rendered evidence changes. Prompt screens add it
+# to their cache fingerprint, so a corrected renderer cannot reuse old LLM drafts.
+_VIEW_CACHE_VERSIONS = {
+    "deviation_anchored_environment": "v2",
+    "price_relevant_profile": "v1",
 }
 
 
@@ -444,7 +773,8 @@ def _cache_csv():
     """Sidecar checkpoint path (in the misc artifacts dir). Named per OUT_CSV so
     prompt-screen runs that repoint OUT_CSV don't share a cache. It keeps the
     `index` key that the published dataset intentionally drops."""
-    return os.path.join(config.ARTIFACTS_DIR, os.path.basename(OUT_CSV) + ".cache")
+    suffix = f".{CACHE_TAG}" if CACHE_TAG else ""
+    return os.path.join(config.ARTIFACTS_DIR, os.path.basename(OUT_CSV) + suffix + ".cache")
 
 
 def load_cache():
@@ -521,6 +851,14 @@ BATCH_MAX_TOKENS = int(os.environ.get("BATCH_MAX_TOKENS", "400"))  # summary is 
 
 async def _submit_batch(c, headers, rows, df):
     """Submit one batch of `rows`, poll to completion, parse results into df."""
+    batch_settings = {
+        "temperature": float(os.environ.get("LLM_TEMPERATURE", "0.4")),
+        "max_tokens": BATCH_MAX_TOKENS,  # caps the up-front credit reservation
+        "usage": {"include": True},  # ask OpenRouter to return usage.cost
+    }
+    if _thinking_disabled():
+        batch_settings["reasoning"] = {"effort": "none"}
+
     reqs = [
         {
             "custom_id": str(row["index"]),
@@ -529,9 +867,7 @@ async def _submit_batch(c, headers, rows, df):
                     {"role": "system", "content": INSTRUCTIONS},
                     {"role": "user", "content": prompt_for(row)},
                 ],
-                "temperature": float(os.environ.get("LLM_TEMPERATURE", "0.4")),
-                "max_tokens": BATCH_MAX_TOKENS,  # caps the up-front credit reservation
-                "usage": {"include": True},  # ask OpenRouter to return usage.cost
+                **batch_settings,
             },
         }
         for _, row in rows
@@ -664,10 +1000,15 @@ def main():
     k = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
     df = pd.read_csv(IN_CSV, low_memory=False)
-    load_reference(df)  # corpus distribution for the relative (deviation) prompt
+    if REFERENCE_CSV:
+        reference_df = pd.read_csv(REFERENCE_CSV, usecols=["surroundings"], low_memory=False)
+        print(f"reference distribution: {len(reference_df)} listings from {REFERENCE_CSV}", flush=True)
+    else:
+        reference_df = df
+    load_reference(reference_df)  # corpus distribution for the relative (deviation) prompt
 
     # densest surroundings first (cheap test runs hit the richest listings).
-    # total POIs = sum of within-400m counts across buckets; derived on the fly.
+    # total POIs = sum of within-450m counts across buckets; derived on the fly.
     def _total(s):
         return sum(v[1] for v in json.loads(s).get("cats", {}).values())
 

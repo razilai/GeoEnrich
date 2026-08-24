@@ -64,7 +64,9 @@ _MAX_LEN = 256                                                    # data max ≈
 _E5_ENCODE_KWARGS = {"batch_size": 256, "max_length": _MAX_LEN}   # encode: bigger batch (default 32) + shorter padding
 # ────────────────────────────────────────────────────────────────────────────
 
-DATASET_ID = KaggleDatasetID.REG_IMAGE_HOUSE_PRICE_KING_COUNTY
+# This local NYC Airbnb regression screen follows MulTaBench's Airbnb regression
+# configuration.  The old King County enum was removed from the vendored fork.
+DATASET_ID = KaggleDatasetID.REG_IMAGE_HOUSES_AIRBNB_SEATTLE
 LEARNERS = {
     "tabm": TabM,
     "cat": CatBoost,

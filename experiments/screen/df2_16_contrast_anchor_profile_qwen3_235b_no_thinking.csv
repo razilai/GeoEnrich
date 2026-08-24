@@ -1,0 +1,803 @@
+price,room_type,ratings,guests,bathrooms,property_number_of_reviews,is_superhost,num_bedrooms,num_baths,surroundings_summary
+284.1,Entire home/apt,4.91,3.0,1.0,11.0,False,1.0,1.0,"a
+
+high
+
+concentration
+
+of
+
+cafes
+
+and
+
+dining
+
+options
+
+unlike
+
+most
+
+of
+
+New
+
+York
+
+City
+
+yet
+
+steps
+
+from
+
+rapid
+
+transit
+
+right
+
+by
+
+Herald
+
+Square"
+323.33,Private room,4.74,1.0,1.0,43.0,False,2.0,1.0,"Dense commercial activity with exceptional concentrations of shops, cafes, and hotels contrasts with immediate access to major cultural and transit hubs. Steps from grocery and markets, and a short walk from the Empire State Building and Times Square."
+690.98,Private room,4.0,8.0,2.0,1.0,False,2.0,2.0,"- Hotels, shops, and gyms are exceptionally dense compared to most blocks in New York City.  
+- Right by the Empire State Building, with cultural venues steps away."
+588.0,Entire home/apt,4.0,2.0,1.0,5.0,False,1.0,1.0,"Times Square borders this block, where shops rank among the most concentrated in the city and cafes and entertainment venues are exceptionally prevalent. Hotels are on the doorstep, with Bryant Park a couple minutes away and Rockefeller Center a short walk south."
+290.0,Private room,4.14,2.0,1.0,7.0,False,1.0,1.0,"High concentration of hotels and shops contrasts with no nearby gyms or sports facilities. Cultural venues are a short walk away, and the area is a couple minutes from Madison Square Park."
+1452.0,Private room,5.0,12.0,3.0,1.0,False,3.0,3.0,"Entertainment venues and hotels are among the most concentrated in New York City, with shops also highly prevalent compared to most blocks. Rockefeller Center is right by, and a short walk reaches Radio City Music Hall and Top of the Rock, while parks and open space are within walking distance."
+1199.0,Entire home/apt,5.0,5.0,1.0,21.0,True,2.0,1.0,"a short walk from Madison Square Park, Empire State Building, Herald Square"
+312.68,Entire home/apt,4.73,4.0,1.0,15.0,False,1.0,1.0,"Subway and transit access ranks in the top 0% of NYC blocks, with entertainment venues and gyms also in the top 2%. Steps from cultural venues and hotels, this location is a short walk from Times Square and Madison Square Garden."
+595.92,Private room,4.46,8.0,1.0,56.0,False,1.0,1.0,"Gyms and sports facilities are exceptionally dense compared to most blocks in New York City, with shops and cafes similarly concentrated at levels seen in only the most commercially active areas. Madison Square Garden is a couple minutes away, and rapid transit is steps away."
+475.05,Entire home/apt,3.0,5.0,1.0,1.0,False,1.0,1.0,"Entertainment venues and subway access rank among the top 1% of blocks citywide, with gyms and sports facilities in the top 2%. Hotels are on the doorstep, and parks and open space are steps away. About 10 minutes from Times Square, Madison Square Garden, and The High Line."
+266.0,Private room,4.4,2.0,1.0,15.0,False,1.0,1.0,Cafes and museums are exceptionally dense compared to nearly all other blocks in New York City. The area is about 10 minutes from the New Museum and Manhattan Bridge.
+164.73,Entire home/apt,4.87,2.0,1.0,23.0,True,2.0,1.0,"Cafes are exceptionally common compared to most blocks in the city, while grocery stores are also far more prevalent than in nearly all other neighborhoods. A short walk leads to the New Museum and the Manhattan Bridge, with frequent gallery presence and convenient access to rapid transit."
+724.27,Entire home/apt,4.83,6.0,1.0,6.0,True,2.0,1.0,"Entertainment venues are exceptionally dense, exceeding nearly all blocks in New York City, with hotels and cafes also concentrated at among the highest levels citywide. The area is steps from cultural venues and directly adjacent to Times Square, a short walk from Rockefeller Center and Bryant Park."
+325.0,Private room,4.46,2.0,1.0,61.0,False,1.0,1.0,"Museums and galleries cluster here at a density matched by only a handful of blocks across New York City, while cafes and grocery stores reach similarly rare concentrations. A short walk from the New Museum, the area is served by rapid transit and lies close to the Manhattan Bridge."
+232.42,Private room,4.86,2.0,1.0,7.0,False,1.0,1.0,"A block with exceptional access to gyms and sports facilities, alongside dense commercial activity in shops and entertainment venues, contrasts sharply with quieter residential areas elsewhere in the city. Cultural venues and grocery markets are steps away, enhancing day-to-day convenience. About 10 minutes from Madison Square Garden, Madison Square Park, Flatiron Building, Herald Square, Empire State Building."
+454.78,Entire home/apt,4.33,6.0,1.0,3.0,False,3.0,1.0,"entertainment venues and subway access rivaling few blocks citywide, with cultural venues steps away and major hotels on the doorstep  
+about 10 minutes from: Times Square, Hudson Yards, Madison Square Garden, The High Line, The Vessel, Herald Square"
+198.53,Private room,4.9,4.0,1.0,39.0,True,1.0,1.0,"Dining options are exceptionally prevalent, ranking in the top 1% of New York City blocks, while access to grocery stores is among the most limited in the city. A short walk from the Manhattan Bridge, the area has immediate cultural venues and easy access to parks and open space."
+207.0,Hotel room,4.0,4.0,1.0,1.0,False,1.0,1.0,"Dining and museum access rank among the highest in New York City, while grocery store availability is exceptionally rare across the city's blocks. A short walk from the Manhattan Bridge, the area offers proximity to both cultural institutions and open views of the downtown skyline."
+155.03,Entire home/apt,5.0,3.0,1.0,1.0,False,1.0,1.0,"Museums and galleries are exceptionally prominent, with a concentration at the highest level across New York City, while grocery stores and bars are also among the most densely located in the city. The area is steps from sports facilities and a short walk from the New Museum."
+336.65,Entire home/apt,4.98,3.0,1.5,47.0,False,1.0,1.5,"Entertainment venues are at the highest level recorded across New York City, with subway and transit access among the most frequent in the city. A short walk from Times Square and Rockefeller Center, the area has hotels on the doorstep and cultural venues steps away."
+615.0,Hotel room,5.0,2.0,1.0,2.0,False,1.0,1.0,"Bars and nightlife rank among the most concentrated in New York City, with museums and galleries also in the highest tier citywide. A short walk from the New Museum, the area has frequent cafe activity and immediate access to multiple hotels."
+285.17,Entire home/apt,4.83,4.0,1.0,6.0,False,1.0,1.0,"High concentration of gyms, grocery stores, and hotels matched citywide only by a few blocks. Steps from cultural venues and a short walk from Madison Square Park."
+214.9,Entire home/apt,4.81,2.0,1.0,16.0,False,2.0,1.0,a short walk from Washington Square Park
+318.27,Private room,4.75,4.0,1.0,129.0,False,2.0,1.0,"Grocery stores are exceptionally abundant compared to nearly all other blocks citywide, and subway access ranks among the best in New York City. Steps from open green space and a short walk from the Manhattan Bridge, the area is also close to the New Museum."
+154.22,Entire home/apt,4.33,1.0,1.0,6.0,False,1.0,1.0,"High concentration of gyms, hotels, and shops near the Waldorf Astoria, with cultural venues and parks steps away. Close to Grand Army Plaza and within reach of St. Patrick's Cathedral, Rockefeller Center, and the Museum of Modern Art."
+289.35,Private room,3.68,2.0,1.0,31.0,False,1.0,1.0,"Entertainment venues are among the top 0% of blocks citywide, with dining in the top 1% and bars & nightlife in the top 3%. Hotels are on the doorstep, and Times Square is a couple minutes away."
+245.8,Entire home/apt,5.0,3.0,2.0,2.0,False,1.0,2.0,"Grocery stores, subway access, and museums and galleries are each among the top 1% of NYC blocks. A short walk from the Manhattan Bridge and near a concentration of hotels, the area is also close to parks and open space."
+397.7,Entire home/apt,4.62,4.0,1.0,81.0,False,1.0,1.0,"High concentration of gyms, grocery stores, and hotels distinguish this area within the city. Madison Square Park is a short walk away, providing nearby open space."
+547.36,Entire home/apt,4.83,4.0,1.0,46.0,True,1.0,1.0,"Grocery stores are exceptionally rare, while museums and galleries are highly concentrated near the New Museum. Bars and nightlife are more prevalent than in most blocks citywide, with rapid transit and hotels within walking distance."
+116.15,Entire home/apt,4.7,2.0,1.0,37.0,False,1.0,1.0,"Dining options rank among the top 3% of blocks citywide, with museums and galleries in the top 7%, while Washington Square Park is steps away. Nightlife and bars are also prominent, placing the area in the top 7% for such venues citywide."
+388.43,Entire home/apt,5.0,2.0,1.0,1.0,False,2.0,1.0,"Bars and nightlife are exceptionally rare in this part of the city, while dining options rank among the most abundant in New York, with grocery access also highly concentrated compared to most blocks. Located steps from rapid transit and a short walk from Tompkins Square Park, cultural venues are easily reached on foot."
+418.61,Entire home/apt,3.0,3.0,1.0,1.0,False,1.0,1.0,"Entertainment venues, dining, and bars & nightlife rank among the top 5% of blocks citywide. Hotels and sports facilities are within immediate reach. A short walk from Rockefeller Center, Carnegie Hall, and Times Square."
+283.55,Entire home/apt,4.81,1.0,1.0,62.0,False,1.0,1.0,"High concentration of gyms and sports facilities alongside numerous shops and museums, with hotels nearby and a short walk to rapid transit. Close to the Flatiron Building, within reach of Madison Square Park and Union Square."
+276.7,Entire home/apt,4.82,2.0,1.0,11.0,True,1.0,1.0,"The area combines a high concentration of museums and galleries with proximity to the Woolworth Building, while offering easy access to grocery and markets within a short walk."
+656.33,Entire home/apt,4.88,5.0,1.0,110.0,True,2.0,1.0,"The area combines proximity to major financial landmarks like the New York Stock Exchange and historic sites such as Trinity Church with exceptional access to public green space near Battery Park. Cafes are highly concentrated, and cultural attractions including the 9/11 Memorial & Museum are within a short walk."
+210.2,Entire home/apt,5.0,2.0,1.0,6.0,False,1.0,1.0,"Dining options rank among the top 1% of blocks citywide, with bars and nightlife in the top 5%, near the Stonewall Inn. Cafes are within the top 8% across New York City, steps from grocery and markets."
+139.49,Private room,4.5,2.0,1.0,688.0,False,1.0,1.0,"The block stands among the most visited in New York City, with exceptional access to historic landmarks and civic institutions, while offering a concentration of cafes rare in the city. Steps from Federal Hall, it combines proximity to open space and recreational facilities with a dense network of daily conveniences."
+745.0,Private room,5.0,3.0,1.0,5.0,False,1.0,1.0,"Extensive parkland and cultural institutions distinguish this area, with proximity to Central Park and the Museum of Modern Art reflecting its concentration of green space and galleries. The immediate vicinity includes access to major performance venues such as Carnegie Hall and Radio City Music Hall, alongside nearby accommodations and sports facilities."
+449.27,Entire home/apt,5.0,2.0,1.0,1.0,False,1.0,1.0,"Dining options rank among the top 1% of blocks citywide, with bars and nightlife in the top 5%, near Washington Square Park. Rapid transit is steps away, and the area is about 10 minutes from Stonewall Inn."
+878.86,Entire home/apt,4.94,2.0,1.0,36.0,True,1.0,1.0,"Dining options rank among the top 3% of blocks citywide, with bars and nightlife in the top 8%, set just steps from rapid transit and a short walk from Washington Square Park. Cafes are within the top 10% citywide, near the Stonewall Inn and about 10 minutes from the Washington Square Arch."
+112.43,Private room,5.0,3.0,1.0,2.0,False,1.0,1.0,"Near the Empire State Building, the block combines exceptional access to city-leading attractions and hotels with immediate proximity to sports facilities and a dense concentration of grocery stores uncommon elsewhere in New York. Cultural venues are within easy walking distance, reinforcing its central position amid major activity hubs."
+59.11,Entire home/apt,4.6,1.0,1.0,5.0,True,1.0,1.0,"Entertainment venues and subway access rank among the most concentrated in New York City, with bars and nightlife similarly prominent. A short walk from Times Square, the area has hotels and cultural venues immediately present."
+628.0,Private room,5.0,4.0,2.0,1.0,False,1.0,2.0,"Carnegie Hall and Columbus Circle are a couple minutes away, with subway and transit access among the best in the city. Central Park is a short walk from this block, which also has exceptional concentrations of attractions and green space."
+149.39,Entire home/apt,5.0,2.0,1.0,1.0,False,1.0,1.0,"Cafes and parks are exceptionally abundant compared to most blocks in New York City, with the Waldorf Astoria nearby. Rapid transit is a short walk away, and major landmarks including Grand Central Terminal and St. Patrick's Cathedral are within easy reach."
+417.51,Entire home/apt,4.73,4.0,1.0,56.0,True,1.0,1.0,"Dining options rank among the top 5 percent of blocks citywide, with cafes and shops also in the highest tiers across New York City. Steps from cultural venues and a short walk from Washington Square Park, the area combines dense commercial activity with proximity to established public spaces."
+266.07,Entire home/apt,4.93,2.0,1.0,15.0,False,1.0,1.0,"Gyms and sports facilities are exceptionally dense compared to most blocks in New York City, while shops and grocery stores are also concentrated at levels seen in only the most commercially active areas. Cultural venues and hotels are within immediate walking distance, adding to the area's distinct urban character. About 10 minutes from Madison Square Garden, The High Line, Herald Square, Madison Square Park, Flatiron Building, Chelsea Market."
+290.21,Entire home/apt,4.4,2.0,1.0,5.0,False,1.0,1.0,"Dining options rank among the top 5% of blocks citywide, with cafes and shops also in the highest decile across New York City. The area is steps from Stonewall Inn and a short walk from Washington Square Park and the Washington Square Arch."
+286.3,Entire home/apt,4.77,5.0,1.0,99.0,True,1.0,1.0,"Dining, cafes, and shops rank among the most accessible in New York City, with a concentration seen on few other blocks. A short walk reaches both rapid transit and open green space, linking to areas like the Stonewall Inn just steps away."
+620.33,Private room,4.95,4.0,1.0,21.0,False,1.0,1.0,a short walk from Grand Central Terminal
+279.65,Entire home/apt,4.5,2.0,2.5,4.0,False,2.0,2.5,"Dining, shops, and cafes rank among the most concentrated in New York City. Steps from the Stonewall Inn, the area is also close to Washington Square Park and the Washington Square Arch."
+63.84,Entire home/apt,4.5,1.0,1.0,2.0,True,1.0,1.0,"High concentration of gyms and sports facilities alongside numerous museums, galleries, and shops, with park access steps away and rapid transit within walking distance. Located about 10 minutes from Flatiron Building, Madison Square Park, Union Square, and Chelsea Market."
+255.23,Entire home/apt,4.5,1.0,1.0,4.0,False,1.0,1.0,"Cafes and shops are exceptionally common compared to most of New York City, with dining options similarly concentrated, and cultural venues are steps away. Stonewall游戏副本"
+1685.0,Entire home/apt,5.0,5.0,2.0,4.0,False,2.0,2.0,"The area combines exceptional access to major cultural institutions and expansive green space with immediate proximity to landmark hotels and performance venues, all near Central Park and Grand Army Plaza."
+651.0,Entire home/apt,4.82,2.0,1.0,22.0,True,1.0,1.0,"Near the Woolworth Building, the area combines exceptional access to major cultural attractions and subway transit with proximity to significant historical and financial landmarks. Steps away from sports and cultural venues, it offers direct connections to destinations like the 9/11 Memorial & Museum and One World Observatory."
+298.0,Entire home/apt,4.86,2.0,1.0,356.0,True,1.0,1.0,"Near the Woolworth Building, this area combines exceptional access to major cultural attractions and subway transit with proximity to significant historic and financial landmarks. Steps away from sports and cultural venues, it offers direct connections to destinations like the 9/11 Memorial & Museum and the New York Stock Exchange."
+388.57,Entire home/apt,5.0,3.0,1.0,1.0,False,1.0,1.0,"The block ranks among the top 1% in New York City for attractions and is steps from Federal Hall, with cultural venues immediately accessible. Green space availability places it in the city’s top 2%, and cafes are highly concentrated compared to most blocks citywide."
+272.77,Entire home/apt,5.0,3.0,1.0,1.0,True,1.0,1.0,"Grocery stores and museums & galleries are exceptionally dense compared to most of New York City, with subway and transit access well above average. Steps from parks and open space, and about 10 minutes from the Manhattan Bridge and New Museum."
+354.0,Hotel room,5.0,4.0,1.0,1.0,False,1.0,1.0,"Cafes and hotels are exceptionally dense compared to most blocks in New York City, with cultural venues just steps away. A short walk from St. Patrick's Cathedral and minutes from the Waldorf Astoria, the area combines intensive service amenities with proximity to major institutions."
+954.0,Entire home/apt,4.84,6.0,2.0,25.0,True,2.0,2.0,"a short walk from 9/11 Memorial & Museum, Federal Hall, Trinity Church, Wall Street, New York Stock Exchange, One World Trade Center, One World Observatory"
+215.01,Entire home/apt,4.75,4.0,1.0,63.0,False,1.0,1.0,"Bars and nightlife are among the most concentrated in New York City, with entertainment venues similarly prominent. A short walk reaches rapid transit and hotels, while Times Square and Rockefeller Center are about 10 minutes away."
+166.63,Private room,4.71,1.0,1.0,24.0,True,1.0,1.0,"Bars and nightlife are exceptionally prevalent compared to most blocks in New York City, with grocery stores and parks also highly accessible. The area is near cultural venues and steps from sports facilities, a short walk from Tompkins Square Park."
+2054.12,Entire home/apt,4.81,6.0,2.0,37.0,True,2.0,2.0,"Near the Woolworth Building, the concentration of cultural attractions, museums, and fitness facilities ranks among the highest in New York City. Rapid transit and grocery access are each within a short walk."
+764.59,Entire home/apt,4.76,5.0,1.0,117.0,True,2.0,1.0,"Near the Chrysler Building, the area combines exceptional access to cultural attractions and major transit hubs with a high concentration of hotels and grocery stores. Steps away from parks and open space, it is also close to The Morgan Library & Museum and Grand Central Terminal."
+315.51,Entire home/apt,4.67,3.0,1.0,12.0,False,1.0,1.0,"Gyms and sports facilities are more prevalent here than on nearly any other block in New York City, while shops and museums match the concentration found in only the most culturally dense areas. A short walk reaches grocery markets and hotels, adding day-to-day convenience amid this highly activated district near The High Line."
+2282.36,Entire home/apt,4.94,6.0,3.0,68.0,True,3.0,3.0,"Blocks with dense concentrations of shops, bars, and dining contrast with nearby quiet residential streets, near Stonewall Inn and steps from cultural venues. The area is a short walk from The High Line and about 10 minutes from Whitney Museum of American Art."
+627.67,Private room,4.91,2.0,1.0,57.0,False,1.0,1.0,"Extensive parkland and cultural institutions define the area, with museum density rivaling few blocks in New York. Central Park and The Plaza Hotel are steps away, while The Frick Collection lies within a ten-minute walk."
+105.62,Entire home/apt,4.33,2.0,1.0,3.0,True,1.0,1.0,"High concentration of gyms and sports facilities alongside a notable presence of museums and galleries, with frequent shops nearby. Steps from rapid transit and about 10 minutes from the Stonewall Inn and Washington Square Park."
+136.8,Entire home/apt,4.67,2.0,1.0,3.0,False,1.0,1.0,"Entertainment venues and bars rank among the most concentrated in New York City, contrasting with nearby parks and open space within immediate walking distance. About 10 minutes from the Intrepid Sea, Air & Space Museum and Times Square, dining options are also highly prevalent citywide."
+239.7,Entire home/apt,5.0,2.0,1.0,3.0,False,1.0,1.0,"Near The Morgan Library & Museum, the area combines a high concentration of cultural attractions, hotels, and museums with immediate access to rapid transit. It is within a short walk of major landmarks including the Empire State Building and Grand Central Terminal."
+197.82,Entire home/apt,4.86,3.0,1.0,108.0,True,1.0,1.0,"Dense with fitness centers and retail options unmatched in most of the city, this area also offers widespread dining choices within a short walk of the MTA - Christopher St Sheridan Square Station. Well-used paths lead from the station toward landmarks like the Stonewall Inn and Washington Square Park, while grocery access remains convenient for daily needs."
+169.58,Entire home/apt,5.0,2.0,1.0,1.0,True,1.0,1.0,"a short walk from rapid transit, with a concentration of gyms and sports facilities exceeding most blocks in the city, alongside notable clusters of museums, galleries, and shops, and about 10 minutes from Washington Square Park and the Stonewall Inn"
+262.0,Entire home/apt,4.75,2.0,1.0,60.0,False,1.0,1.0,"Extensive parks and green space contrast with a high concentration of bars and nightlife, while cultural venues are on the doorstep. A short walk from Union Square, the area offers access to both active recreation and indoor amenities."
+201.0,Entire home/apt,4.64,2.0,1.0,58.0,False,1.0,1.0,"Abundant parks and recreational facilities contrast with vibrant nightlife and fitness options, steps from numerous hotels near Union Square. Cultural venues are within immediate reach, a short walk from the Flatiron Building and about 10 minutes from Madison Square Park."
+856.0,Entire home/apt,4.96,4.0,2.0,68.0,True,2.0,2.0,"Museums and galleries are exceptionally dense, matching the highest concentrations in the city, while grocery stores are similarly abundant in this tier. The area is steps from open space and a short walk from Manhattan Bridge, with subway and transit access among the most frequent citywide."
+419.4,Entire home/apt,5.0,4.0,1.0,1.0,False,2.0,1.0,"Entertainment venues and nightlife are among the most concentrated in New York City, with dining options also highly prevalent citywide. Steps from rapid transit and major sports facilities, the area is about 10 minutes from Central Park and Times Square."
+232.88,Entire home/apt,4.0,3.0,1.0,2.0,False,1.0,1.0,"Entertainment venues and bars rank among the most concentrated in New York City, contrasting with areas of minimal nightlife activity elsewhere in the city. Cultural venues are steps away, and about 10 minutes from the Intrepid Sea, Air & Space Museum and Times Square."
+290.25,Entire home/apt,4.6,5.0,1.0,5.0,False,2.0,1.0,"Entertainment venues and bars rank among the most prevalent in New York City, with dining options also highly concentrated compared to most blocks. Rapid transit is a short walk away, and the area is about 10 minutes from the Intrepid Sea, Air & Space Museum and Times Square."
+165.93,Entire home/apt,4.0,2.0,1.0,1.0,False,1.0,1.0,"Bars and nightlife are among the most prominent in New York City, with entertainment venues and dining options also ranking in the city's highest tiers. Rapid transit is readily accessible, and the area is roughly 10 minutes from Central Park."
+371.49,Entire home/apt,5.0,4.0,2.0,2.0,True,1.0,2.0,"World-class museums and galleries cluster near Central Park Zoo, steps from subway lines that serve the busiest corridors in the city. A short walk reaches both the open lawns of Central Park and the curated halls of The Frick Collection, with sports facilities nearby and frequent transit linking to Grand Army Plaza."
+1096.67,Entire home/apt,5.0,4.0,2.0,10.0,True,2.0,2.0,"Entertainment venues and subway access rank among the most concentrated in New York City, with hotel density also highly elevated compared to citywide levels. Hudson Yards is a short walk away, and Union Station, Washington DC (train station) is on the doorstep."
+450.0,Private room,5.0,2.0,1.0,8.0,True,1.0,1.0,"Extensive parks and green space contrast with a high concentration of hotels and attractions, steps from cultural venues and grocery markets. The area is a couple minutes from the Chrysler Building and a short walk from Grand Central Terminal and the United Nations Headquarters."
+238.82,Entire home/apt,5.0,2.0,1.0,2.0,False,1.0,1.0,"Dense with gyms and sports facilities, this area also hosts a concentration of museums and galleries uncommon in most of New York, while remaining within easy reach of parks and open space. About 10 minutes from Chelsea Market and The High Line, grocery and markets are steps away."
+66.78,Shared room,4.68,1.0,1.0,264.0,False,1.0,1.0,"Limited green space contrasts with exceptional access to cultural institutions and fitness facilities, placing this block among the most activity-oriented in NYC. The nearest rapid transit is steps away, with the Solomon R. Guggenheim Museum, Central Park, and The Metropolitan Museum of Art each about 10 minutes distant."
+362.0,Entire home/apt,4.8,5.0,1.0,5.0,False,1.0,1.0,"Bars and nightlife are among the most concentrated in New York City, with a high density of entertainment venues and restaurants nearby. Cultural venues and hotels are within immediate walking distance, and the area is about 10 minutes from the Intrepid Sea, Air & Space Museum and Times Square."
+279.68,Entire home/apt,4.33,3.0,1.0,6.0,False,1.0,1.0,"Museums and galleries are exceptionally prominent, ranking among the most concentrated in the city, while fitness and recreational facilities are also widely available. A short walk leads to open green spaces and essential shopping, with Central Park and The Metropolitan Museum of Art about 10 minutes away."
+466.67,Entire home/apt,4.64,5.0,1.0,56.0,True,2.0,1.0,"The area combines proximity to major historic and financial landmarks like the New York Stock Exchange and Trinity Church with immediate access to cultural venues and sports facilities. It ranks among the city’s most concentrated blocks for attractions, hotels, and park space, and is a short walk from the Brooklyn Bridge and Federal Hall."
+82.42,Private room,4.59,1.0,4.0,17.0,False,1.0,4.0,"Spacious parks and frequent cultural attractions distinguish this area within the city, with hotel density reflecting its draw. The 18th Street (IRT Third Avenue Line) station is on the doorstep, and Union Square is a short walk away."
+510.0,Entire home/apt,5.0,4.0,1.0,5.0,True,2.0,1.0,"High concentration of gyms and sports facilities contrasts with limited parks and green space, while dining options rank among the city's most abundant. Cultural venues are steps away and grocery and markets are a short walk. About 10 minutes from Central Park."
+252.97,Entire home/apt,4.73,4.0,1.0,11.0,False,2.0,1.0,"Cultural attractions, museums, and parks are exceptionally prominent compared to most of New York City. Sports facilities are steps away, adding direct access to recreational amenities."
+289.73,Entire home/apt,4.83,4.0,1.0,6.0,False,2.0,1.0,"Museums and galleries cluster here more densely than on most blocks in the city, with a concentration matched by few other neighborhoods. A short walk from Central Park and The Metropolitan Museum of Art, the area combines cultural institutions and recreational space in a way uncommon across the city, while remaining close to grocery and markets."
+202.77,Entire home/apt,4.92,2.0,1.0,26.0,True,1.0,1.0,"The block offers access to some of the city’s most prominent attractions and a dense concentration of dining and nightlife options, with Madison Square Park about 10 minutes away. Grocery and markets are steps away, and rapid transit is a short walk."
+175.0,Entire home/apt,5.0,4.0,1.0,2.0,False,1.0,1.0,"High concentration of gyms and dining options contrasts with limited access to parks and green space. Cultural venues are steps away, adding to local access diversity."
+20.47,Shared room,3.0,1.0,1.0,2.0,False,1.0,1.0,"shops and hotels are prevalent while park access is limited  
+a short walk to grocery and markets adds convenience  
+steps from sports facilities"
+218.5,Private room,4.68,2.0,1.0,34.0,False,1.0,1.0,"Dense with gyms, museums, and grocery options compared to most of New York City, this area offers frequent access to cultural and daily necessities. Hotels are immediately nearby, and parks are within a short walk, enhancing accessibility for visitors and residents alike. About 10 minutes from The High Line, Chelsea Market, and Madison Square Garden."
+907.8,Entire home/apt,5.0,6.0,3.5,5.0,False,3.0,3.5,"A high concentration of shops, cafes, and bars distinguishes this area within the city, where cultural venues are on the doorstep and parks and open space are steps away."
+696.07,Entire home/apt,5.0,4.0,2.0,1.0,True,2.0,2.0,"Museums and galleries are more prevalent here than on nearly any other block in New York City. The proximity to The High Line distinguishes this area, with parks and green space also highly accessible compared to most of the city."
+160.75,Entire home/apt,4.0,3.0,1.0,1.0,False,1.0,1.0,"Entertainment venues and bars rank among the most concentrated in New York City, contrasting with a higher-than-typical presence of grocery stores. Rapid transit is a short walk away, and the area is about 10 minutes from the Intrepid Sea, Air & Space Museum."
+255.79,Entire home/apt,4.67,6.0,2.0,3.0,False,2.0,2.0,"High concentration of gyms and bars contrasts with limited subway access, steps from cultural venues and a short walk from Williamsburg Bridge."
+227.62,Private room,4.66,4.0,1.0,250.0,False,1.0,1.0,"High concentrations of hotels, restaurants, and retail distinguish this area from most of New York City. Grocery and markets are on the doorstep, adding direct access to everyday essentials."
+263.25,Entire home/apt,4.75,4.0,1.0,8.0,False,1.0,1.0,"Blocks near Madison Square Park rank among the city's highest for dining, nightlife, and attractions, with grocery and sports facilities immediately accessible. The Flatiron Building stands about ten minutes away in a district marked by dense cultural and commercial activity."
+133.11,Private room,5.0,1.0,1.0,2.0,False,1.0,1.0,"Extensive parks and green space border the western edge of Central Park, with the American Museum of Natural History nearby. A short walk reaches grocery and markets, while gyms and sports facilities are consistently accessible."
+120.97,Entire home/apt,4.78,2.0,1.0,9.0,False,1.0,1.0,"Lacks nearby parks or green space, a contrast with most NYC blocks, while offering subway and transit access in the top 21% of the city. Sports facilities are steps away, adding direct access to recreational infrastructure."
+190.73,Entire home/apt,4.71,4.0,1.0,7.0,True,2.0,1.0,"subway
+
+and
+
+transit
+
+access
+
+matches
+
+the
+
+most
+
+connected
+
+parts
+
+of
+
+New
+
+York
+
+City
+
+with
+
+dense
+
+gym
+
+and
+
+sports
+
+options
+
+and
+
+a
+
+high
+
+concentration
+
+of
+
+shops
+
+about
+
+10
+
+minutes
+
+from
+
+Brooklyn
+
+Academy
+
+of
+
+Music"
+163.16,Entire home/apt,5.0,4.0,1.0,2.0,False,1.0,1.0,"Abundant parks and green space contrast with frequent bars and nightlife, right by Tompkins Square Park. Museums and galleries are nearby, and grocery and markets are steps away."
+334.63,Entire home/apt,4.67,1.0,1.0,3.0,False,2.0,1.0,"parks
+
+green
+
+space
+
+top
+
+of
+
+NYC
+
+blocks
+
+a
+
+short
+
+walk
+
+from
+
+Central
+
+Park
+
+Beacon
+
+Theater"
+257.52,Entire home/apt,4.74,2.0,1.0,35.0,False,1.0,1.0,"Abundant parks and green space contrast with high-frequency subway access, a short walk from the American Museum of Natural History and Central Park. Sports facilities are on the doorstep, adding direct recreational variety to the area’s transit and grocery advantages."
+153.4,Entire home/apt,4.78,1.0,1.0,231.0,False,1.0,1.0,"parks green
+
+space
+
+top
+
+of
+
+nyc
+
+blocks
+
+attractions
+
+top
+
+of
+
+nyc
+
+blocks
+
+gyms sports
+
+top
+
+of
+
+nyc
+
+blocks
+
+cultural
+
+venues
+
+short
+
+walk
+
+grocery
+
+markets
+
+short
+
+walk
+
+american
+
+museum
+
+natural
+
+history
+
+central
+
+park
+
+beacon
+
+theatre
+
+dakota"
+275.27,Entire home/apt,5.0,3.0,1.0,23.0,True,1.0,1.0,"Abundant parks and green space contrast with a high concentration of hotels and fitness facilities, all within steps of cultural venues and a short walk from the American Museum of Natural History and Central Park."
+250.63,Entire home/apt,4.91,3.0,1.0,23.0,True,1.0,1.0,"a short walk from American Museum of Natural History and Central Park, with rare access to expansive green space amid a high concentration of hotels and grocery options"
+251.62,Entire home/apt,5.0,4.0,1.0,2.0,False,2.0,1.0," nightlife and entertainment venues are especially prominent, while the proximity to the Intrepid Sea, Air & Space Museum adds a distinct cultural reference point."
+147.19,Entire home/apt,5.0,3.0,1.0,3.0,False,1.0,1.0,"Bars and nightlife are more prevalent here than on 83% of blocks citywide, with entertainment venues also in the top 18% across New York City. A short walk from the Intrepid Sea, Air & Space Museum, the area has immediate access to both hotels and open space."
+158.2,Entire home/apt,4.6,3.0,1.5,10.0,True,1.0,1.5,"
+parks & green space: top 5% of NYC blocks  
+museums & galleries: top 6% of NYC blocks  
+subway & transit: top 15% of NYC blocks  
+a couple minutes from: Manhattan Bridge  
+about 10 minutes from: Brooklyn Bridge"
+290.4,Entire home/apt,4.75,2.0,1.0,4.0,False,1.0,1.0,"High concentration of gyms and sports facilities alongside diverse dining and attractions, with grocery and markets steps away. Cultural venues are on the doorstep."
+236.07,Entire home/apt,5.0,1.0,1.0,2.0,False,1.0,1.0,"Museums and galleries are exceptionally common here compared to most of New York City, while subway and transit access is more limited than in the vast majority of blocks. A short walk from The High Line, grocery and markets are steps away."
+234.17,Entire home/apt,4.86,2.0,1.0,14.0,False,1.0,1.0,"Extensive parks and green space contrast with a high concentration of museums and galleries, all within steps of numerous hotels."
+273.16,Entire home/apt,5.0,2.0,1.0,6.0,True,1.0,1.0,"Bars and nightlife are more prevalent here than on most blocks in New York City, with a concentration in the top 21 percentile citywide. A short walk from the Williamsburg Bridge, the area also has strong representation of dining and gyms, each exceeding the city median, while hotels are steps away and grocery options are within easy walking distance."
+268.27,Entire home/apt,5.0,2.0,1.0,1.0,False,1.0,1.0,Limited parks and green space contrast with a high concentration of attractions and museums. Grocery and markets are steps away.
+205.5,Private room,4.0,1.0,1.0,4.0,False,1.0,1.0,"Bars and nightlife are among the most prevalent in the city, contrasting with a strong presence of cafes and shops also found in only a few neighborhoods. Cultural venues are steps away, adding to the area's distinct urban character."
+283.0,Hotel room,3.33,3.0,1.0,3.0,False,1.0,1.0,"Extensive parks and green space distinguish this block within the city, with proximity to Central Park reinforcing its rare access to open areas. Cultural attractions including the American Museum of Natural History and Beacon Theatre are within easy reach, while rapid transit access provides direct connections across Manhattan."
+878.79,Entire home/apt,5.0,4.0,2.0,30.0,False,2.0,2.0,"Blocks here have no nearby subway or transit, a rarity in New York City. The area ranks among the top 5% of city blocks for parks and green space, with the High Line and Little Island nearby."
+195.27,Entire home/apt,4.13,4.0,1.0,8.0,False,1.0,1.0,"High concentration of gyms and sports facilities alongside numerous attractions, with frequent subway and transit options. A short walk to grocery and markets as well as parks and open space. About 10 minutes from Solomon R. Guggenheim Museum and Central Park."
+191.01,Entire home/apt,4.66,3.0,1.0,70.0,False,2.0,1.0,"Spacious parks and cultural institutions define the surroundings, with Central Park and the American Museum of Natural History nearby, while compact hotels and galleries reflect a dense urban character. Grocery markets and rapid transit are within walking distance, supporting everyday access."
+180.93,Private room,4.81,2.0,1.0,83.0,True,1.0,1.0,"Shops and parks are more abundant here than in most blocks across New York City, while grocery stores are less common. Cultural venues and sports facilities are steps away, and the area is about 10 minutes from the Williamsburg Bridge."
+535.76,Entire home/apt,4.68,4.0,1.0,25.0,False,2.0,1.0,Limited park space and sparse subway access contrast with a high concentration of shops. Grocery markets and cultural venues are steps away.
+462.77,Entire home/apt,4.9,4.0,2.0,10.0,False,2.0,2.0,"Close to Central Park with access to major cultural institutions like the American Museum of Natural History, this area combines abundant green space and strong transit connectivity with proximity to sports facilities and grocery options."
+263.47,Entire home/apt,4.9,3.0,1.0,70.0,True,1.0,1.0,"Lincoln Center anchors a stretch with exceptional access to cultural attractions and entertainment venues, rare among city blocks. Steps from major sports facilities and hotels, it is also close to Central Park and within walking distance of Columbus Circle."
+650.0,Entire home/apt,5.0,8.0,2.0,6.0,True,4.0,2.0,"Abundant parks and green space distinguish this area, with museum and gallery access among the highest in the city, while subway and transit options are among the most limited. A short walk from the Williamsburg Bridge, sports facilities and grocery markets are close at hand."
+1119.0,Entire home/apt,4.61,5.0,1.0,294.0,False,2.0,1.0,"Near the United Nations Headquarters, this area combines exceptional access to major attractions and expansive parks with limited nearby grocery options. Cultural venues are a short walk away, placing it close to landmarks like the Chrysler Building and Waldorf Astoria."
+239.7,Entire home/apt,4.5,3.0,1.0,6.0,False,1.0,1.0,"Steps away from parks and open space, the area combines strong citywide representation of attractions, dining, and gyms and sports with grocery and markets within a short walk."
+723.51,Entire home/apt,4.73,8.0,1.0,33.0,False,4.0,1.0,"Combines some of the city's most frequent attractions, grocery stores, and hotels with immediate access to cultural venues and rapid transit. A short walk from Riverside Park and about 10 minutes from Central Park."
+209.93,Entire home/apt,4.26,5.0,1.0,68.0,True,3.0,1.0,"Abundant parks and green space contrast with a dense concentration of museums and galleries, while grocery stores are more prevalent than in most city blocks. A short walk from the Brooklyn Bridge and Manhattan Bridge, with rapid transit access nearby."
+411.58,Entire home/apt,5.0,4.0,1.0,2.0,True,1.0,1.0,"Dense with cultural venues and near the United Nations Headquarters, this area combines exceptional attraction density with strong café and nightlife presence, all within a short walk of rapid transit."
+259.03,Entire home/apt,4.56,2.0,1.0,18.0,False,1.0,1.0,Abundant parks and green space contrast with limited access to grocery and markets. Cultural venues are within walking distance.
+235.37,Entire home/apt,4.0,3.0,1.0,1.0,True,1.0,1.0,"Union Square is about 10 minutes from this area, where cultural attractions are more prevalent than in most blocks across the city and dining options rank among the most abundant citywide, with grocery access immediately available."
+388.12,Entire home/apt,3.0,3.0,1.0,2.0,False,1.0,1.0,"Near Times Square, tourist-heavy blocks with dense attractions and fitness venues contrast sharply with limited subway access. Parks and open spaces are a short walk away."
+160.21,Entire home/apt,5.0,3.0,1.0,8.0,False,2.0,1.0,"strong
+
+citywide
+
+contrast
+
+in
+
+both
+
+recreational
+
+facilities
+
+and
+
+cultural
+
+attractions
+
+with
+
+immediate
+
+access
+
+to
+
+rapid
+
+transit"
+250.73,Entire home/apt,4.75,3.0,1.0,16.0,False,1.0,1.0,"Near Central Park and Riverside Park, the area has more attractions, hotels, and fitness facilities than most blocks in New York City, with open space steps away."
+154.01,Entire home/apt,4.41,4.0,1.0,157.0,False,2.0,1.0,"subway access ranks among the best in the city, with Bergen Street (IRT Eastern Parkway Line) on the doorstep, while hotel density is among the lowest. Shops are more abundant than in most blocks, and grocery and markets are a short walk away. Barclays Center is right by, and the Brooklyn Academy of Music is about 10 minutes from."
+307.83,Entire home/apt,4.58,4.0,1.0,12.0,False,2.0,1.0,"Abundant parks and green spaces contrast with a dense concentration of gyms and sports facilities, while cultural venues and grocery markets are within walking distance."
+571.0,Entire home/apt,4.5,4.0,2.0,42.0,False,2.0,2.0,"Dense with fitness facilities and recreational options, this area offers frequent access to parks and cultural attractions. Rapid transit is steps away, enhancing connectivity to broader city amenities."
+243.37,Entire home/apt,4.83,4.0,1.0,6.0,False,2.0,1.0,"a short walk from the Intrepid Sea, Air & Space Museum"
+217.93,Entire home/apt,4.77,3.0,1.0,39.0,True,2.0,1.0,grocery and markets: a short walk
+358.0,Private room,3.33,2.0,1.0,3.0,False,1.0,1.0,"Entertainment venues and gyms are more prevalent here than on most blocks in New York City, yet there is no nearby park or green space. Grocery markets and hotels are steps away."
+147.5,Entire home/apt,4.7,2.0,1.0,10.0,False,1.0,1.0,"Cafes are more common here than in most blocks across the city, while access to parks and green space is absent nearby. A grocery market and cultural venue are each a short walk away."
+173.07,Entire home/apt,4.58,3.0,1.0,53.0,False,1.0,1.0,"Extensive parks and green space contrast with limited subway and transit access and few attractions, steps from sports facilities and a short walk from grocery and markets, about 10 minutes from Prospect Park."
+203.57,Private room,4.87,2.0,1.0,53.0,False,3.0,1.0,"
+Riverside Park is nearby, contrasting dense hotel and attraction clusters with accessible green space, while sports facilities are steps away. Central Park is about 10 minutes from this location."
+770.5,Private room,4.85,4.0,2.0,193.0,True,2.0,2.0,"Cafes are more prevalent here than in most blocks across the city, while subway and transit access is among the most limited. Grocery and markets are steps away."
+518.07,Entire home/apt,4.5,6.0,3.0,4.0,False,3.0,3.0,"Extensive parks and green space contrast with a high concentration of attractions, all within a short walk from Central Park. Access to gyms and sports facilities is prominent, and hotels are immediately nearby."
+125.48,Entire home/apt,4.77,2.0,1.0,60.0,True,1.0,1.0,"Subway and transit access ranks among the top 15% of NYC blocks, contrasting with widespread low-coverage areas citywide, while entertainment venues are concentrated at a level seen in only the top 20% of blocks. A short walk reaches Barclays Center, and cultural venues are within easy reach on foot."
+623.0,Entire home/apt,5.0,5.0,2.0,1.0,False,4.0,2.0,"Subway and transit access is among the least frequent citywide, yet shops are more prevalent than in most blocks. Cultural venues are steps away, and it is about 10 minutes from Brooklyn Academy of Music."
+283.93,Entire home/apt,4.69,4.0,1.0,13.0,False,2.0,1.0,"Abundant parks and green space contrast with limited access to grocery and markets, while the Roosevelt Island Tramway is steps away. Attractions and gyms are unusually common for the area."
+322.5,Private room,4.9,8.0,1.0,58.0,True,2.0,1.0,"Few entertainment venues are nearby, but grocery stores and shops are abundant compared to most blocks in New York City. Sports facilities and rapid transit are a short walk away, including 116th Street (IRT Third Avenue Line)."
+241.53,Entire home/apt,5.0,2.0,1.0,17.0,False,1.0,1.0,"Subway and transit access ranks among the top quarter of New York City blocks, with a concentration of bars and nightlife in the top third citywide. Cultural venues are steps away, and parks and open space are a short walk."
+214.03,Entire home/apt,4.89,4.0,1.0,9.0,True,3.0,1.0,"subway access ranks among the most frequent in New York City, with service available far more often than in most neighborhoods. Cultural venues are steps away, and Driggs Avenue station is on the doorstep. A short walk from Williamsburg Bridge."
+169.63,Entire home/apt,4.75,2.0,1.0,4.0,False,1.0,1.0,a couple minutes from: Williamsburg Bridge
+217.2,Entire home/apt,4.99,2.0,1.0,72.0,False,1.0,1.0,"Abundant parks and green space contrast with a high concentration of attractions and hotels, uncommon elsewhere in the city. Sports facilities are steps away, adding direct access to recreational activity amid this dense cultural setting."
+79.67,Private room,4.15,2.0,1.0,20.0,False,2.0,1.0,"Lacks nearby parks or green space, a contrast to most NYC blocks, and has minimal attractions and hotels compared to citywide levels, while offering a short walk to both grocery and markets and rapid transit."
+301.1,Entire home/apt,4.96,5.0,2.0,23.0,False,2.0,2.0,about 10 minutes from: Apollo Theater
+274.79,Entire home/apt,5.0,4.0,1.5,76.0,False,2.0,1.5,"Few hotels are found on this block compared to most of New York City, and parks and open space are a short walk away. Grocery and markets are steps away."
+222.5,Entire home/apt,4.79,2.0,1.0,14.0,False,1.0,1.0,"Well-served by cultural attractions and green space despite limited subway access, with sports facilities and grocery markets within walking distance."
+920.0,Hotel room,4.0,12.0,3.0,4.0,False,3.0,3.0,"Entertainment venues and parks & green space rank among the most abundant in New York City, with bars & nightlife also highly concentrated. A short walk from the Intrepid Sea, Air & Space Museum, cultural venues are easily accessible."
+235.0,Hotel room,4.5,2.0,1.0,2.0,False,1.0,1.0,"Entertainment venues and parks & green space rank among the most accessible in New York City, with the Intrepid Sea, Air & Space Museum a short walk away. Bars and nightlife are also highly accessible citywide, and cultural venues are within walking distance."
+404.75,Entire home/apt,4.93,3.0,1.0,90.0,False,1.0,1.0,"Steps from sports facilities and a short walk from cultural venues, the area combines strong transit access with a concentration of entertainment options uncommon in most of the city. A couple minutes from the Brooklyn Academy of Music, it offers proximity to major arts institutions amid a dense urban fabric with above-average park access."
+183.14,Entire home/apt,4.63,6.0,2.0,8.0,True,3.0,2.0,"Grocery stores are exceptionally accessible compared to most blocks in New York City, while museums and galleries are sparsely distributed in relation to the citywide range. Subway and transit access is strong, and parks and open space are a short walk away."
+58.74,Private room,4.93,2.0,4.0,15.0,True,5.0,4.0,"grocery
+
+parks"
+297.93,Entire home/apt,5.0,3.0,1.0,6.0,True,1.0,1.0,"Subway and transit access ranks among the top 29% of blocks citywide, contrasting with a short walk to grocery and markets that adds local convenience. The area also reaches the top 30% for attractions and gyms, supporting frequent physical activity and visitor interest."
+153.97,Entire home/apt,4.93,2.0,1.0,29.0,True,1.0,1.0,Limited subway and transit access contrasts with abundant parks and green space and a high concentration of attractions. Sports facilities are steps away.
+103.2,Entire home/apt,4.78,4.0,1.0,68.0,False,1.0,1.0,"Lacks nearby parks or green space, a contrast with most blocks in New York City, while offering grocery stores more frequently found in the city's top quarter. Sports facilities are on the doorstep, and a short walk reaches rapid transit."
+119.5,Entire home/apt,4.87,2.0,1.0,46.0,True,2.0,1.0,"Museums and galleries are concentrated here, contrasting with limited attractions and few hotels. Sports facilities are steps away, adding local access distinct from the area's cultural offerings."
+157.47,Entire home/apt,5.0,4.0,1.0,3.0,True,1.0,1.0,a short walk from the Apollo Theater
+650.06,Entire home/apt,4.84,9.0,2.0,43.0,False,3.0,2.0,"Grocery stores are more abundant here than in most blocks across New York City, while cafes are less common. Bars and nightlife venues are more prevalent than in a majority of city blocks. Sports facilities are steps away, and open space is on the doorstep. The area is about 10 minutes from the Williamsburg Bridge."
+314.67,Entire home/apt,4.0,5.0,1.0,2.0,False,2.0,1.0,Limited subway and transit access contrasts with abundant parks and green space and a high concentration of attractions. Sports facilities are on the doorstep.
+59.08,Entire home/apt,5.0,1.0,1.0,2.0,True,1.0,1.0,"Near top-tier attractions, hotels, and entertainment venues in the city, this area is steps from open space and a short walk from Riverside Park. Grocery and market access is within walking distance."
+167.11,Entire home/apt,5.0,3.0,1.0,7.0,True,1.0,1.0,"Abundant grocery stores and museums distinguish this area within the city, while cafes are less common than in most blocks. About 10 minutes from Central Park, hotels are steps away."
+447.5,Entire home/apt,4.95,5.0,1.5,194.0,True,2.0,1.5,"Limited subway and transit access contrasts with a vibrant bar scene, with hotels nearby and grocery stores within walking distance."
+880.0,Entire home/apt,4.92,8.0,1.5,12.0,True,4.0,1.5,"Grocery stores are more abundant than in most blocks across the city, while subway and transit access is more limited compared to nearly three out of ten NYC blocks. Hotels are more concentrated here than in a majority of city blocks, and parks and open space are steps away. About 10 minutes from: Apollo Theater"
+285.04,Entire home/apt,4.47,6.0,1.0,15.0,True,2.0,1.0,"grocery
+
+museums
+
+parks
+
+sports"
+297.16,Entire home/apt,5.0,4.0,1.0,9.0,True,1.0,1.0,"Extensive parks and green space distinguish this area, placing it among the most open and accessible blocks in the city, with Central Park just a couple minutes away. Recreational options including gyms and sports facilities are more prevalent here than in most parts of New York, complemented by convenient access to grocery and markets within a short walk."
+143.83,Entire home/apt,5.0,2.0,1.0,12.0,True,1.0,1.0,"- parks & green space: bottom 19% of NYC blocks  
+- bars & nightlife: bottom 29% of NYC blocks  
+
+Independent price-relevant access evidence (use only if it adds a new idea):  
+- grocery and markets: on the doorstep  
+- rapid transit: steps away  
+
+Optional meaningful anchors (copy a used name exactly):  
+- on the doorstep: MTA-Nostrand Ave-A & C Lines (train station)  
+
+There are no well-known landmarks nearby.  
+
+Final output:  
+Sparse tree cover and limited evening activity distinguish this area from more park-dense and vibrant parts of the city, with grocery access on the doorstep and MTA-Nostrand Ave-A & C Lines steps away."
+230.22,Entire home/apt,5.0,5.0,2.0,1.0,False,2.0,2.0,"parks
+
+and
+
+green
+
+space
+
+rank
+
+among
+
+the
+
+highest
+
+in
+
+the
+
+city
+
+while
+
+hotel
+
+density
+
+and
+
+subway
+
+access
+
+are
+
+among
+
+the
+
+lowest
+
+cultural
+
+venues
+
+are
+
+steps
+
+away"
+285.33,Private room,4.82,2.0,1.0,121.0,False,2.0,1.0,"Cultural venues are on the doorstep, contrasting with areas where such access is rare, while grocery and markets are a short walk, differing from place types where both require longer trips."
+67.67,Private room,5.0,1.0,1.0,2.0,False,1.0,1.0,"parks
+
+green
+
+space
+
+nearby
+
+most
+
+blocks
+
+some
+
+grocery
+
+stores
+
+top
+
+bars
+
+nightlife
+
+bottom
+
+sports
+
+facilities
+
+cultural
+
+venues
+
+short
+
+walk"
+104.23,Entire home/apt,5.0,2.0,1.0,3.0,True,1.0,1.0,"Lack of entertainment venues distinguishes this area from most blocks in New York City, where such options are typically present. Grocery and markets are steps away, adding direct access not found in many low-amenity neighborhoods."
+107.76,Entire home/apt,4.95,3.0,1.0,60.0,False,1.0,1.0,"Lacks nearby parks or green space, a contrast to most blocks in New York City. Grocery and markets are steps away, with rapid transit a short walk."
+677.86,Entire home/apt,4.92,6.0,1.0,146.0,True,2.0,1.0,"Abundant grocery stores and access to parks distinguish this area from much of the city, while gym and sports facility availability is more limited. Cultural venues and rapid transit are within walking distance."
+362.83,Entire home/apt,4.74,2.0,1.0,23.0,False,1.0,1.0,"Few grocery stores serve the area, yet it has abundant parks and green space alongside a high concentration of hotels. A short walk reaches both the Beacon Theatre and rapid transit, with sports facilities also nearby."
+215.45,Entire home/apt,4.91,8.0,1.0,158.0,False,2.0,1.0,Grocery stores and subway access are more prevalent here than in most blocks across New York City. Parks and open space are steps away.
+214.3,Entire home/apt,4.76,5.0,1.0,29.0,False,1.0,1.0,"High concentrations of hotels and parks distinguish this area within the city, with both features present at levels among the highest in New York City. Grocery markets and rapid transit are within walking distance."
+101.76,Private room,4.74,1.0,2.0,61.0,False,1.0,2.0,"Cultural venues are steps away, contrasting with the otherwise typical mix of place types found across the city, while grocery and markets within walking distance support everyday convenience."
+856.0,Entire home/apt,4.97,2.0,1.0,60.0,True,1.0,1.0,"Limited subway and transit access contrasts with vibrant bars and nightlife, while sports facilities are within walking distance."
+106.76,Private room,4.74,2.0,1.0,130.0,False,1.0,1.0,"Entertainment venues, hotels, and museums or galleries are absent nearby, contrasting with most blocks across New York City. Grocery and markets are steps away, and rapid transit is a short walk."
+138.3,Entire home/apt,3.89,4.0,1.0,9.0,True,2.0,1.0,"Few hotels are nearby, contrasting with most NYC blocks, and access to parks and grocery stores is limited compared to much of the city. Cultural venues are steps away, offering a distinct point of access amid the sparse green space and retail."
+179.02,Entire home/apt,4.88,4.0,1.0,8.0,True,2.0,1.0,"Calle 103–Corona Plaza (train station) is steps away, providing direct access to rapid transit, while no museums, galleries, or major attractions are within walking distance. Grocery stores are unusually abundant compared to most blocks citywide, and open space is immediately accessible."
+228.89,Entire home/apt,4.8,2.0,1.5,30.0,False,2.0,1.5,"Few hotels, tourist attractions, or subway access points compared to most blocks citywide, yet grocery stores and sports facilities are within walking distance."
+311.07,Entire home/apt,5.0,5.0,1.0,12.0,True,3.0,1.0,"Extensive parks and green space distinguish this area within the city, with proximity to Central Park enhancing its open character. Transit access is strong relative to most of New York, while entertainment venues are sparse. A short walk reaches grocery and markets, adding everyday convenience."
+563.6,Entire home/apt,4.83,6.0,1.0,88.0,True,3.0,1.0,"Abundant parks and green space contrast with high hotel density and strong subway access, all near Central Park. Grocery and markets are on the doorstep, close to 104th Street (IRT Ninth Avenue Line)."
+180.4,Entire home/apt,4.92,4.0,1.0,25.0,True,1.0,1.0,"Few hotels are located nearby, yet the area draws a high concentration of attractions and benefits from strong subway and transit access. Parks and open space are within a short walk."
+193.6,Entire home/apt,4.75,2.0,1.5,18.0,False,1.0,1.5,"High concentration of hotels contrasts with sparse cafe and nightlife options. Steps from 121st Street (IRT Second Avenue Line), a short walk to sports facilities, and about 10 minutes from Apollo Theater and Central Park."
+143.47,Entire home/apt,5.0,2.0,1.0,7.0,True,1.0,1.0,museums and galleries are unusually common for a New York City block while hotels are absent a short walk from open space and steps from grocery markets
+272.87,Entire home/apt,5.0,4.0,1.0,14.0,True,2.0,1.0,"Few nearby hotels and limited subway access distinguish this area from most blocks in New York City, while grocery markets are steps away and parks are within a short walk."
+302.36,Entire home/apt,4.93,8.0,2.0,28.0,True,3.0,2.0,"Grocery stores are more prevalent here than in most blocks across New York City, while access to subway and transit is more limited. Cultural venues are within walking distance, and the Apollo Theater is about 10 minutes away."
+380.53,Entire home/apt,5.0,6.0,1.5,2.0,False,3.0,1.5,"Few grocery stores are nearby, yet attractions and parks are abundant, with the United Nations Headquarters about 10 minutes away and rapid transit a short walk."
+110.06,Entire home/apt,5.0,2.0,1.0,6.0,False,1.0,1.0,"Few nearby hotels and limited museum access contrast with abundant grocery options, while open space is steps away. Rapid transit is a short walk from the area."
+320.07,Entire home/apt,4.52,12.0,3.5,27.0,False,4.0,3.5,"Extensive green space ranks among the city's highest, with Central Park just a couple minutes away and access to sports facilities steps away, while entertainment venues are absent nearby despite strong subway connectivity. The Cathedral of St. John the Divine is a short walk from a neighborhood with grocery and market access within easy reach."
+57.71,Private room,5.0,3.0,1.0,10.0,False,3.0,1.0,"Subway and transit access ranks among the most frequent in the city, with hotels similarly concentrated in this area. On the doorstep availability of sports facilities adds a distinct local advantage, while cafes are unusually sparse for New York."
+227.07,Entire home/apt,5.0,4.0,1.0,1.0,False,2.0,1.0,"Apartment living contrasts with stretches of unremarkable blocks, steps from grocery markets and cultural venues, about 10 minutes from Apollo Theater."
+164.76,Entire home/apt,4.79,4.0,1.0,129.0,False,1.0,1.0,"Few hotels or grocery stores are nearby, and the block has fewer attractions than most in New York City. Cultural venues and sports facilities are steps away, and Prospect Park is a short walk from the area."
+179.4,Entire home/apt,5.0,4.0,1.0,4.0,False,2.0,1.0,Lacks significant parks and green space while being close to sports facilities and a short walk from rapid transit. Few grocery stores and almost no attractions are nearby.
+173.89,Private room,4.97,2.0,1.0,29.0,False,1.0,1.0,Few nearby hotels and limited access to parks contrast with immediate proximity to grocery markets and sports facilities.
+190.87,Entire home/apt,4.67,4.0,1.0,9.0,False,1.0,1.0,Grocery stores are sparse compared to most blocks in the city. Rapid transit is on the doorstep at Washington Avenue (BMT Myrtle Avenue Line).
+201.37,Entire home/apt,4.38,2.0,1.0,13.0,True,1.0,1.0,"Limited subway and transit access contrasts with immediate proximity to parks and open space. A short walk reaches sports facilities, while cafes and grocery stores are unusually sparse for the city."
+505.04,Entire home/apt,5.0,4.0,2.5,20.0,False,2.0,2.5,"Few nearby blocks lack both hotels and museums, yet this area is close to sports facilities. Grocery options are within walking distance despite limited subway access."
+98.62,Entire home/apt,5.0,1.0,1.5,1.0,False,1.0,1.5,"subway access ranks among the lowest in the city while hotel density is relatively high  
+about 10 minutes from Apollo Theater and within walking distance of cultural venues"
+450.0,Shared room,4.83,2.0,2.0,107.0,True,3.0,2.0,"Few museums or galleries are nearby, contrasting with most blocks across New York City, and hotel density is among the lowest in the city. Parks and open space are a short walk away, as are grocery and markets."
+131.67,Entire home/apt,4.5,2.0,1.0,2.0,True,1.0,1.0,"Subway and transit access ranks among the best in New York City, while entertainment venues and attractions are less common than in most blocks. The area is within walking distance of grocery and markets, and about 10 minutes from The Cloisters."
+168.15,Entire home/apt,4.89,2.0,1.0,92.0,False,1.0,1.0,"Few hotels are nearby, contrasting with most NYC blocks, and access to parks and attractions is limited compared to the citywide average. Grocery markets and sports facilities are within walking distance."
+228.3,Shared room,5.0,2.0,1.0,10.0,True,1.0,1.0,Unremarkable residential streets contrast with clusters of hotels and cultural venues just steps away.
+170.37,Entire home/apt,4.88,6.0,1.0,16.0,True,3.0,1.0,"Few cafes are nearby, but subway and transit access is strong, with the Williamsburg Bridge a short walk away. Grocery and markets are also within walking distance, along with parks and open space."
+122.42,Entire home/apt,4.8,3.0,1.0,10.0,True,1.0,1.0,"Far from the cultural venues and tourist draws common across New York City, this area lacks nearby museums, galleries, or hotels. A short walk leads to grocery markets and open park space, with the Bayside LIRR Train Station providing rail access."
+208.0,Private room,5.0,4.0,1.0,4.0,False,1.0,1.0,"Subway and transit access ranks among the best in New York City, while gyms and sports facilities are among the scarcest. Hotels are concentrated here more than in most blocks, and grocery markets are within walking distance."
+516.0,Entire home/apt,4.77,5.0,1.0,104.0,True,2.0,1.0,"A mix of unremarkable and typical built forms spans the area, with grocery and markets within walking distance."
+210.2,Entire home/apt,5.0,4.0,1.0,1.0,False,1.0,1.0,"Lacks nearby subway or transit, unusual for New York City, and has limited access to grocery stores compared to most blocks in the city. Cultural venues and sports facilities are steps away, offering immediate access to public gathering spaces."
+114.27,Entire home/apt,4.88,2.0,1.0,8.0,False,1.0,1.0,"Few NYC blocks lack both hotels and parks, yet this area is surrounded by neither. Grocery and markets are a short walk, while sports facilities are steps away."
+52.51,Private room,5.0,1.0,1.0,1.0,False,1.0,1.0,"Few museums or galleries are nearby, and access to parks and green space is limited compared to most blocks in New York City. A grocery market is within walking distance."
+103.23,Entire home/apt,4.81,6.0,1.0,77.0,True,1.0,1.0,"Few hotels, museums, galleries, or cafes are found here compared to most of New York City. Grocery and markets are steps away, with parks and open space within a short walk."
+661.87,Entire home/apt,5.0,14.0,2.0,12.0,False,5.0,2.0,Limited subway and transit access contrasts with nearby grocery and markets. Cultural venues are steps away amid low cafe and gym availability.
+258.11,Entire home/apt,4.67,3.0,1.0,12.0,True,1.0,1.0,"and
+
+a
+
+short
+
+walk
+
+from
+
+Prospect
+
+Park"
+209.3,Private room,4.51,3.0,1.0,169.0,False,1.0,1.0,"Dense with hotels and well-served by parks, this area has few grocery stores. Cultural venues and sports facilities are steps away."
+449.57,Entire home/apt,5.0,15.0,0.5,1.0,False,3.0,0.5,"Subway and transit access ranks among the best in New York City, while cafes and bars are less prevalent than in most blocks. Parks and open space are steps away, along with cultural venues."
+186.58,Entire home/apt,5.0,2.0,2.0,6.0,False,1.0,2.0,"The area has limited access to subway and transit, gyms and sports facilities, and grocery stores compared to most of New York City, yet cultural venues and hotels are within a short walk."
+331.75,Entire home/apt,4.91,10.0,1.0,23.0,False,2.0,1.0,"Limited access to parks and green space distinguishes this area within the city, where such amenities are scarce compared to most other blocks. A short walk reaches rapid transit, and cultural venues are steps away."
+408.5,Entire home/apt,4.25,5.0,1.0,4.0,False,3.0,1.0,Sparse park and attraction access contrasts with cultural venues a short walk away.
+217.67,Entire home/apt,4.93,2.0,1.0,112.0,True,1.0,1.0,"Sparse park space and limited entertainment options contrast with easy access to cultural venues just steps away. Grocery and markets are within a short walk, distinguishing the area from blocks with fewer daily essentials nearby."
+80.1,Entire home/apt,4.5,6.0,1.0,131.0,False,2.0,1.0,"Prospect Park is nearby, with Parkside Avenue station on the doorstep, while access to museums, gyms, and subway transit ranks among the lowest in the city. Grocery markets and open space are steps away, and the Brooklyn Botanic Garden is about 10 minutes from the area."
+348.06,Entire home/apt,4.98,2.0,1.0,93.0,True,1.0,1.0,"Lacks nearby parks or green space, a contrast with most blocks citywide, while offering subway and transit access better than nearly three in ten NYC blocks. Grocery and markets are steps away, adding proximity to essential services amid limited hotel density compared to the broader city."
+314.0,Private room,5.0,2.0,2.0,93.0,False,3.0,2.0,"Limited subway and transit access contrasts with abundant parks and green space, while cafes are scarce. Sports facilities and grocery markets are steps away, near the Apollo Theater."
+243.39,Entire home/apt,4.85,2.0,1.0,122.0,True,1.0,1.0,"Entertainment venues are more common here than in most blocks across the city, while grocery stores and shops are less prevalent. Cultural venues and sports facilities are within walking distance, and the area is about 10 minutes from Barclays Center and Brooklyn Academy of Music."
+110.63,Private room,1.0,2.0,1.0,1.0,False,3.0,1.0,High concentration of hotels and extensive parkland contrast with limited grocery access. Cultural venues and sports facilities are steps away.
+112.24,Entire home/apt,4.85,2.0,1.0,13.0,True,1.0,1.0,Limited subway and transit access contrasts with immediate proximity to grocery markets and open parks.
+124.45,Private room,5.0,2.0,1.0,2.0,False,1.0,1.0,The area combines limited subway and transit access with proximity to grocery and markets.
+805.0,Entire home/apt,4.3,4.0,2.0,20.0,False,2.0,2.0,"No major attractions or parks are nearby, distinguishing it from most blocks in New York City, while access to grocery and markets is immediate. Entertainment venues are among the least concentrated in the city, but cultural venues are within walking distance."
+287.42,Entire home/apt,4.92,2.0,1.0,25.0,False,1.0,1.0,a short walk to sports facilities and rapid transit
+189.89,Entire home/apt,5.0,5.0,1.0,4.0,False,3.0,1.0,"Limited retail and dining options with cafes, shops, and nightlife in the lowest citywide range. Open green space is within walking distance."
+231.0,Private room,4.84,4.0,1.0,93.0,False,2.0,1.0,"Few cultural attractions are nearby, with museums and galleries less common here than on most NYC blocks, though 36th Street (BMT Fifth Avenue Line) is on the doorstep. Hotels are steps away, contrasting with the limited local entertainment options."
+117.88,Entire home/apt,4.76,3.0,1.0,17.0,False,1.0,1.0,grocery and markets: a short walk
+69.89,Private room,5.0,2.0,1.0,1.0,True,1.0,1.0,Few nearby hotels or cultural venues and minimal access to parks contrast with immediate proximity to sports facilities.
+312.68,Private room,4.96,4.0,1.0,137.0,True,1.0,1.0,"Few tourists visit this area, with minimal attractions and limited nightlife compared to most of New York City. Parks and open space are within walking distance, as is rapid transit."
+468.0,Entire home/apt,4.97,4.0,1.0,121.0,True,2.0,1.0,"Lacks nearby parks or green space, a contrast to most blocks in New York City, and has fewer entertainment venues and hotels than nearly 90% of the city's blocks. Grocery and markets are steps away, and the MTA Subway - Church Ave (2/5) is on the doorstep."
+147.84,Entire home/apt,5.0,6.0,1.0,2.0,False,2.0,1.0,"a couple minutes from Prospect Park  
+a short walk from Brooklyn Botanic Garden"
+456.5,Entire home/apt,4.91,4.0,1.0,94.0,False,1.0,1.0,on the doorstep: MTA Subway - Church Ave (2/5) (metro station)
+251.5,Private room,4.77,5.0,1.0,339.0,False,2.0,1.0,"a short walk to grocery and markets and rapid transit, this area lacks nearby hotels, parks and green space, and has fewer gyms and sports facilities compared to most blocks in the city"
+122.63,Entire home/apt,4.91,4.0,1.0,24.0,True,2.0,1.0,"Few nearby blocks lack both hotels and cultural venues like museums or galleries, yet have grocery and markets within walking distance. Access to sports facilities is also present, contrasting with the limited green space common to such areas."
+163.86,Entire home/apt,4.91,5.0,1.0,22.0,True,2.0,1.0,"Few nearby hotels or transit options distinguish this block from most in New York City, while cultural venues are immediately accessible. Grocery and markets are within a short walk."
+188.87,Private room,5.0,2.0,1.5,33.0,True,1.0,1.5,Limited access to parks and subway transit contrasts with nearby hotels and a short walk to grocery markets. Dining options are sparse compared to most city blocks.
+232.67,Entire home/apt,4.33,6.0,1.0,6.0,False,2.0,1.0,"Few hotels, museums, or cafes are found here compared to most of New York City, yet grocery and markets are on the doorstep."
+364.61,Entire home/apt,5.0,4.0,2.0,6.0,True,2.0,2.0,Extensive parks and green space contrast with limited subway access and few grocery stores. A short walk from sports facilities and about 10 minutes from Beacon Theatre.
+177.0,Entire home/apt,5.0,6.0,1.0,6.0,False,2.0,1.0,"Dining, shops, and gyms are among the most limited in the city, while grocery and markets are steps away and cultural venues are a short walk."
+224.3,Entire home/apt,4.94,2.0,1.0,16.0,False,1.0,1.0,"Few grocery stores and limited subway access contrast with nearby parks and open space, steps away from the Beacon Theatre."
+110.63,Entire home/apt,5.0,2.0,1.0,1.0,False,2.0,1.0,Sparse green space and limited grocery access contrast with proximity to rapid transit and nearby sports facilities.
+134.73,Entire home/apt,4.81,2.0,1.0,67.0,False,2.0,1.0,"Few nearby attractions or hotels distinguish this block from most in New York City, and entertainment venues are sparse compared to nearly all other blocks. Grocery markets and rapid transit are within walking distance."
+123.43,Private room,5.0,4.0,1.0,1.0,False,2.0,1.0,"Far from the city's cultural hubs, this block lacks nearby museums, galleries, and entertainment venues while also having no bars or nightlife within walking distance. A short walk reaches both the Church avenue train station B/Q trains and grocery options, with Prospect Park a couple minutes away."
+79.47,Entire home/apt,3.67,2.0,1.0,3.0,False,1.0,1.0,"The area has limited parks and green space, few museums and galleries, and minimal bars and nightlife compared to most of New York City, yet is served by a short walk to rapid transit."
+445.1,Entire home/apt,5.0,6.0,2.0,1.0,False,3.0,2.0,"Few hotels and grocery stores are nearby, contrasting with most city blocks, and shops are sparse compared to the majority of New York. Sports facilities and rapid transit are within walking distance."
+57.37,Private room,5.0,1.0,1.0,1.0,False,1.0,1.0,"A short walk from parks and open space, the area contrasts with citywide levels of entertainment venues and attractions, which are among the lowest in New York City."
+191.5,Private room,4.87,2.0,1.0,90.0,True,1.0,1.0,"Limited subway and transit access contrasts with nearby grocery and markets within walking distance. Cultural venues are also within walking distance, differing from the area's low concentration of parks and hotels citywide."
+1327.43,Entire home/apt,5.0,5.0,3.5,11.0,False,2.0,3.5,"Limited nightlife and modest dining options contrast with proximity to Central Park and a top-tier concentration of city attractions. Steps from the MTA Subway - 96th St (B/C) (metro station), the area is accessible by rapid transit."
+169.25,Entire home/apt,5.0,4.0,1.0,11.0,False,1.0,1.0,"Few nearby blocks in New York City lack both hotels and public green space, and this area is among the least served by subway and transit options. Grocery stores and cultural venues are within walking distance."
+103.24,Entire home/apt,5.0,2.0,1.0,2.0,True,1.0,1.0,"Few nearby blocks lack all forms of attractions, entertainment venues, and hotels, yet this area has rapid transit access just steps away. Parks and open space are within a short walk."
+199.13,Entire home/apt,4.7,2.0,1.0,33.0,True,1.0,1.0,right by Central Park
+296.07,Entire home/apt,4.53,6.0,1.0,118.0,False,3.0,1.0,"Limited nightlife and cafe options compared to most of New York City, with subway access also less convenient than in the majority of city blocks. Steps from open green space and a short walk to grocery markets, about 10 minutes from the Apollo Theater."
+321.86,Entire home/apt,4.96,2.0,1.0,298.0,False,1.0,1.0,"Few nearby hotels and limited entertainment options contrast with easy access to cultural venues, near a neighborhood where subway service is less frequent than in most of New York. Grocery stores are within walking distance."
+237.47,Entire home/apt,4.87,2.0,1.5,23.0,True,1.0,1.5,"Few nearby attractions or hotels distinguish this area from most blocks in New York City, while access to grocery markets and rapid transit is within walking distance. Entertainment venues are sparse compared to nearly all other city blocks."
+165.83,Entire home/apt,4.83,4.0,1.0,29.0,False,2.0,1.0,"Lacks nearby parks or green space, a contrast with most NYC blocks, and has limited attractions and dining compared to the citywide average. Sports facilities are steps away, providing direct access to recreational activity."
+205.0,Private room,4.81,2.0,2.0,119.0,False,1.0,2.0,"Lacks nearby parks and subway access, distinguishing it from most blocks citywide, while cultural venues are within walking distance. Grocery and markets are also a short walk away."
+210.17,Entire home/apt,4.98,4.0,1.0,144.0,True,2.0,1.0,"Few nearby blocks lack both hotels and museums, yet this area has a short walk to both parks and rapid transit. Grocery access is among the most limited in the city."
+205.0,Private room,5.0,1.0,2.0,3.0,True,1.0,2.0,"Few nearby attractions distinguish this area from most blocks in New York City, and access to gyms and sports facilities is among the lowest citywide. Grocery markets and rapid transit are within walking distance."
+74.24,Private room,4.6,1.0,1.0,5.0,False,1.0,1.0,"Lacks nearby entertainment venues, hotels, or museums and galleries, a rare combination in New York City. Grocery and markets are steps away, with parks and open space also immediately accessible."
+233.0,Private room,4.67,2.0,1.0,3.0,False,1.0,1.0,"Lacks nearby parks or green space, a contrast to most blocks in New York City, and has limited gym and sports facilities compared to the citywide norm. Grocery and markets are steps away, and the Avenida Central (línea de la Avenida Myrtle) train station is on the doorstep."
+111.5,Entire home/apt,5.0,2.0,1.0,2.0,True,1.0,1.0,"Lacks nearby parks or green space, a contrast with most blocks citywide, and has few entertainment venues or hotels compared to the majority of New York City. Sports facilities are a short walk away, adding access distinct from the surrounding area's limited recreational offerings."
+53.67,Private room,4.92,2.0,1.0,12.0,True,1.0,1.0,"Few museums or galleries are nearby, and the area has less park space and quieter nightlife compared to most of the city. A subway station and grocery markets are within walking distance."
+276.14,Entire home/apt,4.47,10.0,1.0,94.0,False,3.0,1.0,"The area lacks nearby hotels and green space, contrasts shared by few blocks citywide, yet has grocery and markets steps away alongside cultural venues a short walk east."
+165.93,Entire home/apt,5.0,4.0,1.0,4.0,False,1.0,1.0,"Far from the concentration of museums and galleries found across most of New York City, this area has limited cultural venues and minimal nightlife compared to nearly all city blocks. Green space is sparse, but sports facilities are steps away, and grocery options are within a short walk."
+214.1,Entire home/apt,5.0,4.0,2.0,4.0,False,2.0,2.0,"Lacks nearby attractions, bars, parks, or green space, distinguishing it from most blocks in New York City, while remaining within walking distance of grocery and markets and rapid transit."
+480.67,Entire home/apt,4.95,2.0,1.0,56.0,True,2.0,1.0,"Few grocery stores, hotels, or parks compared to most of New York City. Cultural venues are steps away."
+99.0,Entire home/apt,4.73,4.0,1.0,15.0,True,1.0,1.0,"no nearby cafes, hotels, or museums and galleries, which are common on most city blocks, yet within walking distance of parks and open space and sports facilities"
+154.31,Entire home/apt,5.0,4.0,1.0,3.0,False,1.0,1.0,"Few cultural institutions or grocery options are nearby, and subway access is limited compared to most of New York City. Open space and sports facilities are within walking distance, and the area is about 10 minutes from the Brooklyn Academy of Music."
+62.7,Private room,5.0,2.0,1.5,2.0,True,1.0,1.5,"Few nearby hotels and limited dining or entertainment options distinguish this area from most blocks in New York City. Sports facilities are steps away, adding direct access to recreational amenities."
+499.0,Private room,4.98,2.0,2.0,128.0,False,2.0,2.0,"Far from typical city amenities, this area has no nearby attractions or hotels and limited grocery access, yet is a short walk from both rapid transit and Prospect Park. Sports facilities are also within walking distance."
+992.0,Private room,5.0,6.0,1.0,5.0,False,2.0,1.0,Limited access to grocery stores and subway transit contrasts with hotels being on the doorstep. Dining options are sparse compared to most city blocks.
+139.37,Entire home/apt,5.0,8.0,1.0,1.0,False,1.0,1.0,"Few parks and limited access to sports facilities distinguish this part of the city, while cultural venues are steps away. Attractions are sparse compared to most NYC blocks."
+139.2,Entire home/apt,5.0,4.0,1.0,3.0,True,1.0,1.0,"Bars, hotels, and museums are absent from this block, a contrast with most blocks across New York City. Grocery markets and sports facilities are within walking distance."
+342.0,Entire home/apt,4.73,4.0,1.0,135.0,False,1.0,1.0,Few grocery stores and limited subway access contrast with the immediate presence of hotels and nearby sports facilities.
+753.0,Entire home/apt,4.75,4.0,1.0,73.0,False,1.0,1.0,"Few grocery stores and limited subway access distinguish this area from much of the city, while hotels on the doorstep provide direct pedestrian access to short-term accommodations."
+63.53,Entire home/apt,4.16,2.0,1.0,32.0,True,1.0,1.0,"Few nearby blocks lack all attractions, nightlife, and parks, yet this area has grocery and markets steps away and sports facilities within a short walk."
+205.92,Entire home/apt,4.38,7.0,1.0,237.0,False,2.0,1.0,"Few NYC blocks lack all hotels, museums, galleries, and entertainment venues, yet this location has rapid transit and grocery access steps away, with the MTA Subway - 79th St (D) on the doorstep."
+948.33,Entire home/apt,4.81,10.0,3.0,85.0,True,5.0,3.0,"Entertainment venues are absent, a sharp contrast to most blocks citywide, while dining and grocery options rank in the lowest 13% across NYC. Rapid transit is steps away, adding access distinct from the immediate area's limited services."
+127.06,Entire home/apt,4.96,2.0,1.0,24.0,True,1.0,1.0,"Lacks nearby parks or green space, a contrast to most NYC blocks, and has limited gym and sports options compared to the citywide norm. Grocery and markets are a short walk away, along with cultural venues."
+133.67,Entire home/apt,4.96,2.0,1.0,28.0,True,1.0,1.0,"Few restaurants or entertainment options compared to most parts of the city, with minimal fitness and sports facilities nearby. Grocery and markets are steps away, and cultural venues are within walking distance."
+382.74,Entire home/apt,4.88,3.0,2.0,8.0,False,2.0,2.0,"Few hotels, parks, or shops compared to most blocks citywide, with limited green space and commercial density. Grocery and markets are a short walk away."
+898.8,Entire home/apt,4.85,4.0,2.0,62.0,False,2.0,2.0,"Bars and nightlife are absent, a contrast to most blocks in New York City, while access to cultural venues is immediate. The area ranks in the lowest 17% for subway and transit access and the bottom 23% for shops, yet sports facilities are within walking distance."
+451.0,Entire home/apt,4.79,4.0,1.0,181.0,False,3.0,1.0,"Few nearby hotels or cultural venues and minimal nightlife distinguish the area from most of New York City, while access to grocery and markets is steps away."
+96.0,Entire home/apt,4.61,2.0,1.0,92.0,False,1.0,1.0,"Few nearby blocks lack all entertainment venues, hotels, and museums, yet this area offers easy access to grocery markets and open park space."
+132.77,Entire home/apt,5.0,5.0,2.0,5.0,True,2.0,2.0,"Entertainment venues are absent, contrasting with most NYC blocks where such options are present, while subway and transit access ranks among the lowest 17% citywide. Grocery and markets are within a short walk, offering a nearby resource distinct from the limited transit and entertainment context."
+89.32,Entire home/apt,3.67,2.0,1.0,3.0,False,1.0,1.0,"Bars and nightlife are absent, a rare contrast in New York City, while museums and galleries are also missing from the immediate vicinity. A short walk leads to both grocery and markets access and to parks and open space, offering everyday convenience amid the sparse cultural and fitness offerings."
+172.43,Entire home/apt,4.76,6.0,1.0,86.0,False,3.0,1.0,"green
+
+space
+
+and
+
+nightlife
+
+are
+
+uncommon
+
+here
+
+a
+
+short
+
+walk
+
+reaches
+
+rapid
+
+transit"
+195.43,Entire home/apt,4.5,6.0,1.0,123.0,False,2.0,1.0,"Lacks nearby parks or green space, a contrast with most blocks citywide, and has limited access to grocery stores and dining compared to the majority of New York City. Cultural venues are steps away, adding proximity to arts programming amid otherwise sparse amenities."
+258.01,Private room,4.64,4.0,1.0,265.0,False,1.0,1.0,"Hotels are on the doorstep while most nearby blocks lack cafes and parks, with gym access in the lowest citywide range. Grocery options are a short walk away."
+62.78,Private room,4.47,4.0,2.5,19.0,True,5.0,2.5,"Lacks nearby subway or transit, a contrast to most NYC blocks, and has minimal bars and green space compared to the citywide norm. Grocery and markets are a short walk away."
+107.06,Entire home/apt,4.96,2.0,1.0,71.0,True,1.0,1.0,"Cafes and subway access are absent, distinguishing this block from most in New York City. A park and a grocery store are within walking distance."
+260.67,Entire home/apt,4.81,2.0,1.0,143.0,True,2.0,1.0,"Sparse entertainment options and limited subway access contrast with frequent grocery shopping and cultural venues within walking distance, near parks and open space."
+485.0,Entire home/apt,4.66,12.0,2.0,85.0,False,3.0,2.0,"Blocks with no nearby subway access and few entertainment venues contrast with the citywide norm, yet hotels and sports facilities are steps away."
+120.87,Entire home/apt,5.0,3.0,1.0,2.0,False,2.0,1.0,"A short walk reaches grocery stores and parks, contrasting with the absence of nearby subway service, a rarity across New York City blocks. Nightlife and hotels are exceptionally sparse compared to most areas in the city."
+143.28,Entire home/apt,4.53,4.0,1.0,109.0,False,1.0,1.0,"Few nearby blocks lack all attractions, nightlife, and gyms, yet this one is within easy reach of both grocery markets and rapid transit."
+350.0,Entire home/apt,4.96,2.0,1.0,111.0,True,1.0,1.0,"Few nearby blocks lack all attractions, cafes, and hotels, yet this one is within easy reach of grocery and markets. A park is also a short walk away."
+121.6,Entire home/apt,4.75,2.0,1.0,139.0,False,1.0,1.0,"Bars, hotels, and subway access are absent, a contrast with most blocks in New York City, while parks and grocery markets are within walking distance."
+143.77,Entire home/apt,4.5,4.0,1.0,6.0,False,2.0,1.0,"Lacks nearby subway service, with minimal access to entertainment venues and grocery stores compared to most of New York City. A short walk from Prospect Park, offering open space uncommon in areas with similar transit limitations."
+127.23,Entire home/apt,4.75,6.0,1.5,52.0,True,2.0,1.5,"Sparse nightlife and limited hotel density contrast with immediate access to cultural venues, while nearby sports facilities add a distinct local amenity. Green space remains scarce compared to most blocks citywide."
+286.5,Entire home/apt,5.0,4.0,1.0,5.0,False,1.0,1.0,"Far from subway and transit options, with minimal access to grocery stores and entertainment venues compared to most NYC blocks. A short walk from Prospect Park and nearby sports facilities."
+195.67,Private room,4.3,2.0,1.0,50.0,False,2.0,1.0,"Quiet residential streets contrast with sparse nightlife and limited transit access, yet the area offers a short walk to both grocery markets and park space."
+640.0,Private room,4.93,2.0,1.0,84.0,True,2.0,1.0,"Blocks with no nearby museums or galleries contrast with proximity to daily convenience, as grocery markets and open parks are steps away. Entertainment and nightlife options are among the most limited in the city."
+76.23,Entire home/apt,4.9,2.0,1.0,309.0,True,1.0,1.0,Sparse cultural amenities and limited green space contrast with convenient access to rapid transit and grocery options within walking distance.
+98.27,Entire home/apt,4.5,3.0,1.0,70.0,True,1.0,1.0,"Few bars or nightlife venues, limited subway access, and minimal park space distinguish this area from more centrally located parts of the city. Grocery and markets are steps away, offering everyday convenience."
+273.19,Private room,4.67,4.0,2.0,12.0,False,2.0,2.0,"Lacks nearby parks and subway access, features minimal shopping, and has sports facilities steps away."
+302.41,Entire home/apt,4.84,4.0,1.0,98.0,False,2.0,1.0,"No nearby hotels, museums, galleries, or parks distinguish this block from most in New York City. Grocery and markets are steps away, with rapid transit a short walk distant."
+322.33,Entire home/apt,5.0,2.0,1.0,14.0,True,1.0,1.0,"The block lacks nearby museums, galleries, or parks, which are present on most city blocks, and has minimal retail compared to the rest of New York, yet offers immediate access to grocery markets and sports facilities."
+67.78,Private room,4.85,2.0,1.0,102.0,True,1.0,1.0,"Lacks nearby parks or green space, a contrast to most blocks in New York City, and has limited shops and attractions compared to the citywide norm, yet has grocery and markets immediately accessible. Sports facilities are within walking distance, adding a distinct local resource."
+93.76,Entire home/apt,4.78,1.0,1.0,179.0,True,1.0,1.0,"Far from the typical concentration of attractions, entertainment venues, and nightlife found across most of New York City, this area lacks nearby access to such amenities. A short walk leads to grocery and markets, offering basic provisions in an otherwise sparse setting."
+407.0,Private room,4.92,2.0,1.0,141.0,False,2.0,1.0,"Lacks nearby museums, parks, and subway access—uncommon for New York City—while a full-service grocery is steps away."
+130.01,Entire home/apt,4.76,4.0,1.0,118.0,True,2.0,1.0,"Museums and galleries are absent nearby, a contrast to most blocks in the city, while rapid transit is on the doorstep at MTA New York City Transit-Beverly Rd. Parks and green space are also missing in the immediate vicinity, unlike the majority of New York City blocks."
+143.0,Entire home/apt,4.38,8.0,1.0,146.0,False,1.0,1.0,"Cafes and subway access are absent, a contrast to most blocks in New York City, while parks and open space are steps away. Grocery and markets are within a short walk, and the area ranks among the lowest in the city for gyms and sports facilities."
+107.5,Private room,5.0,2.0,1.0,2.0,False,1.0,1.0,"The area lacks nearby museums, galleries, or parks, a contrast to most blocks in New York City, and has few attractions compared to the citywide norm, yet offers rapid transit access on the doorstep at MTA New York City Transit-Beverly Rd and a short walk to grocery and markets."
+237.0,Hotel room,4.0,4.0,1.0,1.0,False,1.0,1.0,"A scarcity of grocery stores and cafes distinguishes this block from most in the city, while proximity to hotels and a short walk to open park space provide access to transient accommodations and recreational areas."
+329.33,Private room,4.92,2.0,1.0,192.0,True,2.0,1.0,"A short walk reaches parks and open space as well as grocery and markets, contrasting with the absence of nearby subway and transit, entertainment venues, and museums and galleries found on most NYC blocks."
+255.9,Entire home/apt,4.75,4.0,1.0,4.0,False,1.0,1.0,"entertainment venues are absent where most NYC blocks have at least one, and cafes and shops are unusually scarce, though grocery and markets are within walking distance"
+151.18,Entire home/apt,5.0,2.0,1.0,1.0,False,1.0,1.0,"Lacks nearby parks or green space, a contrast to most blocks in New York City, and has very limited access to gyms, sports facilities, and bars. Grocery and markets are a short walk away, adding access to essential services amid this sparse recreational landscape."
+1142.0,Private room,4.95,2.0,2.5,20.0,True,2.0,2.5,"Entertainment venues, hotels, and parks are absent nearby, distinguishing it from most blocks across the city. Grocery and markets are steps away, while cultural venues are a short walk."
+91.87,Entire home/apt,4.65,2.0,1.0,49.0,True,1.0,1.0,on the doorstep: New York Airport
+1027.5,Entire home/apt,4.84,11.0,1.5,58.0,True,3.0,1.5,"Lacks nearby subway or transit service, a rarity in New York City, and has fewer shops and dining options than most city blocks. Hotels are steps away, with grocery and markets a short walk."
+335.0,Entire home/apt,4.93,6.0,1.0,86.0,False,2.0,1.0,"No nearby hotels, museums, galleries, or parks distinguish this block from most in New York City. Grocery and markets are on the doorstep."
+825.0,Entire home/apt,4.68,10.0,3.0,60.0,False,5.0,3.0,"Lacks nearby subway or transit service, a rare trait in NYC, and offers minimal dining and shopping options compared to most city blocks. Hotels are steps away, and a grocery or market is within a short walk."
+286.44,Entire home/apt,4.91,2.0,1.0,143.0,True,1.0,1.0,"A block with no nearby hotels, museums, galleries, or parks contrasts with the typical New York City environment, yet has grocery and markets steps away. Sports facilities are also immediately accessible."
+382.22,Entire home/apt,4.74,6.0,1.0,109.0,False,2.0,1.0,Sparse commercial activity and minimal cultural infrastructure contrast with convenient access to grocery markets and nearby green space.
+371.0,Private room,4.94,8.0,1.0,84.0,True,4.0,1.0,"Cafes, entertainment venues, and museums or galleries are absent nearby, distinguishing the block from most in New York City. A short walk leads to both rapid transit at MTA Subway - Liberty Ave (A/C) and access to parks and open space."
+373.0,Entire home/apt,4.83,6.0,1.0,6.0,False,2.0,1.0,"A block with minimal retail and cultural amenities, far below city norms for shops and nightlife, yet steps from rapid transit at Santa marta la dominadora station. Grocery access is a short walk away, contrasting with the otherwise sparse commercial environment."
+125.26,Entire home/apt,4.29,6.0,1.5,7.0,True,3.0,1.5,"Far from the typical city mix of attractions, bars, and gyms found across most of New York, this area offers quiet streets with no nearby nightlife or fitness venues. A short walk leads to grocery and markets as well as cultural venues, with access to the MTA New York City Transit-Avenue J station nearby."
+44.27,Private room,5.0,2.0,2.0,3.0,True,1.0,2.0,"No hotels, museums, galleries, parks, or green spaces are nearby, which contrasts with most blocks across New York City. Grocery and markets are steps away, and rapid transit is a short walk."
+224.64,Entire home/apt,4.62,6.0,1.0,55.0,False,1.0,1.0,Sparse transit access and limited dining and shopping options contrast with grocery and markets steps away.
+63.63,Private room,5.0,1.0,1.0,3.0,True,1.0,1.0,"Dining, bars and nightlife, and shops are among the most limited in the city. Parks and open space are steps away."
+225.25,Entire home/apt,5.0,8.0,2.0,6.0,True,3.0,2.0,"Entertainment venues, hotels, and museums and galleries are absent in this part of the city, a contrast with most blocks across New York. Grocery and markets are steps away."
+302.5,Entire home/apt,4.94,4.0,1.0,144.0,True,1.0,1.0,a short walk from rapid transit and steps away from cultural venues.
+426.5,Entire home/apt,4.66,2.0,1.0,92.0,False,2.0,1.0,"Few nearby blocks lack all forms of nightlife, fitness facilities, and tourist attractions, yet this one has rapid transit access steps away. Pennsylvania Avenue (IRT New Lots Line) is on the doorstep, with grocery options also immediately accessible."
+318.3,Entire home/apt,5.0,5.0,1.5,2.0,False,3.0,1.5,"Few nearby blocks lack all major attractions, entertainment venues, and hotels, yet this one has sports facilities steps away and grocery access within a short walk."
+159.05,Entire home/apt,4.6,4.0,1.0,30.0,False,2.0,1.0,"A short walk reaches both grocery markets and open park space, contrasting with the absence of nearby cultural venues, bars, or museums found on most blocks across the city."
+89.23,Entire home/apt,5.0,2.0,1.0,2.0,False,1.0,1.0,"Few nearby blocks lack all attractions, cafes, and hotels, yet this area has both a grocery market and sports facilities within walking distance."
+159.84,Entire home/apt,4.87,6.0,1.0,67.0,True,2.0,1.0,"Cafes, hotels, and museums are absent from this block, contrasting with most areas across New York City. A public park and a sports facility are each within walking distance."
+197.34,Entire home/apt,4.47,5.0,1.0,19.0,False,2.0,1.0,"Bars, cafes, and museums are absent nearby, distinguishing this block from most in New York City. A short walk leads to grocery options, open space, and the New Lots Train Station."
+211.09,Entire home/apt,4.89,8.0,2.0,63.0,False,2.0,2.0,"Few nearby blocks lack all cultural attractions, hotels, and museums, yet this one has open space within easy walking distance and a grocery market just steps away."
+129.52,Entire home/apt,4.62,7.0,1.0,21.0,False,3.0,1.0,"The block stands apart from most in New York City with no nearby cafes, museums, galleries, or subway access, yet open space and sports facilities are steps away."
+96.63,Entire home/apt,4.62,4.0,1.0,29.0,False,2.0,1.0,"A block with no nearby attractions, cafes, or gyms contrasts with immediate access to open space, steps from a park. Grocery and markets are a short walk away."
+33.53,Private room,4.69,2.0,1.0,16.0,False,1.0,1.0,"Cafes, entertainment venues, and museums or galleries are absent from this block, contrasting with their prevalence across most of New York City. Grocery and markets are steps away, and Metro North - Morris Heights is a short walk distant."
+111.2,Entire home/apt,4.85,2.0,1.0,62.0,False,1.0,1.0,"no
+
+nearby
+
+or
+
+hotels
+
+a
+
+walk
+
+from
+
+open
+
+space"
+117.83,Entire home/apt,4.75,4.0,1.0,4.0,False,2.0,1.0,"Few nearby blocks lack all attractions, bars, nightlife, and hotels, yet this one is close to both grocery and markets and cultural venues."
+249.0,Private room,4.89,2.0,1.0,245.0,True,1.0,1.0,"parks and open space: on the doorstep  
+grocery and markets: a short walk"
+514.0,Entire home/apt,4.95,3.0,1.0,58.0,True,2.0,1.0,"Steps away from open space yet devoid of the cafes, attractions, and fitness facilities common across most of the city. A grocery market is within walking distance."
+71.57,Entire home/apt,4.7,2.0,1.0,109.0,True,1.0,1.0,"Few nearby blocks lack all major attractions, entertainment venues, and hotels, yet remain within easy reach of grocery markets and public sports facilities. This combination of citywide scarcity and access to essential amenities distinguishes the area."
+261.07,Private room,4.92,2.0,1.0,12.0,False,1.0,1.0,"A block without nearby attractions, cafes, or entertainment venues, which is uncommon in New York City, yet has grocery and markets within walking distance. Steps away from public sports facilities."
+61.06,Private room,4.7,1.0,1.0,23.0,False,0.0,1.0,"Few nearby blocks lack all cultural venues, cafes, and tourist draws, yet this one is close to grocery and markets."
+183.57,Entire home/apt,4.9,2.0,1.0,107.0,False,1.0,1.0,"a short walk from cultural venues and markets yet lacks any nearby parks, bars, or hotels"
+255.34,Entire home/apt,4.96,2.0,1.0,179.0,True,2.0,1.0,"Cafes, museums and galleries, and subway and transit options are absent, distinguishing this block from most in the city. Parks and open space are a short walk away."
+405.0,Private room,4.86,6.0,2.0,210.0,True,3.0,2.0,"no entertainment venues, museums, galleries, or parks nearby, though sports facilities and hotels are a short walk away"
+233.59,Private room,4.5,2.0,1.0,4.0,False,3.0,1.0,"A quiet residential stretch with no nearby subway access, bars, or cafes—unusual for New York City—yet steps from a full-service grocery and directly adjacent to a public park."
+561.23,Entire home/apt,4.76,2.0,1.0,125.0,False,1.0,1.0,"Few nearby blocks in New York City lack all attractions, entertainment venues, and hotels, yet this area has a grocery and markets within walking distance."
+132.47,Entire home/apt,4.73,2.0,1.0,123.0,False,2.0,1.0,"no attractions, museums, galleries, gyms, or sports facilities nearby, though grocery and markets are a short walk away"
+152.21,Entire home/apt,5.0,1.0,1.0,2.0,False,1.0,1.0,"Few NYC blocks lack basic amenities such as cafes, grocery stores, and attractions, yet this area has none within reach. Its distance from any major transit hub reinforces a pattern of limited access seen elsewhere only in more isolated parts of the city."
+146.44,Entire home/apt,4.93,4.0,1.0,73.0,True,1.0,1.0,"Few nearby blocks lack all forms of entertainment, nightlife, and attractions, yet this one is within walking distance of both a grocery market and open park space."
+56.6,Private room,5.0,1.0,1.0,3.0,False,3.0,1.0,"Cafes, entertainment venues, and museums or galleries are absent from this block, a contrast with most in the city, while grocery and markets are within walking distance."
+189.33,Entire home/apt,4.63,6.0,2.0,43.0,True,2.0,2.0,"A quiet residential stretch with no nearby attractions, bars, or hotels, uncommon for New York City, yet steps from grocery and markets."
+259.62,Private room,4.74,6.0,1.0,199.0,False,3.0,1.0,"Few nearby blocks lack all cultural attractions, nightlife, and museums, yet this one is within easy reach of open green space. A full-service grocery market is accessible nearby, adding practical convenience distinct from the absence of typical urban amenities."
+108.74,Entire home/apt,4.91,2.0,1.0,348.0,False,1.0,1.0,"Few nearby blocks lack all forms of commercial activity, yet this area has no cafes, grocery stores, or attractions within walking distance. Open space and sports facilities are accessible nearby, offering limited public amenities amid the absence of typical urban services."
+357.0,Private room,5.0,2.0,2.0,107.0,True,2.0,2.0,"Bars, cafes, and hotels are absent nearby, distinguishing this block from most in New York City. Clifton train station is on the doorstep."
+397.0,Entire home/apt,4.98,2.0,1.0,55.0,True,1.0,1.0,"No nearby attractions, bars, or cafes distinguish this block from most in New York City. Beach 36th Street station is on the doorstep, and grocery access is a short walk away."
+1076.0,Private room,4.96,8.0,2.5,49.0,True,4.0,2.5,"A block without nearby bars, cafes, or entertainment venues—uncommon in New York City—is steps from open park space and a short walk from grocery markets."
+107.59,Entire home/apt,5.0,2.0,1.0,1.0,True,1.0,1.0,"Few nearby blocks lack all forms of nightlife, cafes, and visitor attractions, yet this one has a grocery within walking distance."
+212.77,Entire home/apt,3.0,6.0,2.0,1.0,False,3.0,2.0,"Bars, cafes, and entertainment venues are absent nearby, a contrast to most blocks in New York City, while grocery and markets are within walking distance."
+375.0,Entire home/apt,5.0,4.0,2.0,76.0,True,2.0,2.0,"A short walk reaches grocery and markets, while hotels are steps away, amid a stretch without nearby attractions, cafes, or entertainment venues found on most NYC blocks."
+93.17,Entire home/apt,4.64,4.0,1.0,11.0,True,2.0,1.0,"Few nearby blocks lack all three of attractions, cafes, and nightlife, yet this one does while offering a short walk to grocery markets and sports facilities."
+642.0,Private room,4.95,2.0,2.0,19.0,True,2.0,2.0,"A block where the absence of nearby attractions, bars, cafes, and hotels contrasts with most of New York City, yet remains within walking distance of grocery and market options."
+142.28,Entire home/apt,4.78,6.0,2.0,67.0,False,3.0,2.0,"Few nearby blocks lack all major attractions, grocery stores, and gyms, yet this area is a short walk from LaGuardia Airport Terminal B. Rapid transit access provides a direct connection despite the absence of typical city amenities."
+270.08,Entire home/apt,4.99,2.0,1.0,101.0,True,1.0,1.0,"A block without nearby cafes, bars, or attractions—uncommon in New York City—yet within easy reach of open space and with sports facilities immediately adjacent."
+72.36,Private room,4.75,2.0,1.0,8.0,False,1.0,1.0,"Few blocks in New York City lack nearby attractions, bars, and cafes, but this area has none of these typically present features. The absence of such common urban elements distinguishes it from most other city blocks."
+345.13,Entire home/apt,5.0,5.0,2.5,1.0,False,4.0,2.5,"The block lacks nearby attractions, bars, cafes, or other common urban amenities found throughout the city. A sports facility is within walking distance."
+294.0,Private room,4.73,4.0,1.0,52.0,False,2.0,1.0,"Few nearby blocks lack all forms of attractions, bars, nightlife, and cafes, making this stretch distinct from most of New York. The absence of any such venues sets it apart from the typical city fabric."
+194.7,Entire home/apt,5.0,4.0,1.0,2.0,False,2.0,1.0,"The block lacks nearby attractions, cafes, and bars—contrasting with most of New York City—while having immediate access to sports facilities."
+167.8,Private room,5.0,2.0,1.0,9.0,False,1.0,1.0,"The block lacks nearby attractions, bars, and cafes, a rare absence in New York City, while a short walk leads to parks and open space."
+105.3,Entire home/apt,4.72,2.0,1.0,47.0,False,1.0,1.0,"Bars, cafes, and dining options are absent from this block, a contrast to most areas across the city where such amenities are typically within walking distance. The nearest subway stations are several blocks away, limiting immediate access to broader city services."
+280.8,Private room,4.96,7.0,2.0,26.0,False,3.0,2.0,"Few nearby blocks lack all dining, cafes, and attractions, yet this one is close to open park space."
+181.5,Entire home/apt,4.74,2.0,1.0,89.0,False,1.0,1.0,"Few nearby blocks in the city lack all forms of cafes, bars, and attractions, making this stretch distinct. The area near LaGuardia Airport has no immediate access to such amenities."
+309.73,Entire home/apt,5.0,6.0,2.0,15.0,False,3.0,2.0,"Few nearby blocks lack all dining, cafes, and attractions, yet this one is close to open space."
+217.0,Entire home/apt,4.96,2.0,1.0,23.0,True,1.0,1.0,"Few blocks in the city lack nearby attractions, bars, cafes, and nightlife, yet remain within walking distance of grocery and markets."
+288.0,Private room,4.43,2.0,1.0,7.0,False,2.0,1.0,"Few nearby blocks lack all forms of cafes, bars, and general attractions, making this stretch distinct in its absence of typical city amenities. The area is set apart from more active corridors, with no immediate access to named transit hubs or prominent landmarks."

@@ -16,6 +16,7 @@ dependencies = [
     "rapidfuzz>=3.0.0",
     "python-dotenv>=1.2.2",
     "matplotlib>=3.11.1",
+    "kagglehub[pandas-datasets]>=1.0.2",
 ]
 
 # uv script entry points. `main` = whole pipeline; the rest drive one stage each.
@@ -26,6 +27,7 @@ clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (PySpark)
 clean-pandas = "run:clean_pandas"  # stage 0, pandas twin (no JVM)
 build = "run:build"        # stage 1: -> artifacts/airbnb_enriched.csv (Overture POIs)
 describe = "run:describe"  # stage 2: -> artifacts/airbnb_described.csv (LLM)
+enrich = "run:enrich"      # full fine-schema corpus with fixed prompt 16
 eval = "run:evaluate"      # stage 3: MulTaBench eligibility (needs GPU)
 
 [build-system]

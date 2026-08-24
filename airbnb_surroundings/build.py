@@ -3,10 +3,9 @@
 POIs come from Overture Maps Places — OSM + Foursquare merged, deduped, with a
 standardized category per place and a confidence score. We read straight from
 the public S3 Parquet via DuckDB (no local extracts), filter by the NYC bounding
-box + confidence, then for every listing list the POIs whose geometry falls
-within RADIUS meters, tagged with a coarse proximity band. One new column:
-    - surroundings : JSON array of {category, name?, prox} dicts, ready to feed
-                     an LLM for a text summary
+box + confidence, then retain both coarse density counts and a compact selection
+of nearby named places. One new column:
+    - surroundings : JSON object ready to feed an LLM for a text summary
 Listings with zero POIs in radius are dropped (count used internally, never
 persisted as a column).
 
@@ -15,6 +14,7 @@ strip) and a confidence field, so cleaning collapses to a confidence gate.
 """
 
 import csv
+import argparse
 import json
 import os
 import sys
@@ -142,6 +142,12 @@ PARK_SUBS = {  # attractions 2nd-level values that are green/open space
 }
 CULTURE_SUBS = {"museum", "art_gallery", "cultural_center"}
 
+# Keep the free-text prompt specific without turning it into a raw local business
+# directory. The selection is deterministic, so rebuilding with the same Overture
+# release produces the same text inputs.
+MAX_POI_EXAMPLES = 6
+MID_RADIUS = 300
+
 
 def bucket(leaf):
     """Map a fine leaf category to its coarse signal bucket."""
@@ -169,6 +175,94 @@ def bucket(leaf):
             return "culture"
         return "landmark"
     return g
+
+
+def distance_ring(distance_m: float) -> str:
+    """Human-sized distance bucket for a selected Overture place."""
+    if distance_m <= DOORSTEP:
+        return "doorstep"
+    if distance_m <= MID_RADIUS:
+        return "nearby"
+    return "walk"
+
+
+def _normalise_poi_name(name: object) -> str:
+    """Canonicalize a display name only for within-listing deduplication."""
+    if not isinstance(name, str):
+        return ""
+    return " ".join(name.split()).casefold()
+
+
+def aggregate_surroundings(group: pd.DataFrame) -> tuple[dict, dict, list[dict]]:
+    """Aggregate one listing's nearby Overture places.
+
+    Returns the legacy coarse counts, fine leaf-category counts, and at most six
+    representative named places. Representatives cover as many coarse buckets as
+    possible before adding distinct fine categories, always preferring nearer POIs.
+    """
+    cats: dict[str, list[int]] = {}
+    fine_cats: dict[str, list[int]] = {}
+    candidates: list[dict] = []
+
+    ordered = group.sort_values(["dist", "name", "category"], kind="stable")
+    for row in ordered.itertuples(index=False):
+        leaf = str(row.category)
+        distance_m = int(round(float(row.dist)))
+        coarse = bucket(leaf)
+
+        for collection, key in ((cats, coarse), (fine_cats, leaf)):
+            value = collection.get(key)
+            if value is None:
+                value = collection[key] = [0, 0, distance_m]
+            value[1] += 1
+            if distance_m <= DOORSTEP:
+                value[0] += 1
+            value[2] = min(value[2], distance_m)
+
+        normalized_name = _normalise_poi_name(row.name)
+        if normalized_name:
+            candidates.append(
+                {
+                    "name": " ".join(str(row.name).split()),
+                    "category": leaf,
+                    "bucket": coarse,
+                    "distance_m": distance_m,
+                    "ring": distance_ring(distance_m),
+                    "_normalized_name": normalized_name,
+                }
+            )
+
+    selected: list[dict] = []
+    used_names: set[str] = set()
+    used_buckets: set[str] = set()
+    used_categories: set[str] = set()
+
+    def add(candidate: dict) -> bool:
+        if len(selected) >= MAX_POI_EXAMPLES:
+            return False
+        if candidate["_normalized_name"] in used_names:
+            return False
+        selected.append({key: value for key, value in candidate.items() if key != "_normalized_name"})
+        used_names.add(candidate["_normalized_name"])
+        used_buckets.add(candidate["bucket"])
+        used_categories.add(candidate["category"])
+        return True
+
+    # First pass: give each coarse bucket its nearest named representative.
+    for candidate in candidates:
+        if candidate["bucket"] not in used_buckets:
+            add(candidate)
+
+    # Second pass: spend remaining space on different fine place types.
+    for candidate in candidates:
+        if candidate["category"] not in used_categories:
+            add(candidate)
+
+    # Last pass: fill any remaining places by distance, still without duplicate names.
+    for candidate in candidates:
+        add(candidate)
+
+    return cats, fine_cats, selected
 
 # leaky / ID columns dropped up front (in memory) if present, so no output
 # variant ever carries them — they pollute the eval's structured baseline.
@@ -218,13 +312,20 @@ def load_pois(con, bbox, utm, categories):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--enriched-out",
+        default=os.environ.get("BUILD_ENRICHED_OUT", config.ENRICHED_CSV),
+        help="output CSV for the enriched JSON (defaults to the production path)",
+    )
+    args = parser.parse_args()
     df = pd.read_csv(config.CLEANED_CSV, low_memory=False).reset_index(drop=True)
     df = df.rename(columns={"lat": "latitude", "long": "longitude"})
     df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
     df.insert(0, "index", df.index)  # stable per-listing key for describe.py's cache
 
     con = connect()
-    pad = 0.02  # ~2km, comfortably covers the 400m radius at the edges
+    pad = 0.02  # ~2km, comfortably covers the 450m radius at the edges
     bbox = [
         df.longitude.min() - pad,
         df.latitude.min() - pad,
@@ -273,31 +374,37 @@ def main():
         for lid, dm in d[d <= LANDMARK_RADIUS].round().astype(int).items():
             lm_by_listing[lid].append([name, int(dm)])
 
-    # Aggregate POIs per listing into a compact density record (no per-POI list, no
-    # caps — density is the signal, not truncated):
-    #   cats:      bucket -> [count<=150m, count<=400m, nearest_m]
+    # Aggregate POIs per listing into a compact record:
+    #   cats:      coarse bucket -> [count<=150m, count<=450m, nearest_m]
+    #   fine_cats: Overture leaf -> [count<=150m, count<=450m, nearest_m]
+    #   pois:      up to six representative named Overture places
     #   landmarks: [[name, dist_m], ...]  nearest-first, from the geometry pass above
     labels = {}
     for lid, grp in joined.groupby(level=0):
-        cats = {}  # bucket -> [c150, c400, nearest_m]
-        for cat, d in zip(grp["category"], grp["dist"]):
-            # density buckets stay within the tighter RADIUS
-            if d > RADIUS:
-                continue
-            dm = round(float(d))
-            b = bucket(cat)
-            e = cats.get(b)
-            if e is None:
-                e = cats[b] = [0, 0, dm]
-            e[1] += 1  # within RADIUS
-            if d <= DOORSTEP:
-                e[0] += 1
-            if dm < e[2]:
-                e[2] = dm
+        # `joined` was spatially filtered to RADIUS, but preserve this guard if the
+        # query/join strategy changes later.
+        grp = grp[grp["dist"] <= RADIUS]
+        cats, fine_cats, pois = aggregate_surroundings(grp)
         landmarks = sorted(lm_by_listing[lid], key=lambda x: x[1])
-        labels[lid] = {"cats": cats, "landmarks": landmarks}
+        labels[lid] = {
+            "cats": cats,
+            "fine_cats": fine_cats,
+            "pois": pois,
+            "landmarks": landmarks,
+        }
 
-    recs = [labels.get(i, {"cats": {}, "landmarks": lm_by_listing.get(i, [])}) for i in df.index]
+    recs = [
+        labels.get(
+            i,
+            {
+                "cats": {},
+                "fine_cats": {},
+                "pois": [],
+                "landmarks": lm_by_listing.get(i, []),
+            },
+        )
+        for i in df.index
+    ]
     df["surroundings"] = [json.dumps(x, ensure_ascii=False) for x in recs]
 
     # drop listings with no POIs within RADIUS
@@ -315,8 +422,8 @@ def main():
     # key. enriched keeps `index` because describe.py caches on it.
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
     df.drop(columns=["surroundings", "index"]).to_csv(config.VANILLA_CSV, index=False)
-    df.to_csv(config.ENRICHED_CSV, index=False)
-    print(f"done -> {config.VANILLA_CSV}, {config.ENRICHED_CSV}", flush=True)
+    df.to_csv(args.enriched_out, index=False)
+    print(f"done -> {config.VANILLA_CSV}, {args.enriched_out}", flush=True)
 
 
 if __name__ == "__main__":
