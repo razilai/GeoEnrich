@@ -13,13 +13,14 @@ Per-stage (each forwards its args; run any in isolation):
     uv run build             1. -> data/processed/airbnb_enriched.csv   (Overture POIs)
     uv run describe [N]      2. -> data/processed/airbnb_described.csv   (LLM key; N = top-N test)
     uv run enrich            -> data/processed/airbnb_described_16.csv  (fixed prompt 16)
-    uv run eval [--no-tar]   3. -> results/eval_report.csv              (needs GPU)
+    uv run eval [--full]     3. 5-fold MulTaBench eval -> results/eval_report.csv (needs GPU)
+    uv run eval --light      3. former one-fold screening evaluation
 
 Whole chain:
     uv run main              runs build -> describe -> eval, skipping any stage
                              whose output already exists (safe to re-run). clean
                              is upstream/manual, NOT part of this auto-chain.
-    uv run main -- --no-tar  extra args after `--` augment the eval defaults.
+    uv run main -- --light   extra args after `--` augment the eval defaults.
 
 On a fresh GPU box the usual flow is: clean + build + describe locally,
 `scripts/sync.sh` the CSVs over, then `uv run eval` here.
@@ -123,7 +124,8 @@ def enrich() -> None:
 def evaluate() -> None:
     """`uv run eval [extra]` — stage 3: MulTaBench eligibility (needs GPU + tabstar).
 
-    Extra args augment the defaults, e.g. `uv run eval --no-tar` (joint-signal only).
+    The default is the required five-fold evaluation. Use `--light` for the former
+    single-fold screen; `--full` is accepted explicitly for scripts and CI.
     """
     _stage("eval", [*DEFAULT_EVAL_ARGS, *sys.argv[1:]], gpu=True)
 

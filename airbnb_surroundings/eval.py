@@ -2,7 +2,10 @@
 
 Runs the 5 required learners (TabM, CatBoost, LightGBM, TabPFN v2, TabPFN v2.5)
 across the curation conditions and checks the two criteria (Joint Signal + TAR
-Gain) per modality, for at least 3 of the 5 learners.
+Gain) per modality, for at least 3 of the 5 learners.  The full evaluation uses
+the MulTaBench protocol's five folds (0--4) and evaluates the criteria on each
+learner's mean score across those folds.  ``--light`` retains the former,
+single-fold screen for quick iteration.
 
 We bypass MulTaBench's Kaggle download path and drive its baseline pipeline
 directly via ``evaluate_on_loaded_dataset``, constructing a ``MultimodalDataset``
@@ -24,6 +27,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from collections.abc import Iterable
 
 # Make the vendored MulTaBench clone (at the repo root) importable.
 from airbnb_surroundings import config
@@ -76,6 +80,8 @@ LEARNERS = {
 }
 TEXT_COL = "surroundings_summary"
 IMAGE_COL = "image"
+FULL_FOLDS = tuple(range(5))
+CURATION_MARGIN = 0.001
 
 
 def _dino_kwargs(epochs: int | None = None) -> dict:
@@ -122,7 +128,9 @@ def score(model_cls, x, y, task, image_folder, fold, train_examples, device,
 
 
 def evaluate_dataset(csv, image_folder, target, task, fold, train_examples,
-                     with_image: bool, e5_epochs=None, dino_epochs=None, with_tar=True):
+                     with_image: bool, e5_epochs=None, dino_epochs=None, with_tar=True,
+                     *, folds: Iterable[int] | None = None):
+    """Evaluate every learner over ``folds`` (or the legacy single ``fold``)."""
     device = get_device(device=DEVICE)
     df = pd.read_csv(csv)
     y = df[target]
@@ -133,48 +141,60 @@ def evaluate_dataset(csv, image_folder, target, task, fold, train_examples,
     rows = []
     # Share the learner-independent E5/DINO fits across all learners + conditions in this run.
     with encoder_cache():
-        for name, cls in LEARNERS.items():
-            def run(x, **kw):
-                return score(cls, x, y, task, image_folder, fold, train_examples, device,
-                             e5_epochs=e5_epochs, dino_epochs=dino_epochs, **kw)
+        for current_fold in (tuple(folds) if folds is not None else (fold,)):
+            print(f"\n── Fold {current_fold} ──")
+            for name, cls in LEARNERS.items():
+                def run(x, **kw):
+                    return score(cls, x, y, task, image_folder, current_fold, train_examples, device,
+                                 e5_epochs=e5_epochs, dino_epochs=dino_epochs, **kw)
 
-            rec = {"learner": name}
-            rec["structured"] = run(x_struct)
-            rec["unstructured_text"] = run(x_text)
-            rec["joint_text_frozen"] = run(pd.concat([x_struct, x_text], axis=1))
-            rec["joint_text_tar"] = (run(pd.concat([x_struct, x_text], axis=1), tune_e5=True)
-                                     if with_tar else float("nan"))
-            if with_image:
-                rec["unstructured_image"] = run(x_img)
-                rec["joint_image_frozen"] = run(pd.concat([x_struct, x_img], axis=1))
-                rec["joint_image_tar"] = (run(pd.concat([x_struct, x_img], axis=1), tune_dino=True)
-                                          if with_tar else float("nan"))
-            rows.append(rec)
-            print(f"  {name}: {rec}")
+                rec = {"fold": current_fold, "learner": name}
+                rec["structured"] = run(x_struct)
+                rec["unstructured_text"] = run(x_text)
+                rec["joint_text_frozen"] = run(pd.concat([x_struct, x_text], axis=1))
+                rec["joint_text_tar"] = (run(pd.concat([x_struct, x_text], axis=1), tune_e5=True)
+                                         if with_tar else float("nan"))
+                if with_image:
+                    rec["unstructured_image"] = run(x_img)
+                    rec["joint_image_frozen"] = run(pd.concat([x_struct, x_img], axis=1))
+                    rec["joint_image_tar"] = (run(pd.concat([x_struct, x_img], axis=1), tune_dino=True)
+                                              if with_tar else float("nan"))
+                rows.append(rec)
+                print(f"  {name}: {rec}")
     return pd.DataFrame(rows)
 
 
-def _criteria(report: pd.DataFrame, modality: str):
+def _mean_scores_by_learner(report: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate the per-fold report used by the MulTaBench curation rule."""
+    score_columns = [c for c in report.columns if c not in {"fold", "learner"}]
+    return report.groupby("learner", as_index=False)[score_columns].mean()
+
+
+def _criteria(report: pd.DataFrame, modality: str, *, margin: float = 0.0):
     """Return per-learner (joint_signal, tar_gain) booleans for a modality."""
     frozen, tar, unstruct = (f"joint_{modality}_frozen", f"joint_{modality}_tar",
                              f"unstructured_{modality}")
     out = {}
     for _, r in report.iterrows():
-        joint_signal = (r[frozen] > r["structured"]) and (r[frozen] > r[unstruct])
-        tar_gain = r[tar] > r[frozen]
+        joint_signal = (r[frozen] - max(r["structured"], r[unstruct])) > margin
+        tar_gain = (r[tar] - r[frozen]) > margin
         out[r["learner"]] = (bool(joint_signal), bool(tar_gain))
     return out
 
 
-def report_verdict(report: pd.DataFrame, modality: str) -> bool:
-    crit = _criteria(report, modality)
+def report_verdict(report: pd.DataFrame, modality: str, *, margin: float = 0.0) -> bool:
+    """Print the committee verdict from the mean score of each learner's folds."""
+    fold_count = report["fold"].nunique() if "fold" in report else 1
+    averaged_report = _mean_scores_by_learner(report)
+    crit = _criteria(averaged_report, modality, margin=margin)
     n_pass = sum(1 for js, tg in crit.values() if js and tg)
-    print(f"\n── {modality.upper()} modality ──")
+    print(f"\n── {modality.upper()} modality ({fold_count}-fold mean) ──")
     for learner, (js, tg) in crit.items():
         print(f"  {learner:12s} joint_signal={js!s:5s}  tar_gain={tg!s:5s}  "
               f"{'✅ PASS' if js and tg else '❌'}")
     ok = n_pass >= 3
-    print(f"  → {n_pass}/5 learners pass both criteria  "
+    margin_note = f" (margin > {margin:.3f})" if margin else ""
+    print(f"  → {n_pass}/5 learners pass both criteria{margin_note}  "
           f"({'ELIGIBLE' if ok else 'NOT eligible'} for {modality})")
     return ok
 
@@ -185,7 +205,13 @@ def main():
     p.add_argument("--image-folder", required=True)
     p.add_argument("--target", default="price")
     p.add_argument("--task", choices=["reg", "bin", "mul"], default="reg")
-    p.add_argument("--fold", type=int, default=0)
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--light", action="store_true",
+                      help="run the former single-fold screen (uses --fold, default: 0)")
+    mode.add_argument("--full", action="store_true",
+                      help="run the required five-fold MulTaBench evaluation (the default)")
+    p.add_argument("--fold", type=int, default=0,
+                   help="fold for --light only (default: 0)")
     p.add_argument("--train-examples", type=int, default=10_000)
     p.add_argument("--out", default=config.EVAL_REPORT_CSV)
     p.add_argument("--no-image", action="store_true",
@@ -196,21 +222,28 @@ def main():
                    help="skip TAR (LoRA) conditions; joint-signal only. TAR requires a GPU.")
     args = p.parse_args()
 
+    if not args.light and args.fold != 0:
+        p.error("--fold is only available with --light; --full always runs folds 0--4")
+
     task = {"reg": SupervisedTask.REGRESSION, "bin": SupervisedTask.BINARY,
             "mul": SupervisedTask.MULTICLASS}[args.task]
     with_image = not args.no_image
 
+    folds = (args.fold,) if args.light else FULL_FOLDS
+    margin = 0.0 if args.light else CURATION_MARGIN
+    print(f"\nRunning {'light single-fold' if args.light else 'full five-fold'} evaluation "
+          f"(folds: {', '.join(map(str, folds))})")
     report = evaluate_dataset(args.csv, args.image_folder, args.target, task,
                               args.fold, args.train_examples, with_image,
                               e5_epochs=args.e5_epochs, dino_epochs=args.dino_epochs,
-                              with_tar=not args.no_tar)
+                              with_tar=not args.no_tar, folds=folds)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     report.to_csv(args.out, index=False)
     print(f"\n✅ wrote {args.out}")
 
-    text_ok = report_verdict(report, "text")
+    text_ok = report_verdict(report, "text", margin=margin)
     if with_image:
-        image_ok = report_verdict(report, "image")
+        image_ok = report_verdict(report, "image", margin=margin)
         print(f"\n=== TRI-MODAL VERDICT: "
               f"{'✅ ELIGIBLE' if (text_ok and image_ok) else '❌ NOT eligible'} "
               f"(text={text_ok}, image={image_ok}) ===")

@@ -15,6 +15,7 @@ for csv in "$SCREEN"/v*.csv; do
     echo "########## $csv ##########" | tee -a "$OUT"
     "$PY" -m airbnb_surroundings.eval \
         --csv "$csv" --image-folder . --no-image \
+        --light \
         --out "$SCREEN/report_$(basename "$csv" .csv).csv" 2>&1 | tee -a "$OUT"
     echo | tee -a "$OUT"
 done

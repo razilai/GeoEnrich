@@ -144,13 +144,14 @@ Run the whole pipeline (build -> describe -> eval) with one command:
   uv run main
   # dispatches every stage to MulTaBench/.venv, so tabstar/torch are always found.
   # existing outputs are skipped; on a GPU box with only synced CSVs it runs the eval.
-  # forward flags to the eval after --, e.g.  uv run main -- --no-tar  (no GPU).
+  # forward flags to the eval after --, e.g.  uv run main -- --light.
 
 Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
   uv run clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (PySpark; run once)
   uv run build          # -> data/processed/airbnb_enriched.csv (Overture POIs within 400m)
   uv run describe 10    # -> data/processed/airbnb_described.csv (LLM summary; needs .env key; 10 = cheap test)
-  uv run eval           # MulTaBench eligibility; add --no-tar for joint-signal only (no GPU)
+  uv run eval           # required 5-fold MulTaBench eligibility evaluation
+  uv run eval --light   # former single-fold screen (use --full explicitly if desired)
 
 To copy credentials to this checkout on the vast host, run ./sync.sh from the
 source checkout that contains MulTaBench/.env.

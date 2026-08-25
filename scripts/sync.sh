@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Ship the dataset CSVs to the vast.ai GPU box (host alias `vast` in ~/.ssh/config)
-# where the TAR eval runs. The CSVs are NOT git-tracked (too big / churny), so the
-# code travels via git and the data travels via this rsync.
+# Ship the described evaluation CSV to the vast.ai GPU box (host alias `vast` in
+# ~/.ssh/config), where the TAR eval runs. It is NOT git-tracked (too big / churny),
+# so code travels via git and this one data file travels via rsync.
 #
 # Build the dataset locally first (airbnb_surroundings.build + .describe), then:
 #     scripts/sync.sh
@@ -19,15 +19,11 @@ REMOTE="${REMOTE:-vast:/workspace/multabench/}"
 
 command -v rsync >/dev/null || { echo "❌ rsync not found"; exit 1; }
 
-# raw input + generated variants; only the ones that exist get sent.
-csvs=(data/processed/airbnb.csv data/processed/airbnb_vanilla.csv \
-      data/processed/airbnb_enriched.csv data/processed/airbnb_described.csv)
-present=()
-for f in "${csvs[@]}"; do [ -f "$f" ] && present+=("$f"); done
-[ ${#present[@]} -gt 0 ] || { echo "❌ no CSVs found — build the dataset first"; exit 1; }
+CSV=data/processed/airbnb_described.csv
+[ -f "$CSV" ] || { echo "❌ $CSV not found — run the describe stage first"; exit 1; }
 
 echo "📤 rsync -> $REMOTE"
-printf '   %s\n' "${present[@]}"
+printf '   %s\n' "$CSV"
 # --relative (-R): keep the data/ + artifacts/ prefixes on the remote side
-rsync --archive --relative --checksum --progress "${present[@]}" "$REMOTE"
-echo "✅ synced ${#present[@]} CSV(s) to $REMOTE"
+rsync --archive --relative --checksum --progress "$CSV" "$REMOTE"
+echo "✅ synced $CSV to $REMOTE"
