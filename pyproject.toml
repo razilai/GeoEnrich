@@ -3,21 +3,12 @@ name = "airbnb-surroundings-multabench"
 version = "0.1.0"
 description = "Airbnb + OSM text-tabular dataset build + MulTaBench eligibility eval"
 requires-python = ">=3.11"
-# Thin launcher env. The heavy stages (build/describe/eval) all run in
-# MulTaBench/.venv — the single env init.sh builds with tabstar/torch + the
-# dataset-build libs. This project ships only run.py, which dispatches every
-# stage to that interpreter, so `uv run main` works no matter which env uv picks.
-dependencies = [
-    "duckdb>=1.1.0",
-    "geopandas>=1.1.4",
-    "pandas>=3.0.5",
-    "pydantic-ai>=2.29.0",
-    "pyspark>=3.5.0",
-    "rapidfuzz>=3.0.0",
-    "python-dotenv>=1.2.2",
-    "matplotlib>=3.11.1",
-    "kagglehub[pandas-datasets]>=1.0.2",
-]
+# Launcher-only environment. The heavy stages (build/describe/eval) all run in
+# MulTaBench/.venv, which init.sh builds with tabstar/torch and the dataset-build
+# libraries. run.py uses only the standard library to dispatch into that
+# interpreter, so duplicating those dependencies here only wastes disk and setup
+# time.
+dependencies = []
 
 # uv script entry points. `main` = whole pipeline; the rest drive one stage each.
 # All dispatch into MulTaBench/.venv (see run.py), so they work from `uv run`.

@@ -1,6 +1,7 @@
-# Dataset-build deps, installed by init.sh INTO MulTaBench/.venv (single shared env).
-# pandas/numpy come from MulTaBench's own requirements — not pinned here so uv
-# doesn't re-resolve MulTaBench's CUDA torch build.
+# Extra dataset-build deps, installed by init.sh INTO MulTaBench/.venv (the
+# single execution environment). pandas/numpy/python-dotenv already come from
+# MulTaBench's own requirements, so do not list them here and trigger a second
+# resolution or upgrade.
 # Stage 0: raw-scrape cleaning (airbnb_surroundings/clean.py)
 pyspark
 # Stage 1: Overture Places POI enrichment (airbnb_surroundings/build.py)
@@ -9,4 +10,3 @@ duckdb
 rapidfuzz
 # Stage 2: LLM surroundings summary (airbnb/describe.py)
 pydantic-ai
-python-dotenv

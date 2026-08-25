@@ -41,6 +41,23 @@ fi
 command -v git >/dev/null || { echo "❌ git not found"; exit 1; }
 command -v uv >/dev/null || { echo "❌ uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
 
+# GPU: choose Torch's wheel index BEFORE MulTaBench resolves its requirements.
+# `UV_TORCH_BACKEND` is honored by its internal `uv pip install -r`, avoiding
+# the old pattern of downloading Torch once and force-reinstalling it afterward.
+GPU_CAP=""
+CUDA_TAG=""
+if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+    GPU_CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
+               | head -n1 | tr -d ' .')"
+    case "$GPU_CAP" in
+        10*|12*|13*) CUDA_TAG="cu128" ;;  # Blackwell (sm_100/sm_120) and newer
+        "")          CUDA_TAG="cu128" ;;  # old nvidia-smi w/o compute_cap: assume new
+        *)           CUDA_TAG="cu126" ;;  # Hopper sm_90 and older
+    esac
+    export UV_TORCH_BACKEND="$CUDA_TAG"
+    echo "🎮 GPU sm_${GPU_CAP:-?} -> selecting torch ${CUDA_TAG} during dependency install"
+fi
+
 # 1. Clone MulTaBench (fork, latest master).
 if [ ! -d MulTaBench/.git ]; then
     echo "📥 cloning MulTaBench (latest master)"
@@ -84,26 +101,14 @@ uv pip install --python "$VENV_PY" -r requirements.txt
 echo "📦 installing airbnb_surroundings (editable) into MulTaBench/.venv"
 uv pip install --python "$VENV_PY" --no-deps -e .
 
-# 3b. GPU: match the torch build to THIS GPU's compute capability.
-# Runs LAST of the venv installs so pytabkit's default (cu126) torch can't clobber it.
-# torch 2.7.1 ships only cu118/cu126/cu128 wheels:
+# 3b. GPU: verify the wheel selected during MulTaBench's dependency install
+# supports THIS GPU's compute capability. torch 2.7.1 ships only cu118/cu126/cu128 wheels:
 #   cu126 -> sm_50..sm_90 ; cu128 adds sm_100/sm_120 (Blackwell, e.g. RTX 50xx).
-# We read the cap from nvidia-smi (no torch needed), pick the wheel, then VERIFY
-# the wheel actually carries sm_<cap> and fail loud if not — so a future GPU that
-# needs a build we didn't map can't silently fall back to "no kernel image".
-if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-    CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
-           | head -n1 | tr -d ' .')"
-    case "$CAP" in
-        10*|12*|13*) CUDA_TAG="cu128" ;;  # Blackwell (sm_100/sm_120) and newer
-        "")          CUDA_TAG="cu128" ;;  # old nvidia-smi w/o compute_cap: assume new
-        *)           CUDA_TAG="cu126" ;;  # Hopper sm_90 and older
-    esac
-    echo "🎮 GPU sm_${CAP:-?} -> installing torch ${CUDA_TAG} (last, so it wins)"
-    uv pip install --python "$VENV_PY" --upgrade --force-reinstall \
-        --index-url "https://download.pytorch.org/whl/${CUDA_TAG}" \
-        torch==2.7.1 torchvision==0.22.1
-    "$VENV_PY" - "$CAP" <<'PY'
+# We verify the wheel actually carries sm_<cap> and fail loud if not — so a
+# future GPU that needs a build we didn't map can't silently fall back to "no
+# kernel image".
+if [ -n "$CUDA_TAG" ]; then
+    "$VENV_PY" - "$GPU_CAP" <<'PY'
 import sys, torch
 cap = sys.argv[1]
 archs = torch.cuda.get_arch_list()
