@@ -7,11 +7,13 @@
 #      + the airbnb_surroundings package (editable) INTO MulTaBench/.venv
 #      -> build + eval all run in that one venv
 #   4. `uv sync` the thin env-holder project
-#   5. scaffold MulTaBench/.env for credentials (HF_TOKEN etc.)
+#   5. remove MulTaBench/.env; credentials are supplied separately with sync.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
+
+mkdir -p data/processed
 
 MULTABENCH_REPO="https://github.com/razilai/MulTaBench"
 VENV_PY="$HERE/MulTaBench/.venv/bin/python"
@@ -122,10 +124,11 @@ fi
 echo "🔗 uv sync"
 uv sync
 
-# 5. Scaffold credentials file.
-if [ ! -f MulTaBench/.env ]; then
-    cp MulTaBench/.env.example MulTaBench/.env
-    echo "📝 created MulTaBench/.env — fill in HF_TOKEN (gated DINOv3) + WANDB/KAGGLE keys"
+# 5. Never retain credentials in a freshly initialized checkout.  The source
+# .env is intentionally synced separately to a configured remote with sync.sh.
+if [ -e MulTaBench/.env ]; then
+    rm -f -- MulTaBench/.env
+    echo "🗑️  removed MulTaBench/.env — transfer credentials separately with ./sync.sh"
 fi
 
 cat <<'EOF'
@@ -143,4 +146,7 @@ Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
   uv run build          # -> data/processed/airbnb_enriched.csv (Overture POIs within 400m)
   uv run describe 10    # -> data/processed/airbnb_described.csv (LLM summary; needs .env key; 10 = cheap test)
   uv run eval           # MulTaBench eligibility; add --no-tar for joint-signal only (no GPU)
+
+To copy credentials to this checkout on the vast host, run ./sync.sh from the
+source checkout that contains MulTaBench/.env.
 EOF

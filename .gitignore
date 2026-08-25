@@ -1,6 +1,9 @@
 # Cloned by init.sh (external repo — not vendored here)
 /MulTaBench/
 
+# Machine-specific VM bootstrap / credential-sync helper
+/sync.sh
+
 # Virtualenvs
 .venv/
 venv/
