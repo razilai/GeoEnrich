@@ -1,0 +1,14 @@
+{
+  "input_csv": "data/processed/v1.csv",
+  "target_column": "price",
+  "text_column": "surroundings_summary",
+  "metadata": {
+    "snapshot": "REPLACE_WITH_LISTING_SNAPSHOT",
+    "target_scale": "nightly price in USD",
+    "overture_release": "REPLACE_WITH_OVERTURE_RELEASE",
+    "landmark_inventory": "REPLACE_WITH_LANDMARK_VERSION_OR_DATE",
+    "radii": "150 m doorstep; 450 m POI capture; 800 m landmark",
+    "curation_controls": "REPLACE_WITH_PRIVACY_AND_GROUNDING_CONTROLS",
+    "release_artifact": "REPLACE_WITH_HOST_VERSION_AND_LICENSE"
+  }
+}
