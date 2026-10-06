@@ -101,14 +101,11 @@ echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
     cd MulTaBench && source init.sh
 )
 
-# 3. Install this project's dataset-build libs into the same venv.
-echo "📦 installing dataset-build libs into MulTaBench/.venv"
-uv pip install --python "$VENV_PY" -r requirements.txt
-
-# 3a. Install this project's own package (editable, no deps — they came from
-# requirements.txt above) so the stages resolve as `-m airbnb_surroundings.*`.
-echo "📦 installing airbnb_surroundings (editable) into MulTaBench/.venv"
-uv pip install --python "$VENV_PY" --no-deps -e .
+# 3a. Install this project's package (editable) + its dataset-build libs (the
+# `pipeline` extra in pyproject.toml) into the same venv, so the stages resolve
+# as `-m airbnb_surroundings.*`.
+echo "📦 installing airbnb_surroundings[pipeline] (editable) into MulTaBench/.venv"
+uv pip install --python "$VENV_PY" -e ".[pipeline]"
 
 # 3b. GPU: verify the wheel selected during MulTaBench's dependency install
 # supports THIS GPU's compute capability. torch 2.7.1 ships only cu118/cu126/cu128 wheels:
@@ -154,12 +151,14 @@ Run the whole pipeline (build -> describe -> eval) with one command:
   # dispatches every stage to MulTaBench/.venv, so tabstar/torch are always found.
   # existing outputs are skipped; on a GPU box with only synced CSVs it runs the eval.
   # forward flags to the eval after --, e.g.  uv run main -- --light.
+  # pick the prompt variant (airbnb_surroundings/prompts.toml) with --prompt, e.g.  uv run main --prompt 08.
 
 Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
-  uv run clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (PySpark; run once)
+  uv run clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (pandas; run once)
   uv run build          # -> data/processed/airbnb_enriched.csv (Overture POIs within 400m)
-  uv run describe 10    # -> data/processed/airbnb_described.csv (LLM summary; needs .env key; 10 = cheap test)
-  uv run eval           # required 5-fold MulTaBench eligibility evaluation
+  uv run describe 10    # -> data/processed/airbnb_described_<prompt>.csv (LLM summary; needs .env key; 10 = cheap test)
+  uv run describe --prompt 05   # same, with prompt variant 05 (05 / 08 / 16; default 16)
+  uv run eval           # required 5-fold MulTaBench eligibility evaluation (--prompt picks the CSV)
   uv run eval --light   # former single-fold screen (use --full explicitly if desired)
 
 To copy credentials to this checkout on the vast host, run ./sync.sh from the

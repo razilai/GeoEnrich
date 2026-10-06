@@ -1,13 +1,13 @@
 """Render the SAME 10 random listings with ONE prompt across 3 model variants.
 
 Companion to prompt_datasets.py, but the axis is flipped: prompt is FIXED
-(08_local_guide_exact, needs SURR_VIEW=deviation_exact) and the MODEL varies.
+(an official prompt from airbnb_surroundings/prompts.toml, default 08) and the MODEL varies.
 Goal: see how much the surroundings prose moves with the model alone — cheap,
 before paying to enrich the full set with any one of them.
 
-Same rendering as the real pipeline: reuses describe.prompt_for under
-SURR_VIEW=deviation_exact so the USER block each model sees is byte-identical to
-what describe.py would send. Only the model (and its thinking config) differs.
+Same rendering as the real pipeline: describe.use_prompt selects the prompt's view
+and instruction, so the USER block each model sees is byte-identical to what
+describe.py would send. Only the model (and its thinking config) differs.
 
 Thinking models: two of the three slugs reason before answering. They are handled
 differently from the plain model:
@@ -30,7 +30,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import tomllib
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -46,9 +45,7 @@ load_dotenv()
 _HERE = os.path.dirname(os.path.abspath(__file__))
 API_KEY = os.environ["OPENROUTER_API_KEY"]
 SLUGS_TXT = os.path.join(_HERE, "slugs.txt")
-PROMPTS_TOML = os.path.join(_HERE, "prompts.toml")
-PROMPT_ID = os.environ.get("EXP_PROMPT", "08_local_guide_exact")
-SURR_VIEW = "deviation_exact"          # the view 08's system prompt is written for
+PROMPT_ID = os.environ.get("EXP_PROMPT", "08")
 N_LISTINGS = int(os.environ.get("N_LISTINGS", "10"))
 SEED = int(os.environ.get("EXP_SEED", "0"))
 
@@ -62,15 +59,6 @@ def is_thinking(base_slug: str) -> bool:
 def read_slugs(path: str) -> list[str]:
     with open(path) as f:
         return [ln.strip() for ln in f if ln.strip()]
-
-
-def load_prompt_system(pid: str) -> str:
-    with open(PROMPTS_TOML, "rb") as f:
-        toml = tomllib.load(f)
-    prompts = toml.get("prompts", {})
-    if pid not in prompts:
-        raise SystemExit(f"prompt '{pid}' not in {PROMPTS_TOML} ({sorted(prompts)})")
-    return prompts[pid]["system"].strip()
 
 
 def model_settings_for(thinking: bool) -> dict:
@@ -106,12 +94,15 @@ async def run_one(model, settings, system, user) -> tuple[str, str, dict]:
 async def main():
     df = pd.read_csv(config.ENRICHED_CSV, low_memory=False)
     describe.load_reference(df)         # corpus percentiles for the deviation_exact view
-    describe.SURR_VIEW = SURR_VIEW      # prompt_for reads this at call time
+    if PROMPT_ID not in describe.PROMPTS:
+        raise SystemExit(f"prompt '{PROMPT_ID}' not in {describe.PROMPTS_TOML} "
+                         f"({sorted(describe.PROMPTS)})")
+    describe.use_prompt(PROMPT_ID)      # prompt_for reads the view at call time
 
     sample = df.sample(n=min(N_LISTINGS, len(df)), random_state=SEED)
     sample = sample.sort_values("index").reset_index(drop=True)
 
-    system = load_prompt_system(PROMPT_ID)
+    system = describe.INSTRUCTIONS
     slugs = read_slugs(SLUGS_TXT)
     provider = OpenRouterProvider(api_key=API_KEY)
 
@@ -122,10 +113,10 @@ async def main():
             index=int(row["index"]), price=int(row["price"]),
             user_block=describe.prompt_for(row)))
 
-    print(f"prompt: {PROMPT_ID} (view={SURR_VIEW})", flush=True)
+    print(f"prompt: {PROMPT_ID} (view={describe.SURR_VIEW})", flush=True)
     print(f"listings: {[l['index'] for l in listings]} (seed {SEED})", flush=True)
 
-    out = {"prompt_id": PROMPT_ID, "view": SURR_VIEW, "seed": SEED,
+    out = {"prompt_id": PROMPT_ID, "view": describe.SURR_VIEW, "seed": SEED,
            "system": system, "listings": [
                {k: l[k] for k in ("index", "price", "user_block")} for l in listings],
            "models": []}

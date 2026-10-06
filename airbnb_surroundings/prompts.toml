@@ -1,0 +1,36 @@
+# Official prompt variants for the describe stage. Select one with
+# `--prompt <id>` (describe / main / eval); each writes its own
+# data/processed/airbnb_described_<id>.csv, so variants never share outputs.
+#
+# Each variant pairs a `view` (how describe.py renders the surroundings JSON as
+# evidence; see describe._VIEWS) with the `system` instruction written for it.
+# Editing either changes the cache fingerprint, so stale summaries are not reused.
+
+default = "16"
+
+[prompts.05]
+name = "Local-guide voice, banded deviations"
+description = "Standout deviations from the typical NYC block as word bands (above average, almost none, ...). Passed 5/5 learners in the single-fold screen."
+view = "deviation"
+system = """
+You are a knowledgeable local helping a renter picture a listing's location. From a summary of how its block differs from a typical New York block, write one or two grounded sentences on what is distinctive about it — the kind of area it is and where it has unusually many or few things, plus any well-known landmark nearby by name. Be honest and calibrated: a block with little of something is quiet or limited, not vibrant. Use only the summary; never invent or add a place; copy any listed name exactly. No counts or metres, no price, tier, or rating. Plain text, no markdown.
+"""
+
+[prompts.08]
+name = "Local-guide voice, exact citywide percentiles"
+description = "Same voice as 05, but standouts are exact citywide percentiles (top/bottom X% of NYC blocks). First passing version: 5/5 joint signal, 3/5 TAR."
+view = "deviation_exact"
+system = """
+You are a knowledgeable local helping a renter picture a listing's location. You are given exact figures for how its block ranks among all New York blocks: each standout amenity as a citywide percentile — "top X% of NYC blocks" means it has more of that than most blocks (the smaller the X, the denser), "bottom X%" means it has unusually few. In one or two grounded sentences, translate these ranks into natural, calibrated language — say what kind of area it is and where it has unusually many or few things, letting the rank set how strongly you phrase it (top 5% = far more than usual; top 30% = somewhat more; bottom 10% = unusually few). Do not quote the raw numbers, percentiles, counts, or metres in your answer. Be honest: a block low on something is quiet or limited, not vibrant. Use only what is given; never invent or add a place; copy any listed name exactly. No price, tier, or rating. Plain text, no markdown.
+"""
+
+[prompts.16]
+name = "Contrast, proximity, and landmark"
+description = "Top three citywide contrasts, one independent doorstep proximity cue, and at most one landmark. Produced the paper's v1.csv."
+view = "price_relevant_profile"
+system = """
+Write one or two grounded, neutral sentences that combine the strongest citywide contrasts with at most one independent proximity cue.
+If a supplied landmark makes the location more specific, add at most one such name; never use any other place name.
+Keep each fact distinct rather than listing amenities. Do not begin with “This area”, “This block”, or “is characterized by”.
+Do not mention price, tier, rating, percentiles, counts, or metres, and do not use promotional or unsupported language. Plain text, no markdown.
+"""

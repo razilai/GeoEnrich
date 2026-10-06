@@ -1,20 +1,15 @@
-"""Enrich Airbnb listings (New York City) with nearby POIs (Overture Maps Places).
+"""Enrich NYC Airbnb listings with their surroundings from Overture Maps Places.
 
-POIs come from Overture Maps Places — OSM + Foursquare merged, deduped, with a
-standardized category per place and a confidence score. We read straight from
-the public S3 Parquet via DuckDB (no local extracts), filter by the NYC bounding
-box + confidence, then retain both coarse density counts and a compact selection
-of nearby named places. One new column:
-    - surroundings : JSON object ready to feed an LLM for a text summary
-Listings with zero POIs in radius are dropped (count used internally, never
-persisted as a column).
+Each listing gains a `surroundings` JSON column (input for describe.py):
+    cats       top-level taxonomy group -> [count <= RADIUS, nearest m]
+    landmarks  [[name, metres], ...] curated landmarks within LANDMARK_RADIUS, nearest first
 
-Quality over raw OSM: Overture ships clean categories (no benches/hydrants to
-strip) and a confidence field, so cleaning collapses to a confidence gate.
+Places are categorised only by their Overture top-level taxonomy group; only the
+landmarks are curated by hand. Listings with no POI within RADIUS are dropped.
 """
 
 import argparse
-import csv
+import functools
 import json
 import os
 import sys
@@ -22,326 +17,174 @@ import sys
 import duckdb
 import geopandas as gpd
 import pandas as pd
-from shapely import wkt as shapely_wkt
+from shapely import wkt
 
 from airbnb_surroundings import config
 from airbnb_surroundings.config import (
-    DOORSTEP,
     LANDMARK_RADIUS,
     MIN_CONF,
     NYC_UTM,
+    OVERTURE_GROUPS,
     RADIUS,
 )
 
-# Overture Places S3 Parquet (public, requester-anonymous, region us-west-2).
-OVERTURE = (
+WGS84 = 4326
+PLACES_PATH = (
     f"s3://overturemaps-us-west-2/release/{config.OVERTURE_RELEASE}/"
     "theme=places/type=place/*"
 )
+LANDMARKS_JSON = os.path.join(os.path.dirname(__file__), "landmarks.json")
 
-# Overture top-level category groups kept as price/character signal. Everything
-# else (professional/medical/beauty/religious/financial/government/home/auto/...)
-# says little about a listing's neighbourhood feel and floods the sample, so it's
-# filtered out at query time.
-KEEP_GROUPS = {
-    "eat_and_drink",
-    "retail",
-    "arts_and_entertainment",
-    "attractions_and_activities",
-    "active_life",
-    "accommodation",  # hotel/lodging density = tourist-district signal. NOTE:
-    # includes vacation_rental / service_apartments (competitor short-term rentals)
-    # — a potential target leak, kept intentionally at the user's request.
-}
-# transit is the strongest locational driver but sits in the mixed `travel` group
-# (alongside parking, car rental, tours) — cherry-pick just the transit leaves.
-TRANSIT_LEAVES = {
-    "transportation",
-    "public_transportation",
-    "train_station",
-    "metro_station",
-    "subway_station",
-    "bus_station",
-    "bus_stop",
-    "light_rail_station",
-    "ferry_terminal",
-    "tram_station",
-    "airport",
-}
-_TAXONOMY_CSV = os.path.join(os.path.dirname(__file__), "overture_categories.csv")
-_LANDMARKS_JSON = os.path.join(os.path.dirname(__file__), "landmarks.json")
+# The bbox.* filters let DuckDB skip Parquet row groups, so only NYC is downloaded.
+PLACES_SQL = """
+    SELECT taxonomy.hierarchy[1] AS "group",
+           ST_AsWKB(geometry)    AS geometry
+    FROM read_parquet($path)
+    WHERE bbox.xmin <= $maxx AND bbox.xmax >= $minx
+      AND bbox.ymin <= $maxy AND bbox.ymax >= $miny
+      AND confidence >= $min_conf
+      AND list_contains($groups, taxonomy.hierarchy[1])
+"""
 
-
-def _load_landmarks():
-    """Curated landmarks (landmarks.json) → (names, geometries in NYC_UTM).
-
-    Overture buries icons like the Empire State Building in the generic
-    landmark_and_historical_building leaf (confidence-1.0 apartment towers sit in
-    the same leaf), and multiple unrelated POIs share a famous name, so matching
-    landmarks against POI *names* collapsed same-named places across the city onto
-    one canonical entry (every listing "near Central Park"). Instead each landmark
-    carries its own geocoded OSM geometry (WKT); a listing gets a landmark purely by
-    geometric distance to that geometry — no POI name matching. Geometries returned
-    in NYC_UTM, index-aligned with `names`, so distance() is in metres and a polygon
-    park uses its EDGE (a listing across the street measures ~0m). LLM-maintainable.
-    """
-    with open(_LANDMARKS_JSON, encoding="utf-8") as f:
-        entries = json.load(f)["landmarks"]  # {name: {lat, lon, type, wkt}}
-    names = list(entries)
-    geoms = gpd.GeoSeries(
-        [shapely_wkt.loads(entries[n]["wkt"]) for n in names], crs=4326
-    ).to_crs(NYC_UTM)
-    return names, geoms
-
-
-LANDMARKS, _LANDMARK_GEOMS = _load_landmarks()
-
-
-def _leaf_paths():
-    """leaf category code -> full Overture taxonomy path [group, subcat, ..., leaf]."""
-    m = {}
-    with open(_TAXONOMY_CSV, encoding="utf-8-sig") as f:
-        for row in csv.reader(f, delimiter=";"):
-            if len(row) < 2 or row[0].strip() == "Category code":
-                continue
-            m[row[0].strip()] = [
-                x.strip() for x in row[1].strip().strip("[]").split(",")
-            ]
-    return m
-
-
-_LEAF_PATH = _leaf_paths()
-_LEAF_GROUP = {leaf: p[0] for leaf, p in _LEAF_PATH.items()}  # leaf -> top-level group
-
-
-def allowed_categories():
-    """Leaf codes worth keeping: any leaf whose group is in KEEP_GROUPS, plus the
-    hand-picked transit leaves."""
-    keep = set(TRANSIT_LEAVES)
-    keep |= {c for c, g in _LEAF_GROUP.items() if g in KEEP_GROUPS}
-    return keep
-
-
-# --- signal buckets -------------------------------------------------------
-# Roll the 853 fine leaves up to ~13 price-relevant buckets. Deterministic:
-# every leaf lands by exact group / 2nd-level / set membership (no fuzzy match).
-# Hand-curated pieces are only: this routing, GROCERY_LEAVES, PARK_SUBS,
-# CULTURE_SUBS (grocery hides under the `shopping` 2nd-level, so the taxonomy
-# alone can't separate it). Everything else auto-routes from the taxonomy.
-GROCERY_LEAVES = {
-    "grocery_store",
-    "asian_grocery_store",
-    "indian_grocery_store",
-    "international_grocery_store",
-    "japanese_grocery_store",
-    "korean_grocery_store",
-    "kosher_grocery_store",
-    "mexican_grocery_store",
-    "organic_grocery_store",
-    "russian_grocery_store",
-    "specialty_grocery_store",
-    "ethical_grocery",
-    "supermarket",
-    "convenience_store",
-    "delicatessen",
-    "farmers_market",
-    "public_market",
-    "health_market",
-    "seafood_market",
-    "butcher",
-    "greengrocer",
-    "health_food_store",
-    "bodega",
-}
-PARK_SUBS = {  # attractions 2nd-level values that are green/open space
-    "park",
-    "botanical_garden",
-    "beach",
-    "plaza",
-    "trail",
-    "national_park",
-    "state_park",
-    "memorial_park",
-}
-CULTURE_SUBS = {"museum", "art_gallery", "cultural_center"}
-
-# Keep the free-text prompt specific without turning it into a raw local business
-# directory. The selection is deterministic, so rebuilding with the same Overture
-# release produces the same text inputs.
-MAX_POI_EXAMPLES = 6
-MID_RADIUS = 300
-
-
-def bucket(leaf):
-    """Map a fine leaf category to its coarse signal bucket."""
-    g = _LEAF_GROUP.get(leaf, leaf)
-    p = _LEAF_PATH.get(leaf, [leaf])
-    sub = p[1] if len(p) > 1 else g
-    if leaf in TRANSIT_LEAVES:
-        return "transit"
-    if leaf in GROCERY_LEAVES:
-        return "grocery"
-    if g == "accommodation":
-        return "lodging"
-    if g == "eat_and_drink":
-        return {"bar": "nightlife", "cafe": "cafe"}.get(sub, "dining")
-    if g == "retail":
-        return "shopping"  # pharmacies/drugstores fold into shops (little price signal)
-    if g == "active_life":
-        return "fitness_sport"
-    if g == "arts_and_entertainment":
-        return "entertainment"
-    if g == "attractions_and_activities":
-        if sub in PARK_SUBS:
-            return "park_green"
-        if sub in CULTURE_SUBS:
-            return "culture"
-        return "landmark"
-    return g
-
-
-def distance_ring(distance_m: float) -> str:
-    """Human-sized distance bucket for a selected Overture place."""
-    if distance_m <= DOORSTEP:
-        return "doorstep"
-    if distance_m <= MID_RADIUS:
-        return "nearby"
-    return "walk"
-
-
-def _normalise_poi_name(name: object) -> str:
-    """Canonicalize a display name only for within-listing deduplication."""
-    if not isinstance(name, str):
-        return ""
-    return " ".join(name.split()).casefold()
-
-
-def aggregate_surroundings(group: pd.DataFrame) -> tuple[dict, dict, list[dict]]:
-    """Aggregate one listing's nearby Overture places.
-
-    Returns the legacy coarse counts, fine leaf-category counts, and at most six
-    representative named places. Representatives cover as many coarse buckets as
-    possible before adding distinct fine categories, always preferring nearer POIs.
-    """
-    cats: dict[str, list[int]] = {}
-    fine_cats: dict[str, list[int]] = {}
-    candidates: list[dict] = []
-
-    ordered = group.sort_values(["dist", "name", "category"], kind="stable")
-    for row in ordered.itertuples(index=False):
-        leaf = str(row.category)
-        distance_m = int(round(float(row.dist)))
-        coarse = bucket(leaf)
-
-        for collection, key in ((cats, coarse), (fine_cats, leaf)):
-            value = collection.get(key)
-            if value is None:
-                value = collection[key] = [0, 0, distance_m]
-            value[1] += 1
-            if distance_m <= DOORSTEP:
-                value[0] += 1
-            value[2] = min(value[2], distance_m)
-
-        normalized_name = _normalise_poi_name(row.name)
-        if normalized_name:
-            candidates.append(
-                {
-                    "name": " ".join(str(row.name).split()),
-                    "category": leaf,
-                    "bucket": coarse,
-                    "distance_m": distance_m,
-                    "ring": distance_ring(distance_m),
-                    "_normalized_name": normalized_name,
-                }
-            )
-
-    selected: list[dict] = []
-    used_names: set[str] = set()
-    used_buckets: set[str] = set()
-    used_categories: set[str] = set()
-
-    def add(candidate: dict) -> bool:
-        if len(selected) >= MAX_POI_EXAMPLES:
-            return False
-        if candidate["_normalized_name"] in used_names:
-            return False
-        selected.append(
-            {
-                key: value
-                for key, value in candidate.items()
-                if key != "_normalized_name"
-            }
-        )
-        used_names.add(candidate["_normalized_name"])
-        used_buckets.add(candidate["bucket"])
-        used_categories.add(candidate["category"])
-        return True
-
-    # First pass: give each coarse bucket its nearest named representative.
-    for candidate in candidates:
-        if candidate["bucket"] not in used_buckets:
-            add(candidate)
-
-    # Second pass: spend remaining space on different fine place types.
-    for candidate in candidates:
-        if candidate["category"] not in used_categories:
-            add(candidate)
-
-    # Last pass: fill any remaining places by distance, still without duplicate names.
-    for candidate in candidates:
-        add(candidate)
-
-    return cats, fine_cats, selected
-
-
-# leaky / ID columns dropped up front (in memory) if present, so no output
-# variant ever carries them — they pollute the eval's structured baseline.
-# Source airbnb.csv is untouched. A fresh `index` column is the stable
-# per-listing key (used by describe.py's incremental cache).
+# Identifier and leaky columns; they would pollute the eval's tabular baseline.
 DROP_COLS = ["id", "name", "host_id", "host_name", "license", "last_review"]
+BBOX_PAD_DEG = 0.02  # ~2 km, so listings at the edge still see their full RADIUS
+
+log = functools.partial(print, flush=True)
 
 
-def connect():
-    """DuckDB with spatial + httpfs, anonymous read of the public Overture bucket."""
+# --------------------------------------------------------------------------- #
+# Per-listing aggregation
+# --------------------------------------------------------------------------- #
+def aggregate_surroundings(nearby: pd.DataFrame) -> dict[str, list[int]]:
+    """Per-group [count <= RADIUS, nearest m] for one listing's nearby places.
+
+    `nearby` has one row per place with `group` and `dist` (metres). Groups are
+    ordered nearest first.
+    """
+    stats = (
+        nearby.groupby("group", sort=False)["dist"]
+        .agg(count="size", nearest="min")
+        .sort_values("nearest", kind="stable")
+    )
+    return {
+        str(group): [int(row["count"]), int(round(row["nearest"]))]
+        for group, row in stats.iterrows()
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Data sources
+# --------------------------------------------------------------------------- #
+def load_listings() -> pd.DataFrame:
+    """Cleaned listings with `latitude`/`longitude` and a stable `index` key
+    (describe.py caches on it)."""
+    df = pd.read_csv(config.CLEANED_CSV, low_memory=False)
+    df = df.rename(columns={"lat": "latitude", "long": "longitude"})
+    df = df.drop(columns=DROP_COLS, errors="ignore")
+    df.insert(0, "index", df.index)
+    return df
+
+
+def connect() -> duckdb.DuckDBPyConnection:
+    """DuckDB able to read the public Overture bucket anonymously."""
     con = duckdb.connect()
-    con.execute("INSTALL spatial; LOAD spatial;")
-    con.execute("INSTALL httpfs; LOAD httpfs;")
-    con.execute("SET s3_region='us-west-2';")
+    for extension in ("httpfs", "spatial"):
+        con.install_extension(extension)
+        con.load_extension(extension)
+    con.execute("SET s3_region = 'us-west-2';")
     return con
 
 
-def load_pois(con, bbox, utm, categories):
-    """POIs inside `bbox` (lon/lat) above the confidence gate, restricted to the
-    price-relevant `categories`, in metric CRS.
-
-    bbox is [xmin, ymin, xmax, ymax]. The bbox.* struct columns give Parquet
-    row-group pushdown, so only the relevant slices are scanned over the wire.
-    """
-    xmin, ymin, xmax, ymax = bbox
-    # category codes are simple [a-z_] identifiers; quote for SQL all the same
-    cats = ", ".join("'" + c.replace("'", "''") + "'" for c in sorted(categories))
-    q = f"""
-        SELECT names.primary            AS name,
-               categories.primary       AS category,
-               confidence,
-               ST_AsText(geometry) AS wkt
-        FROM read_parquet('{OVERTURE}')
-        WHERE bbox.xmin >= {xmin} AND bbox.xmax <= {xmax}
-          AND bbox.ymin >= {ymin} AND bbox.ymax <= {ymax}
-          AND confidence >= {MIN_CONF}
-          AND categories.primary IN ({cats})
-    """
-    df = con.execute(q).df()
-    if df.empty:
-        return df
-    g = gpd.GeoDataFrame(
-        df.drop(columns="wkt"),
-        geometry=gpd.GeoSeries.from_wkt(df["wkt"], crs=4326),
+def load_pois(
+    con: duckdb.DuckDBPyConnection, listings: pd.DataFrame
+) -> gpd.GeoDataFrame:
+    """Overture places around the listings, projected to NYC_UTM."""
+    df = con.execute(
+        PLACES_SQL,
+        {
+            "path": PLACES_PATH,
+            "minx": listings.longitude.min() - BBOX_PAD_DEG,
+            "miny": listings.latitude.min() - BBOX_PAD_DEG,
+            "maxx": listings.longitude.max() + BBOX_PAD_DEG,
+            "maxy": listings.latitude.max() + BBOX_PAD_DEG,
+            "min_conf": MIN_CONF,
+            "groups": list(OVERTURE_GROUPS),
+        },
+    ).df()
+    pois = gpd.GeoDataFrame(
+        df.drop(columns="geometry"),
+        geometry=gpd.GeoSeries.from_wkb(df["geometry"].map(bytes), crs=WGS84),
     )
-    return g[g.geometry.notna()].to_crs(utm).reset_index(drop=True)
+    return pois[pois.geometry.notna()].to_crs(NYC_UTM).reset_index(drop=True)
 
 
-def main():
+def load_landmarks() -> list[tuple[str, object]]:
+    """Curated `(name, geometry)` pairs from landmarks.json, in NYC_UTM.
+
+    Landmarks are matched by distance to their own geometry rather than by POI
+    name: famous names are shared by many unrelated Overture places.
+    """
+    with open(LANDMARKS_JSON, encoding="utf-8") as f:
+        entries = json.load(f)["landmarks"]
+    geometries = gpd.GeoSeries(
+        [wkt.loads(entry["wkt"]) for entry in entries.values()], crs=WGS84
+    ).to_crs(NYC_UTM)
+    return list(zip(entries, geometries))
+
+
+# --------------------------------------------------------------------------- #
+# Spatial matching (all distances in metres; polygons measure to their edge)
+# --------------------------------------------------------------------------- #
+def nearby_pois(points: gpd.GeoSeries, pois: gpd.GeoDataFrame) -> pd.DataFrame:
+    """Every (listing, POI) pair within RADIUS, indexed by listing, with `dist`."""
+    circles = gpd.GeoDataFrame(geometry=points.buffer(RADIUS))
+    pairs = gpd.sjoin(circles, pois, predicate="intersects")
+    pairs["dist"] = (
+        points.loc[pairs.index]
+        .distance(pois.geometry.loc[pairs["index_right"]], align=False)
+        .to_numpy()
+    )
+    pairs = pairs.sort_values("dist")
+    return pairs[pairs["dist"] <= RADIUS]
+
+
+def nearby_landmarks(points: gpd.GeoSeries) -> dict[int, list[list]]:
+    """Listing -> [[landmark, metres], ...] within LANDMARK_RADIUS, nearest first."""
+    found: dict[int, list[list]] = {listing: [] for listing in points.index}
+    for name, geometry in load_landmarks():
+        distances = points.distance(geometry)
+        within = distances[distances <= LANDMARK_RADIUS].round().astype(int)
+        for listing, metres in within.items():
+            found[listing].append([name, int(metres)])
+    return {
+        listing: sorted(landmarks, key=lambda landmark: landmark[1])
+        for listing, landmarks in found.items()
+    }
+
+
+def surroundings(listings: pd.DataFrame, pois: gpd.GeoDataFrame) -> dict[int, dict]:
+    """Surroundings record per listing that has at least one POI within RADIUS."""
+    points = gpd.GeoSeries(
+        gpd.points_from_xy(listings.longitude, listings.latitude),
+        index=listings.index,
+        crs=WGS84,
+    ).to_crs(NYC_UTM)
+    landmarks = nearby_landmarks(points)
+
+    records = {}
+    for listing, nearby in nearby_pois(points, pois).groupby(level=0):
+        records[listing] = {
+            "cats": aggregate_surroundings(nearby),
+            "landmarks": landmarks[listing],
+        }
+    return records
+
+
+# --------------------------------------------------------------------------- #
+# Entry point
+# --------------------------------------------------------------------------- #
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--enriched-out",
@@ -349,114 +192,32 @@ def main():
         help="output CSV for the enriched JSON (defaults to the production path)",
     )
     args = parser.parse_args()
-    df = pd.read_csv(config.CLEANED_CSV, low_memory=False).reset_index(drop=True)
-    df = df.rename(columns={"lat": "latitude", "long": "longitude"})
-    df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
-    df.insert(0, "index", df.index)  # stable per-listing key for describe.py's cache
 
-    con = connect()
-    pad = 0.02  # ~2km, comfortably covers the 450m radius at the edges
-    bbox = [
-        df.longitude.min() - pad,
-        df.latitude.min() - pad,
-        df.longitude.max() + pad,
-        df.latitude.max() + pad,
-    ]
-    cats = allowed_categories()
-    print(
-        f"{len(df)} NYC listings — querying Overture "
-        f"({len(cats)} price-relevant categories)",
-        flush=True,
+    listings = load_listings()
+    log(
+        f"{len(listings)} NYC listings — querying Overture {config.OVERTURE_RELEASE} "
+        f"({len(OVERTURE_GROUPS)} top-level groups)"
     )
-    pois = load_pois(con, bbox, NYC_UTM, cats)
+    pois = load_pois(connect(), listings)
     if pois.empty:
         sys.exit("no POIs returned from Overture — check release id / S3 access")
-    print(f"{len(pois)} POIs", flush=True)
+    log(f"{len(pois)} POIs")
 
-    # candidate POIs within RADIUS: buffer the point + intersect. Keep the unbuffered
-    # points too, to measure the real listing->POI distance. (Landmarks are handled
-    # separately from their own geometry below, so RADIUS is the only horizon here.)
-    gpts = gpd.GeoDataFrame(
-        geometry=gpd.points_from_xy(df.longitude, df.latitude),
-        index=df.index,
-        crs=4326,
-    ).to_crs(NYC_UTM)
-    buf = gpts.copy()
-    buf["geometry"] = buf.geometry.buffer(RADIUS)
+    records = surroundings(listings, pois)
+    kept = listings.loc[listings.index.isin(list(records))]
+    log(f"dropped {len(listings) - len(kept)} empty listings, kept {len(kept)}")
 
-    joined = gpd.sjoin(buf, pois, predicate="intersects", how="inner")
-    # exact distance, vectorized. Point-to-geometry uses the EDGE for polygon
-    # POIs (a park's boundary, not its centroid).
-    lp = gpts.geometry.loc[joined.index].to_numpy()
-    pg = pois.geometry.loc[joined["index_right"]].to_numpy()
-    joined["dist"] = (
-        gpd.GeoSeries(lp, crs=NYC_UTM)
-        .distance(gpd.GeoSeries(pg, crs=NYC_UTM), align=False)
-        .to_numpy()
+    # Coordinates would leak location -> price into the model.
+    enriched = kept.drop(columns=["latitude", "longitude"]).assign(
+        surroundings=[json.dumps(records[i], ensure_ascii=False) for i in kept.index]
     )
 
-    joined = joined.sort_values("dist")  # nearest-first (nearest-per-bucket)
-
-    # Curated landmarks come straight from their own geocoded geometry (landmarks.json),
-    # NOT from POI names: distance from each listing point to each landmark geometry,
-    # keep those within LANDMARK_RADIUS. Vectorized per landmark (77 columns). Uses the
-    # geometry EDGE, so a listing across the street from a big park measures ~0m.
-    lm_by_listing = {i: [] for i in df.index}
-    for name, geom in zip(LANDMARKS, _LANDMARK_GEOMS):
-        d = gpts.geometry.distance(geom)  # metres, listing -> landmark (broadcast)
-        for lid, dm in d[d <= LANDMARK_RADIUS].round().astype(int).items():
-            lm_by_listing[lid].append([name, int(dm)])
-
-    # Aggregate POIs per listing into a compact record:
-    #   cats:      coarse bucket -> [count<=150m, count<=450m, nearest_m]
-    #   fine_cats: Overture leaf -> [count<=150m, count<=450m, nearest_m]
-    #   pois:      up to six representative named Overture places
-    #   landmarks: [[name, dist_m], ...]  nearest-first, from the geometry pass above
-    labels = {}
-    for lid, grp in joined.groupby(level=0):
-        # `joined` was spatially filtered to RADIUS, but preserve this guard if the
-        # query/join strategy changes later.
-        grp = grp[grp["dist"] <= RADIUS]
-        cats, fine_cats, pois = aggregate_surroundings(grp)
-        landmarks = sorted(lm_by_listing[lid], key=lambda x: x[1])
-        labels[lid] = {
-            "cats": cats,
-            "fine_cats": fine_cats,
-            "pois": pois,
-            "landmarks": landmarks,
-        }
-
-    recs = [
-        labels.get(
-            i,
-            {
-                "cats": {},
-                "fine_cats": {},
-                "pois": [],
-                "landmarks": lm_by_listing.get(i, []),
-            },
-        )
-        for i in df.index
-    ]
-    df["surroundings"] = [json.dumps(x, ensure_ascii=False) for x in recs]
-
-    # drop listings with no POIs within RADIUS
-    before = len(df)
-    df = df[[bool(x["cats"]) for x in recs]]
-    print(f"dropped {before - len(df)} empty listings, kept {len(df)}", flush=True)
-
-    # lat/long are spent now (used only for POI matching) and would leak
-    # location -> price into the model, so drop them from every output.
-    df = df.drop(columns=["latitude", "longitude"])
-
-    # two variants: vanilla = tabular only (no bulky JSON, model-ready);
-    # json = vanilla + the surroundings POI JSON (input for describe.py).
-    # vanilla is a clean modelling baseline -> also drop the internal `index`
-    # key. enriched keeps `index` because describe.py caches on it.
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
-    df.drop(columns=["surroundings", "index"]).to_csv(config.VANILLA_CSV, index=False)
-    df.to_csv(args.enriched_out, index=False)
-    print(f"done -> {config.VANILLA_CSV}, {args.enriched_out}", flush=True)
+    enriched.drop(columns=["surroundings", "index"]).to_csv(
+        config.VANILLA_CSV, index=False
+    )
+    enriched.to_csv(args.enriched_out, index=False)
+    log(f"done -> {config.VANILLA_CSV}, {args.enriched_out}")
 
 
 if __name__ == "__main__":

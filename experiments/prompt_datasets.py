@@ -4,9 +4,11 @@ Screen: which enrichment prompt yields the strongest joint-signal, BEFORE paying
 to enrich the full dataset. Every output has identical rows and identical tabular
 columns — the ONLY difference is the `surroundings_summary` text (prompt varies).
 
-Reuses describe.py end-to-end (POI->user-block, batching, caching, cost print):
+Reuses describe.py end-to-end (POI->user-block, batching, caching):
 we monkeypatch `describe.INSTRUCTIONS` per prompt and point its IN/OUT csvs at one
-fixed sample, so all variants see the exact same listings.
+fixed sample, so all variants see the exact same listings. Screens draw on both
+the experimental prompts here (prompts.toml) and the official ones
+(airbnb_surroundings/prompts.toml: 05, 08, 16).
 
 Does NOT run build.py / re-enrich POIs — consumes an existing enriched CSV as-is.
 Never runs on the full dataset unless you pass --all (explicit, costs $$).
@@ -16,7 +18,7 @@ Output (one per prompt), same schema as the evaluated df2.csv:
 
 Usage:
     python prompt_datasets.py --sample 800
-    python prompt_datasets.py --sample 800 --prompts 03_neighborhood_character 05_local_guide
+    python prompt_datasets.py --sample 800 --prompts 03_neighborhood_character 05
     python prompt_datasets.py --all                       # full set — costs money
 """
 from __future__ import annotations
@@ -48,9 +50,7 @@ DF2_COLS = [
 # Default screen set: three complementary Overture evidence views. Every variant
 # uses the same listings and structured columns, but receives a different slice
 # of the surrounding-place record rather than a paraphrase prompt.
-DEFAULT_PROMPTS = [
-    "14_contrast_access", "15_contrast_local_profile", "16_contrast_anchor_profile",
-]
+DEFAULT_PROMPTS = ["14_contrast_access", "15_contrast_local_profile", "16"]
 
 
 def load_prompts(path: str) -> dict[str, dict]:
@@ -124,12 +124,9 @@ def enrich_variant(
     describe.SURR_VIEW = view
     describe.REFERENCE_CSV = reference_csv
     describe.CACHE_TAG = cache_tag
-    argv = sys.argv
-    sys.argv = ["describe"]           # k=None -> enrich every row of the sample
     try:
-        describe.main()
+        describe.run()                # k=None -> enrich every row of the sample
     finally:
-        sys.argv = argv
         (
             describe.INSTRUCTIONS,
             describe.IN_CSV,
@@ -172,7 +169,7 @@ def main():
     args = p.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
-    prompts = load_prompts(args.toml)
+    prompts = {**load_prompts(args.toml), **describe.PROMPTS}
 
     chosen = {}
     for pid in args.prompts:

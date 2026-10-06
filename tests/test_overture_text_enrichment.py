@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from airbnb_surroundings import build, describe
@@ -24,95 +23,49 @@ spec.loader.exec_module(text_analysis)
 
 
 class OvertureAggregationTest(unittest.TestCase):
-    def test_representatives_are_deduplicated_and_bounded(self) -> None:
+    def test_groups_get_count_and_nearest_distance(self) -> None:
         nearby = pd.DataFrame(
             [
-                {"name": "  Alpha Cafe ", "category": "cafe", "dist": 35},
-                {"name": "alpha cafe", "category": "cafe", "dist": 55},
-                {"name": "Beta Station", "category": "subway_station", "dist": 110},
-                {"name": "Gamma Gallery", "category": "art_gallery", "dist": 240},
-                {"name": "Delta Books", "category": "bookstore", "dist": 310},
-                {"name": "Epsilon Gym", "category": "gym", "dist": 350},
-                {"name": "Zeta Market", "category": "supermarket", "dist": 420},
-                {"name": "Eta Cinema", "category": "movie_theater", "dist": 430},
+                {"group": "shopping", "dist": 310.4},
+                {"group": "food_and_drink", "dist": 35.2},
+                {"group": "food_and_drink", "dist": 55.0},
+                {"group": "shopping", "dist": 420.0},
             ]
         )
 
-        cats, fine_cats, places = build.aggregate_surroundings(nearby)
+        cats = build.aggregate_surroundings(nearby)
 
-        self.assertEqual(cats[build.bucket("cafe")], [2, 2, 35])
-        self.assertEqual(fine_cats["cafe"], [2, 2, 35])
-        self.assertLessEqual(len(places), build.MAX_POI_EXAMPLES)
-        self.assertEqual(sum(place["name"].casefold() == "alpha cafe" for place in places), 1)
-        self.assertEqual(places[0]["ring"], "doorstep")
-        self.assertTrue({"nearby", "walk"} & {place["ring"] for place in places})
-
-    def test_distance_rings_cover_the_configured_radius(self) -> None:
-        self.assertEqual(build.distance_ring(150), "doorstep")
-        self.assertEqual(build.distance_ring(151), "nearby")
-        self.assertEqual(build.distance_ring(301), "walk")
+        self.assertEqual(cats, {"food_and_drink": [2, 35], "shopping": [2, 310]})
+        self.assertEqual(list(cats), ["food_and_drink", "shopping"])
 
 
 class DescriptionViewsTest(unittest.TestCase):
     def setUp(self) -> None:
         self.surr = {
-            "cats": {},
-            "fine_cats": {
-                "cafe": [1, 3, 45],
-                "bookstore": [0, 2, 250],
+            "cats": {
+                "food_and_drink": [3, 45],
+                "shopping": [2, 250],
+                "arts_and_entertainment": [1, 120],
             },
-            "pois": [
-                {"name": "Alpha Cafe", "category": "cafe", "bucket": "cafe", "distance_m": 45, "ring": "doorstep"},
-                {"name": "Beta Books", "category": "bookstore", "bucket": "shopping", "distance_m": 250, "ring": "nearby"},
-            ],
             "landmarks": [["Central Park", 350]],
         }
 
-    def test_new_views_render_only_their_intended_evidence(self) -> None:
-        named = describe._view_named_destinations(self.surr)
-        access = describe._view_access_mix(self.surr)
-        self.assertIn("Alpha Cafe (cafe)", named)
-        self.assertIn("Central Park", named)
-        self.assertIn("bookstore: a short walk", access)
-        self.assertNotIn("Alpha Cafe", access)
+    def test_grounding_allows_only_supplied_landmarks(self) -> None:
+        self.assertEqual(describe.ungrounded("Near Central Park.", self.surr), [])
+        self.assertEqual(describe.ungrounded("Near Alpha Cafe.", self.surr), ["Near Alpha Cafe"])
 
-    def test_anchored_view_filters_out_ordinary_business_names(self) -> None:
-        anchors = describe._meaningful_anchor_lines(self.surr)
-        anchored = describe._view_deviation_anchored_environment(self.surr)
-        self.assertEqual(anchors, [])
-        self.assertIn("Central Park", anchored)
-        self.assertNotIn("Alpha Cafe", anchored)
-        self.assertNotIn("Beta Books", anchored)
+    def test_proximity_skips_primary_groups_and_far_places(self) -> None:
+        lines = describe._proximity_lines(self.surr, {"food_and_drink"})
+        self.assertEqual(lines, ["- arts and entertainment: steps away"])
 
-    def test_anchored_view_keeps_named_rapid_transit(self) -> None:
-        self.surr["pois"].append(
-            {
-                "name": "North Station",
-                "category": "subway_station",
-                "bucket": "transit",
-                "distance_m": 100,
-                "ring": "doorstep",
-            }
-        )
-        anchors = describe._meaningful_anchor_lines(self.surr)
-        self.assertIn("North Station (subway station)", anchors[0])
-
-    def test_grounding_allows_selected_overture_names(self) -> None:
-        self.assertNotIn("Alpha Cafe", describe.ungrounded("Alpha Cafe is nearby.", self.surr))
-
-    def test_anchored_view_is_available_to_the_prompt_runner(self) -> None:
-        self.assertIn("deviation_anchored_environment", describe._VIEWS)
-
-    def test_price_profile_uses_independent_fine_access(self) -> None:
-        self.surr["fine_cats"] = {
-            "subway_station": [1, 2, 100],
-            "cafe": [3, 8, 40],
-        }
-        describe._FINE_REF.clear()
-        describe._FINE_REF["subway_station"] = np.array([0, 0, 1, 1, 2])
-        lines = describe._profile_fine_lines(self.surr, {"cafe"})
-        self.assertEqual(lines, ["- rapid transit: steps away"])
-        self.assertIn("price_relevant_profile", describe._VIEWS)
+    def test_price_profile_uses_only_top_level_groups(self) -> None:
+        describe.load_reference(pd.DataFrame({"surroundings": [json.dumps(self.surr)]}))
+        profile = describe._view_price_relevant_profile(self.surr)
+        self.assertIn("Central Park", profile)
+        for line in profile.splitlines():
+            if line.startswith("- ") and ":" in line and "Central Park" not in line:
+                label = line[2:].split(":")[0]
+                self.assertIn(label.replace(" ", "_"), describe.config.OVERTURE_GROUPS)
 
     def test_cache_tag_separates_prompt_variant_checkpoints(self) -> None:
         previous = describe.CACHE_TAG
@@ -121,6 +74,36 @@ class DescriptionViewsTest(unittest.TestCase):
             self.assertTrue(describe._cache_csv().endswith(".prompt-fingerprint.cache"))
         finally:
             describe.CACHE_TAG = previous
+
+    def test_official_prompts_have_views_and_own_outputs(self) -> None:
+        self.assertIn(describe.DEFAULT_PROMPT, describe.PROMPTS)
+        previous = (describe.SURR_VIEW, describe.INSTRUCTIONS, describe.OUT_CSV)
+        try:
+            outputs, caches = set(), set()
+            for prompt_id, prompt in describe.PROMPTS.items():
+                self.assertIn(prompt["view"], describe._VIEWS)
+                describe.use_prompt(prompt_id)
+                self.assertEqual(describe.SURR_VIEW, prompt["view"])
+                outputs.add(describe.OUT_CSV)
+                caches.add(describe._cache_csv())
+            self.assertEqual(len(outputs), len(describe.PROMPTS))
+            self.assertEqual(len(caches), len(describe.PROMPTS))
+        finally:
+            describe.SURR_VIEW, describe.INSTRUCTIONS, describe.OUT_CSV = previous
+
+    def test_banded_view_hides_percentiles(self) -> None:
+        describe.load_reference(
+            pd.DataFrame(
+                {
+                    "surroundings": [
+                        json.dumps({"cats": {"shopping": [n, 100]}}) for n in range(1, 21)
+                    ]
+                }
+            )
+        )
+        view = describe._view_deviation({"cats": {"shopping": [20, 100]}, "landmarks": []})
+        self.assertIn("- shopping: far more than most blocks", view)
+        self.assertNotIn("%", view)
 
 
 class TextAnalysisTest(unittest.TestCase):

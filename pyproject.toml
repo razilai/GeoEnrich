@@ -10,15 +10,24 @@ requires-python = ">=3.11"
 # time.
 dependencies = []
 
+# Dataset-build libraries, installed by init.sh INTO MulTaBench/.venv via
+# `-e ".[pipeline]"`; plain `uv sync` skips them. pandas/numpy/python-dotenv come
+# from MulTaBench's own requirements, so they are not listed here.
+[project.optional-dependencies]
+pipeline = [
+    "geopandas",   # stage 1: Overture Places POI enrichment (build.py)
+    "duckdb",      # stage 1
+    "rapidfuzz",   # stage 1
+    "pydantic-ai", # stage 2: LLM surroundings summary (describe.py)
+]
+
 # uv script entry points. `main` = whole pipeline; the rest drive one stage each.
 # All dispatch into MulTaBench/.venv (see run.py), so they work from `uv run`.
 [project.scripts]
 main = "run:main"
-clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (PySpark)
-clean-pandas = "run:clean_pandas"  # stage 0, pandas twin (no JVM)
+clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (pandas)
 build = "run:build"        # stage 1: -> artifacts/airbnb_enriched.csv (Overture POIs)
-describe = "run:describe"  # stage 2: -> artifacts/airbnb_described.csv (LLM)
-enrich = "run:enrich"      # full fine-schema corpus with fixed prompt 16
+describe = "run:describe"  # stage 2: -> data/processed/airbnb_described_<prompt>.csv (LLM)
 eval = "run:evaluate"      # stage 3: MulTaBench eligibility (needs GPU)
 
 [build-system]
@@ -26,7 +35,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 # Ship the pipeline package (src layout) + the flat run.py launcher module.
-# init.sh installs this `-e` into MulTaBench/.venv so `-m airbnb_surroundings.*`
+# init.sh installs this `-e .[pipeline]` into MulTaBench/.venv so `-m airbnb_surroundings.*`
 # resolves there; `uv sync` installs it into the thin ./.venv for `uv run main`.
 [tool.hatch.build.targets.wheel]
 packages = ["airbnb_surroundings"]

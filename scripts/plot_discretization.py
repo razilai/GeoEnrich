@@ -17,9 +17,9 @@ from airbnb_surroundings import config as C
 from airbnb_surroundings import describe as D
 
 # density buckets in display order
-BUCKETS = list(D._DISPLAY.keys())
+BUCKETS = list(C.OVERTURE_GROUPS)
 
-# --- deviation bands: replicate describe._relative but always return a bin so
+# --- deviation bands: replicate describe._deviation_band but always return a bin so
 # every listing lands somewhere (the prompt omits the middle third as "typical";
 # here we surface it so the histogram covers the full corpus).
 DEV_ORDER = ["none", "almost none", "well below", "below",
@@ -48,7 +48,7 @@ def dev_band(bucket, v):
     return "typical"
 
 
-# --- proximity bands: describe._prox_word over nearest_m (present buckets only)
+# --- proximity bands: describe._proximity_phrase over nearest_m (present buckets only)
 PROX_ORDER = ["doorstep", "steps", "short walk"]
 
 
@@ -66,7 +66,7 @@ def _grid(counts_by_bucket, order, title, colors, out):
         vals = [c.get(k, 0) for k in order]
         tot = sum(vals) or 1
         ax.bar(range(len(order)), vals, color=colors)
-        ax.set_title(D._DISPLAY[b], fontsize=10)
+        ax.set_title(D._label(b), fontsize=10)
         ax.set_xticks(range(len(order)))
         ax.set_xticklabels(order, rotation=45, ha="right", fontsize=7)
         for i, v in enumerate(vals):  # pct labels
@@ -88,12 +88,12 @@ def main():
     prox = {b: {} for b in BUCKETS}
     for cats in surr:
         for b in BUCKETS:
-            e = cats.get(b)  # [c150, c400, nearest_m] or None if absent (>450m)
-            v = e[1] if e else 0
+            e = cats.get(b)  # [count<=450m, nearest_m] or None if absent (>450m)
+            v = e[0] if e else 0
             db = dev_band(b, v)
             dev[b][db] = dev[b].get(db, 0) + 1
             if e:  # proximity only meaningful when bucket present
-                pb = prox_band(e[2])
+                pb = prox_band(e[1])
                 prox[b][pb] = prox[b].get(pb, 0) + 1
 
     os.makedirs(C.ARTIFACTS_DIR, exist_ok=True)
