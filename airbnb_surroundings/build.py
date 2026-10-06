@@ -13,8 +13,8 @@ Quality over raw OSM: Overture ships clean categories (no benches/hydrants to
 strip) and a confidence field, so cleaning collapses to a confidence gate.
 """
 
-import csv
 import argparse
+import csv
 import json
 import os
 import sys
@@ -32,7 +32,6 @@ from airbnb_surroundings.config import (
     NYC_UTM,
     RADIUS,
 )
-
 
 # Overture Places S3 Parquet (public, requester-anonymous, region us-west-2).
 OVERTURE = (
@@ -105,7 +104,9 @@ def _leaf_paths():
         for row in csv.reader(f, delimiter=";"):
             if len(row) < 2 or row[0].strip() == "Category code":
                 continue
-            m[row[0].strip()] = [x.strip() for x in row[1].strip().strip("[]").split(",")]
+            m[row[0].strip()] = [
+                x.strip() for x in row[1].strip().strip("[]").split(",")
+            ]
     return m
 
 
@@ -128,17 +129,39 @@ def allowed_categories():
 # CULTURE_SUBS (grocery hides under the `shopping` 2nd-level, so the taxonomy
 # alone can't separate it). Everything else auto-routes from the taxonomy.
 GROCERY_LEAVES = {
-    "grocery_store", "asian_grocery_store", "indian_grocery_store",
-    "international_grocery_store", "japanese_grocery_store", "korean_grocery_store",
-    "kosher_grocery_store", "mexican_grocery_store", "organic_grocery_store",
-    "russian_grocery_store", "specialty_grocery_store", "ethical_grocery",
-    "supermarket", "convenience_store", "delicatessen", "farmers_market",
-    "public_market", "health_market", "seafood_market", "butcher", "greengrocer",
-    "health_food_store", "bodega",
+    "grocery_store",
+    "asian_grocery_store",
+    "indian_grocery_store",
+    "international_grocery_store",
+    "japanese_grocery_store",
+    "korean_grocery_store",
+    "kosher_grocery_store",
+    "mexican_grocery_store",
+    "organic_grocery_store",
+    "russian_grocery_store",
+    "specialty_grocery_store",
+    "ethical_grocery",
+    "supermarket",
+    "convenience_store",
+    "delicatessen",
+    "farmers_market",
+    "public_market",
+    "health_market",
+    "seafood_market",
+    "butcher",
+    "greengrocer",
+    "health_food_store",
+    "bodega",
 }
 PARK_SUBS = {  # attractions 2nd-level values that are green/open space
-    "park", "botanical_garden", "beach", "plaza", "trail", "national_park",
-    "state_park", "memorial_park",
+    "park",
+    "botanical_garden",
+    "beach",
+    "plaza",
+    "trail",
+    "national_park",
+    "state_park",
+    "memorial_park",
 }
 CULTURE_SUBS = {"museum", "art_gallery", "cultural_center"}
 
@@ -242,7 +265,13 @@ def aggregate_surroundings(group: pd.DataFrame) -> tuple[dict, dict, list[dict]]
             return False
         if candidate["_normalized_name"] in used_names:
             return False
-        selected.append({key: value for key, value in candidate.items() if key != "_normalized_name"})
+        selected.append(
+            {
+                key: value
+                for key, value in candidate.items()
+                if key != "_normalized_name"
+            }
+        )
         used_names.add(candidate["_normalized_name"])
         used_buckets.add(candidate["bucket"])
         used_categories.add(candidate["category"])
@@ -263,6 +292,7 @@ def aggregate_surroundings(group: pd.DataFrame) -> tuple[dict, dict, list[dict]]
         add(candidate)
 
     return cats, fine_cats, selected
+
 
 # leaky / ID columns dropped up front (in memory) if present, so no output
 # variant ever carries them — they pollute the eval's structured baseline.
@@ -333,8 +363,11 @@ def main():
         df.latitude.max() + pad,
     ]
     cats = allowed_categories()
-    print(f"{len(df)} NYC listings — querying Overture "
-          f"({len(cats)} price-relevant categories)", flush=True)
+    print(
+        f"{len(df)} NYC listings — querying Overture "
+        f"({len(cats)} price-relevant categories)",
+        flush=True,
+    )
     pois = load_pois(con, bbox, NYC_UTM, cats)
     if pois.empty:
         sys.exit("no POIs returned from Overture — check release id / S3 access")

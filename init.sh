@@ -38,8 +38,14 @@ if [ -r /etc/os-release ]; then
     fi
 fi
 
-command -v git >/dev/null || { echo "❌ git not found"; exit 1; }
-command -v uv >/dev/null || { echo "❌ uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
+command -v git >/dev/null || {
+    echo "❌ git not found"
+    exit 1
+}
+command -v uv >/dev/null || {
+    echo "❌ uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    exit 1
+}
 
 # GPU: choose Torch's wheel index BEFORE MulTaBench resolves its requirements.
 # `UV_TORCH_BACKEND` is honored by its internal `uv pip install -r`, avoiding
@@ -47,12 +53,12 @@ command -v uv >/dev/null || { echo "❌ uv not found. Install: curl -LsSf https:
 GPU_CAP=""
 CUDA_TAG=""
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-    GPU_CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
-               | head -n1 | tr -d ' .')"
+    GPU_CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null |
+        head -n1 | tr -d ' .')"
     case "$GPU_CAP" in
-        10*|12*|13*) CUDA_TAG="cu128" ;;  # Blackwell (sm_100/sm_120) and newer
-        "")          CUDA_TAG="cu128" ;;  # old nvidia-smi w/o compute_cap: assume new
-        *)           CUDA_TAG="cu126" ;;  # Hopper sm_90 and older
+    10* | 12* | 13*) CUDA_TAG="cu128" ;; # Blackwell (sm_100/sm_120) and newer
+    "") CUDA_TAG="cu128" ;;              # old nvidia-smi w/o compute_cap: assume new
+    *) CUDA_TAG="cu126" ;;               # Hopper sm_90 and older
     esac
     export UV_TORCH_BACKEND="$CUDA_TAG"
     echo "🎮 GPU sm_${GPU_CAP:-?} -> selecting torch ${CUDA_TAG} during dependency install"
@@ -90,7 +96,10 @@ PY
 # It's designed to be sourced without `set -eu`; disable our hardening inside the
 # subshell so its unguarded PYTHONPATH ref doesn't trip nounset.
 echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
-( set +eu; cd MulTaBench && source init.sh )
+(
+    set +eu
+    cd MulTaBench && source init.sh
+)
 
 # 3. Install this project's dataset-build libs into the same venv.
 echo "📦 installing dataset-build libs into MulTaBench/.venv"
