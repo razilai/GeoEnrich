@@ -26,7 +26,7 @@ from multabench.e5.constants import TextEncoder
 from src import config, stage
 
 COMMITTEE = ("light", "cat", "tabm", "tabpfnv2", "tabpfnv2p5")
-SCREEN_SPLITS = (0, 1, 2)
+SCREEN_SPLITS = (0,)
 FINAL_SPLITS = (0, 1, 2, 3, 4, 5)
 FROZEN = TextEncoder.E5_SMALL
 TAR = TextEncoder.E5_SMALL_TAR

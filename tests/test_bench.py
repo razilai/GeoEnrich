@@ -23,9 +23,9 @@ def test_screen_grid_counts() -> None:
     grid = bench.screen_grid(PROMPTS)
     runs = bench.plan_runs(grid)
     assert len(grid.pairs) == 10
-    assert len(runs) == grid.total == 150
-    assert sum(r.text_encoder == bench.TAR for r in runs) == 45
-    assert {r.fold for r in runs} == {0, 1, 2}
+    assert len(runs) == grid.total == 50
+    assert sum(r.text_encoder == bench.TAR for r in runs) == 15
+    assert {r.fold for r in runs} == {0}
     assert {r.model for r in runs} == set(bench.COMMITTEE)
 
 

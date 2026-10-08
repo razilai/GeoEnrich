@@ -233,3 +233,12 @@ def test_screen_ignores_splits_outside_the_requested_set(tmp_path) -> None:
     assert judged(tmp_path, splits=(0, 1, 2))["eligible"].all()
     with pytest.raises(report.IncompleteGrid):
         judged(tmp_path, splits=(0, 1, 2, 3, 4, 5, 6))
+
+
+def test_screen_grid_is_judged_over_split_zero_and_refuses_a_missing_run(tmp_path) -> None:
+    assert bench.SCREEN_SPLITS == (0,)
+    write_grid(tmp_path, uniform(), splits=bench.SCREEN_SPLITS)
+    assert judged(tmp_path, splits=bench.SCREEN_SPLITS)["eligible"].all()
+    next(tmp_path.glob("tabm_enriched_08_joint_*")).unlink()
+    with pytest.raises(report.IncompleteGrid, match="tabm"):
+        judged(tmp_path, splits=bench.SCREEN_SPLITS)
