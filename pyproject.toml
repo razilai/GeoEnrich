@@ -28,8 +28,9 @@ main = "run:main"
 clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (pandas)
 build = "run:build"        # stage 1: -> artifacts/airbnb_enriched.csv (Overture POIs)
 describe = "run:describe"  # stage 2: -> data/processed/airbnb_described_<prompt>.csv (LLM)
-stage = "run:stage"        # stage 3: -> registered datasets in the local HF cache (offline)
-bench = "run:bench"        # stage 4: -> official benchmark runs (GPU; --confirm required)
+arms = "run:arms"          # stage 3: described corpus -> landmark-censored arm CSVs (pandas)
+stage = "run:stage"        # stage 4: -> registered datasets in the local HF cache (offline)
+bench = "run:bench"        # stage 5: -> official benchmark runs (GPU; --confirm required)
 
 [build-system]
 requires = ["hatchling"]
