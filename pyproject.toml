@@ -35,8 +35,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 # Ship the pipeline package (src layout) + the flat run.py launcher module.
-# init.sh installs this `-e .[pipeline]` into MulTaBench/.venv so `-m airbnb_surroundings.*`
+# init.sh installs this `-e .[pipeline]` into MulTaBench/.venv so `-m src.*`
 # resolves there; `uv sync` installs it into the thin ./.venv for `uv run main`.
 [tool.hatch.build.targets.wheel]
-packages = ["airbnb_surroundings"]
+packages = ["src"]
 force-include = { "run.py" = "run.py" }

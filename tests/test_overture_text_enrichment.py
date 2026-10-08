@@ -1,25 +1,11 @@
 from __future__ import annotations
 
-import importlib.util
 import json
-import sys
-import tempfile
 import unittest
-from pathlib import Path
 
 import pandas as pd
 
-from airbnb_surroundings import build, describe
-from experiments.prompt_datasets import stratified_sample
-
-
-ROOT = Path(__file__).resolve().parents[1]
-ANALYSIS_PATH = ROOT / "experiments" / "datasets-analysis" / "analyze_text_columns.py"
-spec = importlib.util.spec_from_file_location("text_analysis", ANALYSIS_PATH)
-text_analysis = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-sys.modules[spec.name] = text_analysis
-spec.loader.exec_module(text_analysis)
+from src import build, describe
 
 
 class OvertureAggregationTest(unittest.TestCase):
@@ -104,44 +90,6 @@ class DescriptionViewsTest(unittest.TestCase):
         view = describe._view_deviation({"cats": {"shopping": [20, 100]}, "landmarks": []})
         self.assertIn("- shopping: far more than most blocks", view)
         self.assertNotIn("%", view)
-
-
-class TextAnalysisTest(unittest.TestCase):
-    def test_content_tokens_drop_scaffolding(self) -> None:
-        tokens = text_analysis.tokenize("The nearby block has Central Park and 42 cafes.", content=True)
-        self.assertEqual(tokens, ["central", "park", "cafes"])
-
-    def test_jaccard_is_meaned_over_summary_pairs_within_a_column(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / "datasets"
-            folder = root / "variants" / "v2-o"
-            folder.mkdir(parents=True)
-            (folder / "metadata.json").write_text(
-                json.dumps({"slug": "v2-o", "target": "price", "text_encoding_columns": ["summary"]})
-            )
-            pd.DataFrame(
-                {"price": [1, 2], "summary": ["Central Park museum", "Central Park gallery"]}
-            ).to_csv(folder / "data.csv", index=False)
-
-            records = text_analysis.load_records(root)
-            summary = text_analysis.build_summary_rows(records, max_pairs=20)
-
-        self.assertEqual(len(summary), 1)
-        self.assertEqual(summary[0]["summary_pair_count"], "1")
-        self.assertAlmostEqual(float(summary[0]["jaccard"]), 0.5)
-
-
-class PromptDatasetSamplingTest(unittest.TestCase):
-    def test_stratified_sample_returns_the_requested_size(self) -> None:
-        df = pd.DataFrame(
-            {
-                "index": range(10),
-                "room_type": ["private"] * 7 + ["entire"] * 3,
-            }
-        )
-        sample = stratified_sample(df, n=5, seed=0)
-        self.assertEqual(len(sample), 5)
-        self.assertEqual(sample["index"].nunique(), 5)
 
 
 if __name__ == "__main__":

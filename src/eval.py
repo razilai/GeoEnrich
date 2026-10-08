@@ -2,22 +2,21 @@
 
 Runs the 5 required learners (TabM, CatBoost, LightGBM, TabPFN v2, TabPFN v2.5)
 across the curation conditions and checks the two criteria (Joint Signal + TAR
-Gain) per modality, for at least 3 of the 5 learners.  The full evaluation uses
-the MulTaBench protocol's five folds (0--4) and evaluates the criteria on each
-learner's mean score across those folds.  ``--light`` retains the former,
-single-fold screen for quick iteration.
+Gain) per modality, for at least 3 of the 5 learners. The full evaluation uses
+the MulTaBench protocol's five folds (0--4) and judges each learner's mean score
+across them; ``--light`` runs a single-fold screen for quick iteration.
 
-We bypass MulTaBench's Kaggle download path and drive its baseline pipeline
-directly via ``evaluate_on_loaded_dataset``, constructing a ``MultimodalDataset``
-whose feature set we control per condition:
+MulTaBench's Kaggle download path is bypassed: its baseline pipeline is driven
+directly via ``evaluate_on_loaded_dataset`` on a ``MultimodalDataset`` whose
+feature set is chosen per condition:
 
-  structured           : tabular only (numeric + label-encoded categoricals)
-  unstructured_text     : the free-text ``description`` column only
-  unstructured_image    : the ``image`` filename column only
-  joint_text_frozen     : structured + text (frozen E5)
-  joint_text_tar        : structured + text (LoRA-tuned E5)          [tune_e5]
-  joint_image_frozen    : structured + image (frozen DINO)
-  joint_image_tar       : structured + image (LoRA-tuned DINO)       [tune_dino]
+  structured          : tabular only (numeric + label-encoded categoricals)
+  unstructured_text   : the ``surroundings_summary`` text column only
+  unstructured_image  : the ``image`` filename column only
+  joint_text_frozen   : structured + text (frozen E5)
+  joint_text_tar      : structured + text (LoRA-tuned E5)      [tune_e5]
+  joint_image_frozen  : structured + image (frozen DINO)
+  joint_image_tar     : structured + image (LoRA-tuned DINO)   [tune_dino]
 
 Metric: R^2 (regression). Categoricals are integer-encoded so the "structured"
 baseline is unambiguously tabular (no text encoder leaks into it).
@@ -29,14 +28,12 @@ import os
 import sys
 from collections.abc import Iterable
 
-# Make the vendored MulTaBench clone (at the repo root) importable.
-from airbnb_surroundings import config
+from src import config
 
+# Make the vendored MulTaBench clone (at the repo root) importable.
 sys.path.insert(0, os.path.join(config.ROOT, "MulTaBench"))
 
 import pandas as pd
-from dataclasses import asdict
-
 from tabstar.training.devices import get_device
 
 from multabench.constants import DEVICE
@@ -48,28 +45,15 @@ from multabench.baselines.lgbm import LightGBM
 from multabench.baselines.catboost import CatBoost
 from multabench.baselines.tabm import TabM
 from multabench.baselines.tabpfnv2 import TabPFNv2, TabPFNv2p5
+from multabench.baselines.encoder_cache import encoder_cache
 from multabench.finetune.train_args import DinoTrainArgs, E5TrainArgs
 
-# ── E5 speedups + cross-learner encoder cache (now first-class in the MulTaBench fork) ──
-# The E5 finetune bf16/fp16 + TF32 speedups now live in the fork itself, so nothing here
-# has to touch it. The remaining knobs are dataset-specific, so we pass them to MulTaBench
-# as *supported config* rather than monkeypatching: this dataset's text column is ≤122
-# tokens, so we pad to 256 (vs the 512 default — attention is O(L²)) for both finetune
-# (via _e5_kwargs) and encode (via e5_encode_kwargs), and raise the encode batch (default
-# 32) to 256.
-#
-# The cross-learner encoder cache — the E5/DINO fit is learner-independent but ran up to
-# 5× per run — is now an opt-in MulTaBench feature. We turn it on for the whole run with
-# the encoder_cache() context manager in evaluate_dataset (it clears on entry/exit and
-# keeps the val-split learner groups isolated by hashing the exact rows fed in).
-from multabench.baselines.encoder_cache import encoder_cache
+# The text column is <=122 tokens, so E5 pads to 256 instead of the 512 default (attention
+# is O(L^2)) in both finetune and encode; encoding also uses a bigger batch (default 32).
+_MAX_LEN = 256
+_E5_ENCODE_KWARGS = {"batch_size": 256, "max_length": _MAX_LEN}
 
-_MAX_LEN = 256                                                    # data max ≈122 tok; 256 = conservative (vs 512 default)
-_E5_ENCODE_KWARGS = {"batch_size": 256, "max_length": _MAX_LEN}   # encode: bigger batch (default 32) + shorter padding
-# ────────────────────────────────────────────────────────────────────────────
-
-# This local NYC Airbnb regression screen follows MulTaBench's Airbnb regression
-# configuration.  The old King County enum was removed from the vendored fork.
+# Reuses MulTaBench's Airbnb regression configuration for this NYC dataset.
 DATASET_ID = KaggleDatasetID.REG_IMAGE_HOUSES_AIRBNB_SEATTLE
 LEARNERS = {
     "tabm": TabM,
@@ -84,26 +68,26 @@ FULL_FOLDS = tuple(range(5))
 CURATION_MARGIN = 0.001
 
 
+def _lora_kwargs(a, layers: str, epochs: int | None = None, **extra) -> dict:
+    """LoRA finetune kwargs from a MulTaBench TrainArgs default, with optional epochs override."""
+    return dict(lora_rank=a.lora_rank, **{layers: getattr(a, layers)},
+                learning_rate=a.learning_rate, epochs=epochs or a.epochs, patience=a.patience,
+                weight_decay=a.weight_decay, batch_size=a.batch_size, **extra)
+
+
 def _dino_kwargs(epochs: int | None = None) -> dict:
-    a = DinoTrainArgs()
-    return dict(lora_rank=a.lora_rank, img_layers=a.img_layers, learning_rate=a.learning_rate,
-                epochs=epochs or a.epochs, patience=a.patience, weight_decay=a.weight_decay,
-                batch_size=a.batch_size)
+    return _lora_kwargs(DinoTrainArgs(), "img_layers", epochs)
 
 
 def _e5_kwargs(epochs: int | None = None) -> dict:
-    a = E5TrainArgs()
-    return dict(lora_rank=a.lora_rank, text_layers=a.text_layers, learning_rate=a.learning_rate,
-                epochs=epochs or a.epochs, patience=a.patience, weight_decay=a.weight_decay,
-                batch_size=a.batch_size, max_length=_MAX_LEN)
+    return _lora_kwargs(E5TrainArgs(), "text_layers", epochs, max_length=_MAX_LEN)
 
 
 def build_structured(df: pd.DataFrame, target: str) -> pd.DataFrame:
     """Numeric columns as-is; string columns integer-encoded (categorical)."""
     feats = df.drop(columns=[c for c in (target, TEXT_COL, IMAGE_COL) if c in df.columns])
     out = {}
-    for col in feats.columns:
-        s = feats[col]
+    for col, s in feats.items():
         num = pd.to_numeric(s, errors="coerce")
         if num.notna().mean() > 0.5:
             out[col] = num.fillna(num.median())
@@ -127,38 +111,34 @@ def score(model_cls, x, y, task, image_folder, fold, train_examples, device,
     return float(ret["test_score"])
 
 
-def evaluate_dataset(csv, image_folder, target, task, fold, train_examples,
-                     with_image: bool, e5_epochs=None, dino_epochs=None, with_tar=True,
-                     *, folds: Iterable[int] | None = None):
-    """Evaluate every learner over ``folds`` (or the legacy single ``fold``)."""
+def evaluate_dataset(csv, image_folder, target, task, folds: Iterable[int], train_examples,
+                     with_image: bool, e5_epochs=None, dino_epochs=None, with_tar=True):
+    """Score every learner under every curation condition, one row per (fold, learner)."""
     device = get_device(device=DEVICE)
     df = pd.read_csv(csv)
     y = df[target]
     x_struct = build_structured(df, target)
-    x_text = df[[TEXT_COL]]
-    x_img = df[[IMAGE_COL]] if with_image else None
+    modalities = {"text": (df[[TEXT_COL]], "tune_e5")}
+    if with_image:
+        modalities["image"] = (df[[IMAGE_COL]], "tune_dino")
 
     rows = []
     # Share the learner-independent E5/DINO fits across all learners + conditions in this run.
     with encoder_cache():
-        for current_fold in (tuple(folds) if folds is not None else (fold,)):
-            print(f"\n── Fold {current_fold} ──")
+        for fold in folds:
+            print(f"\n── Fold {fold} ──")
             for name, cls in LEARNERS.items():
                 def run(x, **kw):
-                    return score(cls, x, y, task, image_folder, current_fold, train_examples, device,
+                    return score(cls, x, y, task, image_folder, fold, train_examples, device,
                                  e5_epochs=e5_epochs, dino_epochs=dino_epochs, **kw)
 
-                rec = {"fold": current_fold, "learner": name}
-                rec["structured"] = run(x_struct)
-                rec["unstructured_text"] = run(x_text)
-                rec["joint_text_frozen"] = run(pd.concat([x_struct, x_text], axis=1))
-                rec["joint_text_tar"] = (run(pd.concat([x_struct, x_text], axis=1), tune_e5=True)
-                                         if with_tar else float("nan"))
-                if with_image:
-                    rec["unstructured_image"] = run(x_img)
-                    rec["joint_image_frozen"] = run(pd.concat([x_struct, x_img], axis=1))
-                    rec["joint_image_tar"] = (run(pd.concat([x_struct, x_img], axis=1), tune_dino=True)
-                                              if with_tar else float("nan"))
+                rec = {"fold": fold, "learner": name, "structured": run(x_struct)}
+                for modality, (x_mod, tune_flag) in modalities.items():
+                    joint = pd.concat([x_struct, x_mod], axis=1)
+                    rec[f"unstructured_{modality}"] = run(x_mod)
+                    rec[f"joint_{modality}_frozen"] = run(joint)
+                    rec[f"joint_{modality}_tar"] = (run(joint, **{tune_flag: True})
+                                                    if with_tar else float("nan"))
                 rows.append(rec)
                 print(f"  {name}: {rec}")
     return pd.DataFrame(rows)
@@ -172,22 +152,21 @@ def _mean_scores_by_learner(report: pd.DataFrame) -> pd.DataFrame:
 
 def _criteria(report: pd.DataFrame, modality: str, *, margin: float = 0.0):
     """Return per-learner (joint_signal, tar_gain) booleans for a modality."""
-    frozen, tar, unstruct = (f"joint_{modality}_frozen", f"joint_{modality}_tar",
-                             f"unstructured_{modality}")
-    out = {}
-    for _, r in report.iterrows():
-        joint_signal = (r[frozen] - max(r["structured"], r[unstruct])) > margin
-        tar_gain = (r[tar] - r[frozen]) > margin
-        out[r["learner"]] = (bool(joint_signal), bool(tar_gain))
-    return out
+    frozen, tar = f"joint_{modality}_frozen", f"joint_{modality}_tar"
+    return {
+        r["learner"]: (
+            bool(r[frozen] - max(r["structured"], r[f"unstructured_{modality}"]) > margin),
+            bool(r[tar] - r[frozen] > margin),
+        )
+        for _, r in report.iterrows()
+    }
 
 
 def report_verdict(report: pd.DataFrame, modality: str, *, margin: float = 0.0) -> bool:
     """Print the committee verdict from the mean score of each learner's folds."""
     fold_count = report["fold"].nunique() if "fold" in report else 1
-    averaged_report = _mean_scores_by_learner(report)
-    crit = _criteria(averaged_report, modality, margin=margin)
-    n_pass = sum(1 for js, tg in crit.values() if js and tg)
+    crit = _criteria(_mean_scores_by_learner(report), modality, margin=margin)
+    n_pass = sum(js and tg for js, tg in crit.values())
     print(f"\n── {modality.upper()} modality ({fold_count}-fold mean) ──")
     for learner, (js, tg) in crit.items():
         print(f"  {learner:12s} joint_signal={js!s:5s}  tar_gain={tg!s:5s}  "
@@ -233,10 +212,10 @@ def main():
     margin = 0.0 if args.light else CURATION_MARGIN
     print(f"\nRunning {'light single-fold' if args.light else 'full five-fold'} evaluation "
           f"(folds: {', '.join(map(str, folds))})")
-    report = evaluate_dataset(args.csv, args.image_folder, args.target, task,
-                              args.fold, args.train_examples, with_image,
+    report = evaluate_dataset(args.csv, args.image_folder, args.target, task, folds,
+                              args.train_examples, with_image,
                               e5_epochs=args.e5_epochs, dino_epochs=args.dino_epochs,
-                              with_tar=not args.no_tar, folds=folds)
+                              with_tar=not args.no_tar)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     report.to_csv(args.out, index=False)
     print(f"\n✅ wrote {args.out}")

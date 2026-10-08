@@ -19,8 +19,8 @@ import geopandas as gpd
 import pandas as pd
 from shapely import wkt
 
-from airbnb_surroundings import config
-from airbnb_surroundings.config import (
+from src import config
+from src.config import (
     LANDMARK_RADIUS,
     MIN_CONF,
     NYC_UTM,
@@ -53,9 +53,7 @@ BBOX_PAD_DEG = 0.02  # ~2 km, so listings at the edge still see their full RADIU
 log = functools.partial(print, flush=True)
 
 
-# --------------------------------------------------------------------------- #
-# Per-listing aggregation
-# --------------------------------------------------------------------------- #
+# --- Per-listing aggregation ---------------------------------------------------
 def aggregate_surroundings(nearby: pd.DataFrame) -> dict[str, list[int]]:
     """Per-group [count <= RADIUS, nearest m] for one listing's nearby places.
 
@@ -73,9 +71,7 @@ def aggregate_surroundings(nearby: pd.DataFrame) -> dict[str, list[int]]:
     }
 
 
-# --------------------------------------------------------------------------- #
-# Data sources
-# --------------------------------------------------------------------------- #
+# --- Data sources --------------------------------------------------------------
 def load_listings() -> pd.DataFrame:
     """Cleaned listings with `latitude`/`longitude` and a stable `index` key
     (describe.py caches on it)."""
@@ -133,9 +129,7 @@ def load_landmarks() -> list[tuple[str, object]]:
     return list(zip(entries, geometries))
 
 
-# --------------------------------------------------------------------------- #
-# Spatial matching (all distances in metres; polygons measure to their edge)
-# --------------------------------------------------------------------------- #
+# --- Spatial matching (all distances in metres; polygons measure to their edge) ---
 def nearby_pois(points: gpd.GeoSeries, pois: gpd.GeoDataFrame) -> pd.DataFrame:
     """Every (listing, POI) pair within RADIUS, indexed by listing, with `dist`."""
     circles = gpd.GeoDataFrame(geometry=points.buffer(RADIUS))
@@ -171,19 +165,13 @@ def surroundings(listings: pd.DataFrame, pois: gpd.GeoDataFrame) -> dict[int, di
         crs=WGS84,
     ).to_crs(NYC_UTM)
     landmarks = nearby_landmarks(points)
-
-    records = {}
-    for listing, nearby in nearby_pois(points, pois).groupby(level=0):
-        records[listing] = {
-            "cats": aggregate_surroundings(nearby),
-            "landmarks": landmarks[listing],
-        }
-    return records
+    return {
+        listing: {"cats": aggregate_surroundings(nearby), "landmarks": landmarks[listing]}
+        for listing, nearby in nearby_pois(points, pois).groupby(level=0)
+    }
 
 
-# --------------------------------------------------------------------------- #
-# Entry point
-# --------------------------------------------------------------------------- #
+# --- Entry point ---------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

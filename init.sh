@@ -4,7 +4,7 @@
 #   1. clone MulTaBench (fork, latest master) + patch in the local dataset id
 #   2. run MulTaBench's own init  -> builds MulTaBench/.venv (uv) with its deps
 #   3. install this project's dataset-build libs (geopandas/duckdb/pydantic-ai)
-#      + the airbnb_surroundings package (editable) INTO MulTaBench/.venv
+#      + the src package (editable) INTO MulTaBench/.venv
 #      -> build + eval all run in that one venv
 #   4. `uv sync` the thin env-holder project
 #   5. remove MulTaBench/.env; credentials are supplied separately with sync.sh
@@ -103,8 +103,8 @@ echo "🐍 running MulTaBench/init.sh (uv venv + deps)"
 
 # 3a. Install this project's package (editable) + its dataset-build libs (the
 # `pipeline` extra in pyproject.toml) into the same venv, so the stages resolve
-# as `-m airbnb_surroundings.*`.
-echo "📦 installing airbnb_surroundings[pipeline] (editable) into MulTaBench/.venv"
+# as `-m src.*`.
+echo "📦 installing this project (editable, [pipeline] extra) into MulTaBench/.venv"
 uv pip install --python "$VENV_PY" -e ".[pipeline]"
 
 # 3b. GPU: verify the wheel selected during MulTaBench's dependency install
@@ -151,7 +151,7 @@ Run the whole pipeline (build -> describe -> eval) with one command:
   # dispatches every stage to MulTaBench/.venv, so tabstar/torch are always found.
   # existing outputs are skipped; on a GPU box with only synced CSVs it runs the eval.
   # forward flags to the eval after --, e.g.  uv run main -- --light.
-  # pick the prompt variant (airbnb_surroundings/prompts.toml) with --prompt, e.g.  uv run main --prompt 08.
+  # pick the prompt variant (src/prompts.toml) with --prompt, e.g.  uv run main --prompt 08.
 
 Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
   uv run clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (pandas; run once)

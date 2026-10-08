@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from airbnb_surroundings import config as C
-from airbnb_surroundings import describe as D
+from src import config as C
+from src import describe as D
 
 # density buckets in display order
 BUCKETS = list(C.OVERTURE_GROUPS)

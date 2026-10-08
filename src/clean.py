@@ -4,8 +4,8 @@ Maps the raw Airbnb schema to canonical columns, casts types, derives room
 counts, drops incomplete/invalid rows, caps the size, and writes a single CSV
 (data/processed/airbnb.csv) that build.py reads next.
 
-    python -m airbnb_surroundings.clean   # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv
-    python -m airbnb_surroundings.clean RAW.csv --output-path OUT.csv
+    python -m src.clean   # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv
+    python -m src.clean RAW.csv --output-path OUT.csv
 """
 
 import argparse
@@ -13,7 +13,7 @@ import os
 
 import pandas as pd
 
-from airbnb_surroundings import config
+from src import config
 
 MAX_LISTINGS = 10_000
 

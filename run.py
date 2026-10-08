@@ -16,7 +16,7 @@ Per-stage (each forwards its args; run any in isolation):
     uv run eval --light      3. former one-fold screening evaluation
 
 describe, eval and main take `--prompt ID` to pick a variant from
-airbnb_surroundings/prompts.toml (default: its `default` key); each variant has
+src/prompts.toml (default: its `default` key); each variant has
 its own described CSV, which eval then reads.
 
 Whole chain:
@@ -47,7 +47,7 @@ INIT_SH = os.path.join(HERE, "init.sh")
 PROCESSED = os.path.join(HERE, "data", "processed")
 ENRICHED = os.path.join(PROCESSED, "airbnb_enriched.csv")
 
-with open(os.path.join(HERE, "airbnb_surroundings", "prompts.toml"), "rb") as f:
+with open(os.path.join(HERE, "src", "prompts.toml"), "rb") as f:
     _PROMPTS_TOML = tomllib.load(f)
 DEFAULT_PROMPT = _PROMPTS_TOML["default"]
 PROMPTS = sorted(_PROMPTS_TOML["prompts"])
@@ -122,7 +122,7 @@ def _stage(module: str, argv: list[str], *, gpu: bool = False) -> None:
     if gpu:
         pin_gpu()
     ensure_env()
-    sh([VENV_PY, "-m", f"airbnb_surroundings.{module}", *argv])
+    sh([VENV_PY, "-m", f"src.{module}", *argv])
 
 
 # Per-stage entry points (registered as uv scripts in pyproject.toml). Each runs
@@ -166,12 +166,12 @@ def main() -> None:
     #    the network (no local extracts). On a GPU box with only the synced CSVs,
     #    ENRICHED already exists, so this is skipped and we use what's there.
     if not os.path.exists(ENRICHED):
-        sh([VENV_PY, "-m", "airbnb_surroundings.build"])
+        sh([VENV_PY, "-m", "src.build"])
 
     # 2. describe: LLM surroundings summary. Skipped once the described CSV exists.
     if not os.path.exists(described_csv):
         if os.path.exists(ENRICHED):
-            sh([VENV_PY, "-m", "airbnb_surroundings.describe", "--prompt", prompt])
+            sh([VENV_PY, "-m", "src.describe", "--prompt", prompt])
         else:
             sys.exit(f"neither {described_csv} nor {ENRICHED} present — nothing to "
                      "describe; build the dataset locally and sync it over first")
@@ -179,7 +179,7 @@ def main() -> None:
     # 3. eval: the tabstar-dependent stage that was failing under `uv run`.
     #    Extra args augment the defaults (e.g. `-- --no-tar` toggles the flag)
     #    rather than replacing them, so --csv/--image-folder are always present.
-    sh([VENV_PY, "-m", "airbnb_surroundings.eval", *eval_args(prompt), *extra_eval_args])
+    sh([VENV_PY, "-m", "src.eval", *eval_args(prompt), *extra_eval_args])
 
 
 if __name__ == "__main__":

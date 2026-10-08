@@ -3,7 +3,7 @@
 # ~/.ssh/config), where the TAR eval runs. They are NOT git-tracked (too big / churny),
 # so code travels via git and these data files travel via rsync.
 #
-# Build the dataset locally first (airbnb_surroundings.build + .describe), then:
+# Build the dataset locally first (src.build + .describe), then:
 #     scripts/sync.sh
 #
 # Remote dir defaults to the repo root on vast; --relative preserves the
