@@ -7,7 +7,7 @@
 #      + the src package (editable) INTO MulTaBench/.venv
 #      -> build + eval all run in that one venv
 #   4. `uv sync` the thin env-holder project
-#   5. remove MulTaBench/.env; credentials are supplied separately with sync.sh
+#   5. remove MulTaBench/.env; credentials are supplied separately with scripts/sync.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -136,10 +136,10 @@ echo "🔗 uv sync"
 uv sync
 
 # 5. Never retain credentials in a freshly initialized checkout.  The source
-# .env is intentionally synced separately to a configured remote with sync.sh.
+# .env is intentionally synced separately to a configured remote with scripts/sync.sh.
 if [ -e MulTaBench/.env ]; then
     rm -f -- MulTaBench/.env
-    echo "🗑️  removed MulTaBench/.env — transfer credentials separately with ./sync.sh"
+    echo "🗑️  removed MulTaBench/.env — transfer credentials separately with scripts/sync.sh"
 fi
 
 cat <<'EOF'
@@ -161,6 +161,6 @@ Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
   uv run eval           # required 5-fold MulTaBench eligibility evaluation (--prompt picks the CSV)
   uv run eval --light   # former single-fold screen (use --full explicitly if desired)
 
-To copy credentials to this checkout on the vast host, run ./sync.sh from the
+To copy credentials to this checkout on the vast host, run scripts/sync.sh from the
 source checkout that contains MulTaBench/.env.
 EOF

@@ -20,33 +20,14 @@ python analysis/summarize_dataset.py --config analysis/config.json --out analysi
 
 ## 2. Run the benchmark
 
-For a GPU run, select one GPU before starting. The dataset must first be
-registered in the official repository's supported dataset flow; put that exact
-identifier in `multabench_dataset_name` in `analysis/config.json`. Then run:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 bash analysis/run_official_benchmark.sh \
-  REGISTERED_OFFICIAL_DATASET_NAME \
-  geoenrich_nyc_multabench
-```
-
-The run performs 100 official evaluations: 5 learners × 4 conditions × folds 0–4.
-The conditions are `structured`, `text`, `joint_frozen`, and `joint_tar`.
-The official command logs every result to W&B. Download the run-history CSV
-from that W&B project and pass it to the extractor below.
+The benchmark runner and result export are being rebuilt around the official
+sweep tool (see `.scratch/official-eval/`). Until then, no run script lives
+here: register the dataset in the official repository's supported flow and run
+`MulTaBench/benchmark.py` directly.
 
 ## 3. Extract paper assets
 
-```bash
-python analysis/extract_results.py \
-  --input analysis/output/raw/wandb_export.csv \
-  --out analysis/output
-
-python analysis/make_paper_assets.py \
-  --scores analysis/output/tables/official_scores_tidy.csv \
-  --config analysis/config.json \
-  --out analysis/output
-```
+`make_paper_assets.py` is rewritten in a later step to read the new results CSV.
 
 The outputs are deterministic, reviewable files:
 
