@@ -81,6 +81,16 @@ git -C MulTaBench fetch --quiet origin
 git -C MulTaBench checkout --quiet --force "$MULTABENCH_COMMIT"
 echo "📌 MulTaBench pinned at $(git -C MulTaBench rev-parse --short HEAD)"
 
+# MulTaBench's requirements.txt was compiled for CUDA 12.6 and pins every
+# nvidia-*-cu12 library to its 12.6 version, which conflicts with the cu128
+# torch wheel (Blackwell, e.g. RTX 50xx) that needs the 12.8 builds. Drop those
+# pins so torch brings its own matching CUDA libs. Tracked file only: the next
+# run's `checkout --force` above restores it.
+if [ "$CUDA_TAG" = "cu128" ]; then
+    sed -i -E '/^nvidia-[a-z0-9-]+-cu12==/d' MulTaBench/requirements.txt
+    echo "🩹 cu128: dropped nvidia-*-cu12 pins from MulTaBench/requirements.txt"
+fi
+
 # 3. Build MulTaBench's uv venv + install its deps (its init.sh is uv-based).
 # It's designed to be sourced without `set -eu`; disable our hardening inside the
 # subshell so its unguarded PYTHONPATH ref doesn't trip nounset.
