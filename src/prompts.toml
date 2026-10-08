@@ -1,5 +1,5 @@
 # Official prompt variants for the describe stage. Select one with
-# `--prompt <id>` (describe / main / eval); each writes its own
+# `--prompt <id>` (describe); each writes its own
 # data/processed/airbnb_described_<id>.csv, so variants never share outputs.
 #
 # Each variant pairs a `view` (how describe.py renders the surroundings JSON as

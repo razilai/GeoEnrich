@@ -25,7 +25,7 @@ registered in the official repository's supported dataset flow; put that exact
 identifier in `multabench_dataset_name` in `analysis/config.json`. Then run:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 bash analysis/run_official_benchmark.sh \
+bash analysis/run_official_benchmark.sh \
   REGISTERED_OFFICIAL_DATASET_NAME \
   geoenrich_nyc_multabench
 ```

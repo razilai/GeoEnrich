@@ -34,7 +34,6 @@ def described_csv(prompt_id):
 # --- Other outputs -----------------------------------------------------------
 
 BATCH_JSON = os.path.join(ARTIFACTS_DIR, "batch_result.json")
-EVAL_REPORT_CSV = os.path.join(RESULTS_DIR, "eval_report.csv")
 
 # --- Enrichment parameters (see build.py) -----------------------------------
 
