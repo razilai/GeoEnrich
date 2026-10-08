@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # One-shot setup, uv-driven.
 #
-#   1. clone MulTaBench (fork, latest master) + patch in the local dataset id
+#   1. clone the official MulTaBench and check out the pinned commit
 #   2. run MulTaBench's own init  -> builds MulTaBench/.venv (uv) with its deps
 #   3. install this project's dataset-build libs (geopandas/duckdb/pydantic-ai)
 #      + the src package (editable) INTO MulTaBench/.venv
-#      -> build + eval all run in that one venv
+#      -> build + describe all run in that one venv
 #   4. `uv sync` the thin env-holder project
 #   5. remove MulTaBench/.env; credentials are supplied separately with scripts/sync.sh
 set -euo pipefail
@@ -15,7 +15,10 @@ cd "$HERE"
 
 mkdir -p data/processed
 
-MULTABENCH_REPO="https://github.com/razilai/MulTaBench"
+# Official repository. Override only to point at a mirror.
+MULTABENCH_REPO="${MULTABENCH_REPO:-https://github.com/alanarazi7/MulTaBench}"
+# Pinned master commit; see docs/adr/0001-evaluate-on-latest-multabench-master.md.
+MULTABENCH_COMMIT="d88821d"
 VENV_PY="$HERE/MulTaBench/.venv/bin/python"
 
 # uv may build/download Python during setup.  Install these headers before that
@@ -64,33 +67,19 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
     echo "🎮 GPU sm_${GPU_CAP:-?} -> selecting torch ${CUDA_TAG} during dependency install"
 fi
 
-# 1. Clone MulTaBench (fork, latest master).
+# 1. Clone the official MulTaBench and pin it (idempotent).
 if [ ! -d MulTaBench/.git ]; then
-    echo "📥 cloning MulTaBench (latest master)"
+    echo "📥 cloning MulTaBench"
     git clone "$MULTABENCH_REPO" MulTaBench
 else
     echo "✅ MulTaBench already present — skipping clone"
 fi
-
-# 2. Patch: register the local house-price dataset id (idempotent).
-echo "🩹 ensuring local dataset enum member is present"
-python3 - <<'PY'
-import pathlib
-f = pathlib.Path("MulTaBench/multabench/datasets/all_datasets.py")
-s = f.read_text()
-member = 'REG_IMAGE_HOUSE_PRICE_KING_COUNTY = "local/house-price-king-county"'
-if member not in s:
-    anchor = 'REG_IMAGE_HOUSES_AIRBNB_SEATTLE = "airbnb/seattle/"'
-    if anchor not in s:
-        raise SystemExit("❌ anchor line not found — MulTaBench layout changed; update init.sh patch")
-    s = s.replace(anchor, anchor
-                  + "\n    # Local semi-synthetic dataset (this project) — loaded from a local CSV + image folder\n    "
-                  + member)
-    f.write_text(s)
-    print("   patched all_datasets.py")
-else:
-    print("   already patched")
-PY
+# An older checkout may point at the retired fork and carry its local patch:
+# re-point origin, fetch the pinned commit, and discard the stale edit.
+git -C MulTaBench remote set-url origin "$MULTABENCH_REPO"
+git -C MulTaBench fetch --quiet origin
+git -C MulTaBench checkout --quiet --force "$MULTABENCH_COMMIT"
+echo "📌 MulTaBench pinned at $(git -C MulTaBench rev-parse --short HEAD)"
 
 # 3. Build MulTaBench's uv venv + install its deps (its init.sh is uv-based).
 # It's designed to be sourced without `set -eu`; disable our hardening inside the
@@ -146,20 +135,15 @@ cat <<'EOF'
 
 🎉 Setup complete.
 
-Run the whole pipeline (build -> describe -> eval) with one command:
-  uv run main
-  # dispatches every stage to MulTaBench/.venv, so tabstar/torch are always found.
-  # existing outputs are skipped; on a GPU box with only synced CSVs it runs the eval.
-  # forward flags to the eval after --, e.g.  uv run main -- --light.
-  # pick the prompt variant (src/prompts.toml) with --prompt, e.g.  uv run main --prompt 08.
-
-Or drive one stage at a time — each runs in MulTaBench/.venv automatically:
+Drive one stage at a time — each runs in MulTaBench/.venv automatically:
   uv run clean          # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv (pandas; run once)
   uv run build          # -> data/processed/airbnb_enriched.csv (Overture POIs within 400m)
-  uv run describe 10    # -> data/processed/airbnb_described_<prompt>.csv (LLM summary; needs .env key; 10 = cheap test)
-  uv run describe --prompt 05   # same, with prompt variant 05 (05 / 08 / 16; default 16)
-  uv run eval           # required 5-fold MulTaBench eligibility evaluation (--prompt picks the CSV)
-  uv run eval --light   # former single-fold screen (use --full explicitly if desired)
+  uv run describe --confirm [N]   # -> data/processed/airbnb_described_<prompt>.csv
+                                  # (LLM summary; spends credits, needs .env key; N = top-N test;
+                                  #  --prompt 05|08|16)
+
+Benchmark stages (stage/bench/report) arrive in later tickets. They run with
+HF_HUB_OFFLINE=1 and take the benchmark's --device flag.
 
 To copy credentials to this checkout on the vast host, run scripts/sync.sh from the
 source checkout that contains MulTaBench/.env.

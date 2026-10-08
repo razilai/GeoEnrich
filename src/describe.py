@@ -635,7 +635,14 @@ def main():
         default=DEFAULT_PROMPT,
         help=f"prompt variant from prompts.toml (default {DEFAULT_PROMPT})",
     )
+    p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="required: describe issues paid LLM calls",
+    )
     args = p.parse_args()
+    if not args.confirm:
+        p.error("describe spends LLM credits; re-run with --confirm to proceed")
     use_prompt(args.prompt)
     run(args.k)
 

@@ -1,9 +1,9 @@
 [project]
 name = "airbnb-surroundings-multabench"
 version = "0.1.0"
-description = "Airbnb + OSM text-tabular dataset build + MulTaBench eligibility eval"
+description = "Airbnb + OSM text-tabular dataset build + MulTaBench eligibility"
 requires-python = ">=3.11"
-# Launcher-only environment. The heavy stages (build/describe/eval) all run in
+# Launcher-only environment. The heavy stages (build/describe/benchmark) all run in
 # MulTaBench/.venv, which init.sh builds with tabstar/torch and the dataset-build
 # libraries. run.py uses only the standard library to dispatch into that
 # interpreter, so duplicating those dependencies here only wastes disk and setup
@@ -28,7 +28,6 @@ main = "run:main"
 clean = "run:clean"        # stage 0: raw scrape -> data/airbnb.csv (pandas)
 build = "run:build"        # stage 1: -> artifacts/airbnb_enriched.csv (Overture POIs)
 describe = "run:describe"  # stage 2: -> data/processed/airbnb_described_<prompt>.csv (LLM)
-eval = "run:evaluate"      # stage 3: MulTaBench eligibility (needs GPU)
 
 [build-system]
 requires = ["hatchling"]
