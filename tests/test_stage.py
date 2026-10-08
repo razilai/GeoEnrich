@@ -184,3 +184,19 @@ def test_patch_registry_is_idempotent(registry_source, datasets) -> None:
 def test_patch_registry_fails_loudly_without_anchor(registry_source) -> None:
     with pytest.raises(RuntimeError, match="anchor"):
         stage.patch_registry(registry_source.replace("_IMAGE_PREFIXES", "_PREFIXES"), ["latlon"])
+
+
+def test_restaging_after_row_set_change_rewrites(tmp_path) -> None:
+    full = stage.build_datasets(listings(), {"05": corpus([0, 1, 2, 3, 4, 5])})
+    fewer = stage.build_datasets(listings(), {"05": corpus([0, 1, 2, 3, 4, 5], missing=(5,))})
+    stage.write_snapshots(full, str(tmp_path))
+    assert sorted(stage.write_snapshots(fewer, str(tmp_path))) == sorted(fewer)
+    staged = pd.read_parquet(os.path.join(stage.snapshot_dir(str(tmp_path), "latlon"), "data.parquet"))
+    assert len(staged) == 5
+
+
+@pytest.mark.parametrize("anchor", ["\n}\n\n\nfor _d in MulTaBenchDatasetID:", "\n\n\n_IMAGE_PREFIXES = ("])
+def test_patch_registry_requires_both_anchors(registry_source, anchor) -> None:
+    assert anchor in registry_source
+    with pytest.raises(RuntimeError, match="anchor"):
+        stage.patch_registry(registry_source.replace(anchor, "\n#\n"), ["latlon"])

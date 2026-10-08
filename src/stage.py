@@ -33,7 +33,7 @@ _COORDINATE_RENAMES = {"lat": "latitude", "long": "longitude"}
 
 ARM = "enriched"  # the only arm staged by this verb until the censored arms land
 HF_ORG = "multabench"  # namespace the benchmark's hub module resolves ids under
-REVISION = "0" * 40  # fixed snapshot name; delete the cache entry to restage
+REVISION = "0" * 40  # fixed snapshot name; stale content is detected by row set
 DATA_PARQUET = "data.parquet"
 METADATA_JSON = "metadata.json"
 SOURCE = "local: GeoEnrich-NYC (src/stage.py)"
@@ -132,12 +132,25 @@ def snapshot_dir(cache_dir: str, key: str) -> str:
     return os.path.join(cache_dir, repo, "snapshots", REVISION)
 
 
+def _is_current(snapshot: str, frame: pd.DataFrame) -> bool:
+    """Whether the staged snapshot already holds this frame's rows (same listings, same columns)."""
+    parquet = os.path.join(snapshot, DATA_PARQUET)
+    if not all(os.path.exists(os.path.join(snapshot, f)) for f in (DATA_PARQUET, METADATA_JSON)):
+        return False
+    staged = pd.read_parquet(parquet)
+    return list(staged.columns) == list(frame.columns) and staged[TARGET].tolist() == frame[TARGET].tolist()
+
+
 def write_snapshots(datasets: dict[str, pd.DataFrame], cache_dir: str) -> list[str]:
-    """Lay each dataset out as a hub snapshot; returns the keys written (existing ones are skipped)."""
+    """Lay each dataset out as a hub snapshot; returns the keys written.
+
+    A snapshot already holding the same rows is skipped; one left over from a
+    different row set (e.g. a regenerated corpus) is rewritten.
+    """
     written = []
     for key, frame in datasets.items():
         snapshot = snapshot_dir(cache_dir, key)
-        if all(os.path.exists(os.path.join(snapshot, f)) for f in (DATA_PARQUET, METADATA_JSON)):
+        if _is_current(snapshot, frame):
             continue
         os.makedirs(snapshot, exist_ok=True)
         frame.to_parquet(os.path.join(snapshot, DATA_PARQUET), index=False)
