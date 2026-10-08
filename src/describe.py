@@ -411,10 +411,10 @@ def save(df):
 
 
 def publish(df):
-    """Write the final dataset: prose replaces the POI JSON, and the leaky `index`
-    column is dropped."""
+    """Write the final dataset: prose replaces the POI JSON. `index` stays, so
+    `stage` can align the corpus with the cleaned listings; it drops it again."""
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
-    df.drop(columns=["surroundings", "index"], errors="ignore").to_csv(
+    df.drop(columns=["surroundings"], errors="ignore").to_csv(
         OUT_CSV, index=False
     )
 

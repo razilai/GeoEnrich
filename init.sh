@@ -142,8 +142,10 @@ Drive one stage at a time — each runs in MulTaBench/.venv automatically:
                                   # (LLM summary; spends credits, needs .env key; N = top-N test;
                                   #  --prompt 05|08|16)
 
-Benchmark stages (stage/bench/report) arrive in later tickets. They run with
-HF_HUB_OFFLINE=1 and take the benchmark's --device flag.
+  uv run stage          # described corpora -> registered datasets in the local HF cache (offline)
+
+Benchmark stages (stage/bench/report) run with HF_HUB_OFFLINE=1; bench/report arrive
+in later tickets and take the benchmark's --device flag.
 
 To copy credentials to this checkout on the vast host, run scripts/sync.sh from the
 source checkout that contains MulTaBench/.env.

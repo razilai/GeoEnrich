@@ -12,6 +12,9 @@ Per-stage (each forwards its args; run any in isolation):
     uv run describe --confirm [N] 2. -> data/processed/airbnb_described_<prompt>.csv
                                      (spends LLM credits, so --confirm is mandatory)
 
+    uv run stage [--prompt ID]    3. described corpora -> registered datasets in the local HF cache
+                                     (offline; nothing uploaded)
+
 Whole chain:
     uv run main --confirm    runs build -> describe, skipping any stage whose
                              output already exists (safe to re-run). clean is
@@ -113,6 +116,11 @@ def build() -> None:
 def describe() -> None:
     """`uv run describe --confirm [N] [--prompt ID]` — stage 2: -> airbnb_described_<ID>.csv."""
     _stage("describe", sys.argv[1:])
+
+
+def stage() -> None:
+    """`uv run stage [--prompt ID]` — register and stage the benchmark datasets offline."""
+    _stage("stage", sys.argv[1:])
 
 
 def main() -> None:
