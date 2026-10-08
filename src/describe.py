@@ -15,7 +15,6 @@ Environment (.env):
     DESC_IN, DESC_OUT    input / output CSV paths (output defaults per prompt)
     DESC_REFERENCE_CSV   optional full corpus for the citywide percentiles
     DESC_CACHE_TAG       cache fingerprint (default: hash of prompt + view)
-    DESC_SAMPLE=random   random sample (seed DESC_SEED) instead of densest-first
 
 The prompt variant (view + system instruction) comes from prompts.toml and is
 chosen with --prompt; each variant writes its own airbnb_described_<id>.csv.
@@ -27,7 +26,7 @@ chunk, so a crash resumes instead of restarting.
 Usage:
     python -m src.describe                # every listing, default prompt
     python -m src.describe --prompt 08    # a specific prompt variant
-    python -m src.describe 10             # only the 10 densest — cheap test run
+    python -m src.describe 10             # 10 random listings — cheap test run
 """
 
 import argparse
@@ -125,8 +124,8 @@ use_prompt(DEFAULT_PROMPT)
 
 
 # --- surroundings JSON ------------------------------------------------------------
-# Schema written by build.py; every category is an Overture top-level group
-# (config.OVERTURE_GROUPS):
+# Schema written by build.py; every category is an Overture level-2 taxonomy
+# category (config.OVERTURE_CATEGORIES), called a `group` below:
 #   cats:      {group: [count<=450m, nearest_m]}
 #   landmarks: [[name, dist_m], ...]  (nearest first)
 _WITHIN_450M, _NEAREST_M = 0, 1
@@ -137,9 +136,41 @@ def _count(cats, group):
     return cats.get(group, (0, 0))[_WITHIN_450M]
 
 
+def _total(cats):
+    """Places of every kept category within 450 m."""
+    return sum(values[_WITHIN_450M] for values in cats.values())
+
+
+# Plain nouns for the Overture codes, which the model otherwise paraphrases
+# unpredictably or copies verbatim. Worded after each category's NYC level-3 mix
+# (e.g. ground transport is rail, taxi and transit in roughly equal parts).
+_LABELS = {
+    "museum": "museums",
+    "nightlife_venue": "nightclubs",
+    "performing_arts_venue": "music and theatre venues",
+    "historic_site": "historic sites",
+    "alcoholic_beverage_venue": "bars",
+    "casual_eatery": "casual eateries",
+    "non_alcoholic_beverage_venue": "coffee shops and juice bars",
+    "restaurant": "restaurants",
+    "hospital": "hospitals",
+    "hotel": "hotels",
+    "corporate_or_business_office": "offices",
+    "convenience_store": "convenience stores",
+    "department_store": "department stores",
+    "discount_store": "discount stores",
+    "fashion_and_apparel_store": "clothing and fashion stores",
+    "food_and_beverage_store": "grocery and food stores",
+    "park": "parks and playgrounds",
+    "sport_or_fitness_facility": "gyms and fitness studios",
+    "ground_transport_facility_or_service": "rail, transit and taxi services",
+    "parking": "parking",
+}
+
+
 def _label(group):
-    """Overture group code as plain words, e.g. food_and_drink -> food and drink."""
-    return group.replace("_", " ")
+    """Plain words for an Overture category code, e.g. restaurant -> restaurants."""
+    return _LABELS.get(group, group.replace("_", " "))
 
 
 # Landmark distance bands in air metres, tight near and wide far: the landmark
@@ -150,10 +181,32 @@ _LM_BANDS = [
     (500, "a short walk from"),
     (float("inf"), "about 10 minutes from"),
 ]
+# Only the nearest few landmarks are shown.
+_LM_CAP = 3
 
 # Given many standouts, the model averages them into generic "dense area" prose,
 # so only the sharpest few are shown.
 _DEV_CAP = 5
+_PRIMARY_CAP = 3
+
+# A standout must sit in the outer 15% of the corpus on either side; anything
+# nearer the middle is padding, not a contrast.
+_MIN_EXTREMITY = 0.35
+# "More than usual" needs at least this many places: in sparse categories one or
+# two places would otherwise rank near the top of the city.
+_MIN_TOP_COUNT = 3
+
+# Doorstep cues only for categories whose nearness says something; restaurants
+# and shops are on the doorstep almost everywhere.
+_PROXIMITY_GROUPS = {
+    "park",
+    "ground_transport_facility_or_service",
+    "museum",
+    "hotel",
+    "nightlife_venue",
+    "historic_site",
+}
+_PROXIMITY_CAP = 1  # the instructions allow at most one proximity cue
 
 _NAME_RE = re.compile(r"[A-Z][\w&'’]+(?:\s+[A-Z][\w&'’]+)*")
 
@@ -172,14 +225,18 @@ def ungrounded(summary, surr):
 # --- corpus reference distributions ---------------------------------------------
 # Filled by load_reference(); the deviation views rank a listing against these.
 _REF = {}  # group -> sorted within-450m counts across the corpus
+_REF_TOTAL = np.array([])  # sorted within-450m totals across the corpus
 _PRESENT = {}  # group -> share of listings with at least one
 
 
 def load_reference(df):
-    """Build the corpus count distributions (call once before rendering prompts)."""
+    """Build the corpus distributions (call once before rendering prompts)."""
+    global _REF_TOTAL
     _REF.clear()
     _PRESENT.clear()
     cats = [json.loads(s).get("cats", {}) for s in df["surroundings"]]
+    totals = np.array([_total(c) for c in cats])
+    _REF_TOTAL = np.sort(totals)
     for group in {g for c in cats for g in c}:
         counts = np.array([_count(c, group) for c in cats])
         _REF[group] = np.sort(counts)
@@ -188,7 +245,7 @@ def load_reference(df):
 
 # Word bands for _deviation_band, checked in order; percentiles in between are typical.
 _HIGH_BANDS = [
-    (0.95, "far more than most blocks"),
+    (0.95, "far more than most neighbourhoods"),
     (0.80, "well above average"),
     (0.65, "above average"),
 ]
@@ -198,11 +255,25 @@ _LOW_BANDS = [
     (0.35, "below average"),
 ]
 
+# Overall busyness by citywide quintile of the total place count.
+_DENSITY_BANDS = [
+    (0.2, "very quiet"),
+    (0.4, "quiet"),
+    (0.6, "average"),
+    (0.8, "busy"),
+    (float("inf"), "very busy"),
+]
 
-def _percentile(group, count):
-    """Share of the corpus with fewer than `count` places, or None without a reference."""
-    ref = _REF.get(group)
-    return None if ref is None else np.searchsorted(ref, count, side="left") / len(ref)
+
+def _percentile(ref, value):
+    """Mid-rank share of the sorted `ref` below `value`, ties counted half: a
+    count most listings share (often 0 or 1) lands mid-pack instead of jumping
+    to the top. None without a reference."""
+    if ref is None or not len(ref):
+        return None
+    below = np.searchsorted(ref, value, side="left")
+    at_or_below = np.searchsorted(ref, value, side="right")
+    return (below + at_or_below) / 2 / len(ref)
 
 
 def _notably_absent(group):
@@ -210,48 +281,92 @@ def _notably_absent(group):
     return _PRESENT.get(group, 0) >= 0.6
 
 
-def _deviation_rank(group, count):
-    """(extremity, "top/bottom X% of NYC blocks") versus the corpus, or None if
-    roughly typical: a self-describing citywide rank the model can read at face value."""
-    pct = _percentile(group, count)
+def _rank(group, count, pct):
+    """(extremity, "top/bottom X% of NYC neighbourhoods") or None if roughly
+    typical: a self-describing citywide rank the model can read at face value."""
     if pct is None:
         return None
     extremity = abs(pct - 0.5)
+    if extremity < _MIN_EXTREMITY:
+        return None
     if count <= 0:
         if not _notably_absent(group):
             return None
-        return extremity, "none nearby (most NYC blocks have some)"
-    if extremity < 0.15:
-        return None
+        return extremity, "none nearby (most NYC neighbourhoods have some)"
     if pct >= 0.5:
-        return extremity, f"top {100 - round(pct * 100)}% of NYC blocks"
-    return extremity, f"bottom {round(pct * 100)}% of NYC blocks"
+        if count < _MIN_TOP_COUNT:
+            return None
+        return extremity, f"top {max(1, round((1 - pct) * 100))}% of NYC neighbourhoods"
+    return extremity, f"bottom {max(1, round(pct * 100))}% of NYC neighbourhoods"
 
 
-def _deviation_band(group, count):
+def _deviation_rank(group, cats):
+    """Rank of the group's count of places versus the corpus."""
+    count = _count(cats, group)
+    return _rank(group, count, _percentile(_REF.get(group), count))
+
+
+# Word bands for _contrast_band, checked in order; they split the same outer 15%
+# that _rank keeps, so a percentile never reaches the prompt to be quoted.
+_CONTRAST_HIGH = [
+    (0.99, "more than almost anywhere in NYC"),
+    (0.95, "far more than most neighbourhoods"),
+    (0.0, "more than most neighbourhoods"),
+]
+_CONTRAST_LOW = [
+    (0.05, "very few"),
+    (1.0, "fewer than most neighbourhoods"),
+]
+
+
+def _contrast_band(group, cats):
+    """The standouts _deviation_rank keeps, phrased as fixed word bands: equal
+    ranks read alike and the model has no number to copy."""
+    count = _count(cats, group)
+    pct = _percentile(_REF.get(group), count)
+    ranked = _rank(group, count, pct)
+    if ranked is None or count <= 0:
+        return ranked
+    if pct >= 0.5:
+        phrase = next(p for cutoff, p in _CONTRAST_HIGH if pct >= cutoff)
+    else:
+        phrase = next(p for cutoff, p in _CONTRAST_LOW if pct <= cutoff)
+    return ranked[0], phrase
+
+
+def _deviation_band(group, cats):
     """(extremity, band word) versus the corpus, or None if roughly typical: the
     same signal as _deviation_rank, coarsened into six word bands."""
-    pct = _percentile(group, count)
+    count = _count(cats, group)
+    pct = _percentile(_REF.get(group), count)
     if pct is None:
         return None
     if count <= 0:
         return (0.5, "none nearby") if _notably_absent(group) else None
-    phrase = next((p for cutoff, p in _HIGH_BANDS if pct >= cutoff), None) or next(
-        (p for cutoff, p in _LOW_BANDS if pct <= cutoff), None
-    )
+    phrase = None
+    if count >= _MIN_TOP_COUNT:
+        phrase = next((p for cutoff, p in _HIGH_BANDS if pct >= cutoff), None)
+    phrase = phrase or next((p for cutoff, p in _LOW_BANDS if pct <= cutoff), None)
     return (abs(pct - 0.5), phrase) if phrase else None
 
 
 def _deviations(surr, classify):
     """(extremity, group, phrase) for every group `classify` flags as atypical,
-    strongest first. Walks every reference group, so notable absence counts too."""
+    strongest first and at most one per Overture level-1 group, so three food
+    categories never all say "food". Walks every reference group, so notable
+    absence counts too."""
     cats = surr.get("cats", {})
-    found = [
-        (r[0], group, r[1])
-        for group in _REF
-        if (r := classify(group, _count(cats, group)))
-    ]
-    return sorted(found, key=lambda d: (-d[0], _label(d[1])))
+    found = sorted(
+        ((r[0], group, r[1]) for group in _REF if (r := classify(group, cats))),
+        key=lambda d: (-d[0], _label(d[1])),
+    )
+    seen, kept = set(), []
+    for deviation in found:
+        parent = config.CATEGORY_GROUP.get(deviation[1], deviation[1])
+        if parent not in seen:
+            seen.add(parent)
+            kept.append(deviation)
+    return kept
 
 
 # --- evidence lines ---------------------------------------------------------------
@@ -269,9 +384,20 @@ def _deviation_lines(deviations):
     return [f"- {_label(group)}: {phrase}" for _, group, phrase in deviations]
 
 
+def _density_line(surr):
+    pct = _percentile(_REF_TOTAL, _total(surr.get("cats", {})))
+    if pct is None:
+        return None
+    word = next(w for cutoff, w in _DENSITY_BANDS if pct < cutoff)
+    return (
+        f"Overall: {word}, by how many places are within a short walk "
+        "compared with other NYC neighbourhoods."
+    )
+
+
 def _landmark_line(surr):
     by_band = {}  # landmarks arrive nearest-first, so each band stays ordered
-    for name, metres in surr.get("landmarks", []):
+    for name, metres in surr.get("landmarks", [])[:_LM_CAP]:
         phrase = next(p for cutoff, p in _LM_BANDS if metres <= cutoff)
         by_band.setdefault(phrase, []).append(name)
     if not by_band:
@@ -282,17 +408,20 @@ def _landmark_line(surr):
     )
 
 
-def _proximity_lines(surr, excluded_groups: set[str], cap=2):
-    """Groups with a place within the doorstep radius, nearest first.
+def _proximity_lines(surr, excluded_groups: set[str], cap=_PROXIMITY_CAP):
+    """Telling groups (_PROXIMITY_GROUPS) with a place within the doorstep
+    radius, nearest first.
 
     Groups already among the primary contrasts are skipped, so the prose gains a
-    second axis (e.g. a park on the doorstep beside retail density) instead of
-    restating that a dense block has shops.
+    second axis (e.g. a park on the doorstep beside an office district) instead
+    of restating a primary contrast.
     """
     close = sorted(
         (values[_NEAREST_M], group)
         for group, values in surr.get("cats", {}).items()
-        if group not in excluded_groups and values[_NEAREST_M] <= config.DOORSTEP
+        if group in _PROXIMITY_GROUPS
+        and group not in excluded_groups
+        and values[_NEAREST_M] <= config.DOORSTEP
     )
     return [
         f"- {_label(group)}: {_proximity_phrase(metres)}"
@@ -314,7 +443,7 @@ def _standouts_view(surr, header, classify):
 def _view_deviation(surr):
     return _standouts_view(
         surr,
-        "How this block compares with a typical New York block "
+        "How this neighbourhood compares with a typical New York neighbourhood "
         "(only the ways it stands out are listed):",
         _deviation_band,
     )
@@ -323,30 +452,48 @@ def _view_deviation(surr):
 def _view_deviation_exact(surr):
     return _standouts_view(
         surr,
-        "How this block ranks among all New York blocks "
+        "How this neighbourhood ranks among all New York neighbourhoods "
         "(citywide percentile; only standouts listed):",
         _deviation_rank,
     )
 
 
+def _evidence_rng(surr):
+    """RNG seeded by the listing's surroundings: the same listing always gets the
+    same shuffle, so prompts are reproducible across runs."""
+    digest = hashlib.sha256(json.dumps(surr, sort_keys=True).encode()).digest()
+    return random.Random(int.from_bytes(digest[:8]))
+
+
 def _view_price_relevant_profile(surr):
-    """Citywide contrasts plus non-redundant doorstep proximity."""
-    primary = _deviations(surr, _deviation_rank)[:3]
-    return "\n\n".join(
-        [
-            _section(
-                "Primary evidence — strongest citywide contrasts:",
-                _deviation_lines(primary),
-                "- (unremarkable — typical across the measured place types)",
-            ),
-            _section(
-                "Independent proximity evidence (use only if it adds a new idea):",
-                _proximity_lines(surr, {group for _, group, _ in primary}),
-                "- (no additional proximity evidence)",
-            ),
-            _landmark_line(surr),
-        ]
-    )
+    """Overall busyness, the strongest citywide contrasts (each category ranked
+    independently by its count, phrased as word bands), plus one non-redundant
+    doorstep cue.
+
+    Sections, and the contrasts within theirs, come in a per-listing shuffled
+    order, so the prose does not inherit one fixed evidence structure.
+    """
+    rng = _evidence_rng(surr)
+    primary = _deviations(surr, _contrast_band)[:_PRIMARY_CAP]
+    contrasts = _deviation_lines(primary)
+    rng.shuffle(contrasts)
+    sections = [
+        _density_line(surr),
+        _section(
+            "Primary evidence — strongest citywide contrasts:",
+            contrasts,
+            "- (unremarkable — typical across the measured place types)",
+        ),
+        _section(
+            "Independent proximity evidence (use only if it adds a new idea):",
+            _proximity_lines(surr, {group for _, group, _ in primary}),
+            "- (no additional proximity evidence)",
+        ),
+        _landmark_line(surr),
+    ]
+    sections = [s for s in sections if s]
+    rng.shuffle(sections)
+    return "\n\n".join(sections)
 
 
 _VIEWS = {
@@ -358,10 +505,10 @@ _VIEWS = {
 # Bump a view's version whenever its rendered evidence changes: prompt screens add
 # it to their cache fingerprint, so a corrected renderer can't reuse old drafts.
 _VIEW_CACHE_VERSIONS = {
-    "deviation": "v1",
-    "deviation_exact": "v2",
-    "character_deviation": "v2",
-    "price_relevant_profile": "v2",
+    "deviation": "v4",
+    "deviation_exact": "v5",
+    "character_deviation": "v5",
+    "price_relevant_profile": "v8",
 }
 
 
@@ -512,15 +659,38 @@ async def _poll_batch(client, batch_id):
             return status
 
 
+_THINK_BLOCK = re.compile(r"<(think|thinking)>.*?</\1>", re.S | re.I)
+
+
+def _final_text(body):
+    """The answer text of a chat completion, or None when it isn't a clean final
+    answer. Reasoning lives in message.reasoning, never content; but reasoning can
+    exhaust max_tokens and leave content empty or cut off (finish_reason=length),
+    and some models inline <think> tags — neither may reach the CSV."""
+    choice = body["choices"][0]
+    if choice.get("finish_reason") not in (None, "stop"):
+        return None
+    text = _THINK_BLOCK.sub("", choice["message"].get("content") or "").strip()
+    if not text or re.search(r"</?think(ing)?>", text, re.I):
+        return None
+    return text
+
+
 def _apply_batch_results(batch, rows, df):
     """Write each returned summary into df."""
     keys = ("results", "output", "responses", "requests")
     items = next((batch[k] for k in keys if batch.get(k)), [])
     df_index_by_id = {str(row["index"]): idx for idx, row in rows}
+    skipped = 0
     for item in items:
         body = (item.get("response") or {}).get("body")
         if body and (idx := df_index_by_id.get(item.get("custom_id"))) is not None:
-            df.at[idx, SUMMARY] = body["choices"][0]["message"]["content"]
+            if text := _final_text(body):
+                df.at[idx, SUMMARY] = text
+            else:
+                skipped += 1
+    if skipped:
+        log(f"{skipped} batch results unusable (truncated/empty) — rerun to retry them")
 
 
 async def _submit_batch(client, rows, df):
@@ -558,6 +728,21 @@ async def _submit_batch(client, rows, df):
         log(f"batch ended {batch.get('status')} — see {config.BATCH_JSON}")
 
 
+async def resume_batch(rows, df, batch_id):
+    """Wait for an already-submitted batch and apply its results (no new submit)."""
+    _require_api_key()
+    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient(headers=headers, timeout=120) as client:
+        batch = await _poll_batch(client, batch_id)
+    os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
+    with open(config.BATCH_JSON, "w") as f:
+        json.dump(batch, f)
+    if batch.get("status") == "completed":
+        _apply_batch_results(batch, rows, df)
+    else:
+        log(f"batch ended {batch.get('status')} — see {config.BATCH_JSON}")
+
+
 async def run_batch(rows, df):
     """Summarise `rows` via OpenRouter async batches (:batch models, ~50% price).
 
@@ -576,23 +761,19 @@ async def run_batch(rows, df):
 
 
 # --- entry point ------------------------------------------------------------------
-def _total_pois(surroundings_json):
-    cats = json.loads(surroundings_json).get("cats", {})
-    return sum(values[_WITHIN_450M] for values in cats.values())
+# Fixed so a k-row test run always draws the same listings and reruns hit the cache.
+SAMPLE_SEED = 0
 
 
 def _select_rows(df, k):
-    """Densest surroundings first (so a top-k test run hits the richest listings),
-    or a seeded random sample with DESC_SAMPLE=random."""
-    if env("DESC_SAMPLE") == "random":
-        n = len(df) if k is None else min(k, len(df))
-        return df.sample(n=n, random_state=int(env("DESC_SEED", "0")))
-    df = df.iloc[df["surroundings"].map(_total_pois).argsort()[::-1]]
-    return df if k is None else df.head(k)
+    """A seeded random sample of k listings (all when None), so a test run sees
+    quiet and busy areas alike."""
+    n = len(df) if k is None else min(k, len(df))
+    return df.sample(n=n, random_state=SAMPLE_SEED)
 
 
-def run(k=None):
-    """Describe the k densest listings (all when None) with the active prompt."""
+def run(k=None, resume=None):
+    """Describe k random listings (all when None) with the active prompt."""
     df = pd.read_csv(IN_CSV, low_memory=False)
     ref = df
     if REFERENCE_CSV:
@@ -610,7 +791,9 @@ def run(k=None):
     )
 
     if rows:
-        if MODEL.endswith(":batch"):
+        if resume:
+            asyncio.run(resume_batch(rows, df, resume))
+        elif MODEL.endswith(":batch"):
             asyncio.run(run_batch(rows, df))
         else:
             asyncio.run(run_live(build_agent(), rows, df))
@@ -628,12 +811,18 @@ def main():
     p = argparse.ArgumentParser(
         description="Summarise listing surroundings with an LLM."
     )
-    p.add_argument("k", nargs="?", type=int, help="only the k densest listings")
+    p.add_argument("k", nargs="?", type=int, help="only k random listings")
     p.add_argument(
         "--prompt",
         choices=sorted(PROMPTS),
         default=DEFAULT_PROMPT,
         help=f"prompt variant from prompts.toml (default {DEFAULT_PROMPT})",
+    )
+    p.add_argument(
+        "--resume",
+        metavar="BATCH_ID",
+        help="collect an already-submitted batch instead of submitting a new one "
+        "(same k and --prompt as the original run)",
     )
     p.add_argument(
         "--confirm",
@@ -644,7 +833,7 @@ def main():
     if not args.confirm:
         p.error("describe spends LLM credits; re-run with --confirm to proceed")
     use_prompt(args.prompt)
-    run(args.k)
+    run(args.k, args.resume)
 
 
 if __name__ == "__main__":

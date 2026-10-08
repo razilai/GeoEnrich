@@ -50,15 +50,33 @@ NYC_UTM = 32618  # EPSG code of a metric CRS for NYC
 # https://docs.overturemaps.org/release-calendar/
 OVERTURE_RELEASE = "2026-08-19.0"
 
-# Overture top-level taxonomy groups kept as POI categories; the rest add noise
-# without describing a neighbourhood. "lodging" includes competing short-term
-# rentals, a possible target leak kept intentionally.
-OVERTURE_GROUPS = (
-    "food_and_drink",
-    "shopping",
-    "arts_and_entertainment",
-    "cultural_and_historic",
-    "sports_and_recreation",
-    "lodging",
-    "travel_and_transportation",
-)
+# Overture level-2 taxonomy categories (taxonomy.hierarchy[2]) kept as POI
+# categories, keyed by their level-1 group; each category is counted separately
+# and every other place is discarded. The hand-picked list, with NYC counts, is
+# analysis/overture_taxonomy_l2.txt. air_transport_facility_or_service is left
+# out: in NYC it is mostly airline offices and mis-pinned "airport" records.
+OVERTURE_TAXONOMY = {
+    "arts_and_entertainment": ("museum", "nightlife_venue", "performing_arts_venue"),
+    "cultural_and_historic": ("historic_site",),
+    "food_and_drink": (
+        "alcoholic_beverage_venue",
+        "casual_eatery",
+        "non_alcoholic_beverage_venue",
+        "restaurant",
+    ),
+    "health_care": ("hospital",),
+    "lodging": ("hotel",),
+    "services_and_business": ("corporate_or_business_office",),
+    "shopping": (
+        "convenience_store",
+        "department_store",
+        "discount_store",
+        "fashion_and_apparel_store",
+        "food_and_beverage_store",
+    ),
+    "sports_and_recreation": ("park", "sport_or_fitness_facility"),
+    "travel_and_transportation": ("ground_transport_facility_or_service", "parking"),
+}
+OVERTURE_CATEGORIES = tuple(c for cats in OVERTURE_TAXONOMY.values() for c in cats)
+# Level-2 names are unique across level-1 groups, so each maps to one parent.
+CATEGORY_GROUP = {c: g for g, cats in OVERTURE_TAXONOMY.items() for c in cats}

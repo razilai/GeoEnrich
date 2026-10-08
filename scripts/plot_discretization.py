@@ -1,6 +1,6 @@
 """Per-category discretization histograms (density buckets).
 
-Two 13-panel figures over the enriched corpus:
+Two per-category panel grids over the enriched corpus:
   1. Deviation bands   — count percentile vs corpus (the density token in the prompt)
   2. Proximity bands   — nearest_m -> doorstep / steps / short walk
 
@@ -17,7 +17,7 @@ from src import config as C
 from src import describe as D
 
 # density buckets in display order
-BUCKETS = list(C.OVERTURE_GROUPS)
+BUCKETS = list(C.OVERTURE_CATEGORIES)
 
 # --- deviation bands: replicate describe._deviation_band but always return a bin so
 # every listing lands somewhere (the prompt omits the middle third as "typical";
@@ -32,7 +32,7 @@ def dev_band(bucket, v):
         return "typical"
     if v <= 0:
         return "none"
-    pct = np.searchsorted(arr, v, side="left") / len(arr)
+    pct = D._percentile(arr, v)
     if pct >= 0.95:
         return "far more"
     if pct >= 0.80:
@@ -57,8 +57,10 @@ def prox_band(m):
 
 
 def _grid(counts_by_bucket, order, title, colors, out):
-    """13-panel bar grid, one panel per bucket, shared band x-axis."""
-    fig, axes = plt.subplots(4, 4, figsize=(16, 12))
+    """Bar grid, one panel per bucket, shared band x-axis."""
+    ncols = 6
+    nrows = -(-len(BUCKETS) // ncols)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows))
     fig.suptitle(title, fontsize=15, y=0.995)
     axes = axes.ravel()
     for ax, b in zip(axes, BUCKETS):
@@ -72,7 +74,7 @@ def _grid(counts_by_bucket, order, title, colors, out):
         for i, v in enumerate(vals):  # pct labels
             if v:
                 ax.text(i, v, f"{100*v/tot:.0f}%", ha="center", va="bottom", fontsize=6)
-    for ax in axes[len(BUCKETS):]:  # hide the 3 spare panels (16-13)
+    for ax in axes[len(BUCKETS):]:  # hide the spare panels
         ax.axis("off")
     fig.tight_layout(rect=[0, 0, 1, 0.98])
     fig.savefig(out, dpi=120)

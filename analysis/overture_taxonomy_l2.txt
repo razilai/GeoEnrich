@@ -1,0 +1,46 @@
+== arts_and_entertainment [KEPT]  (global 0 | nyc 12,047 | nyc_conf 8,886)
+   level-2 category                               global       nyc  nyc_conf
+   museum                                              0       734       592
+   nightlife_venue                                     0       614       378
+   performing_arts_venue                               0     2,800     1,981
+
+== cultural_and_historic [KEPT]  (global 0 | nyc 18,518 | nyc_conf 15,927)
+   level-2 category                               global       nyc  nyc_conf
+   historic_site                                       0     4,909     4,125
+
+== food_and_drink [KEPT]  (global 0 | nyc 72,450 | nyc_conf 66,320)
+   level-2 category                               global       nyc  nyc_conf
+   alcoholic_beverage_venue                            0     6,514     5,792
+   casual_eatery                                       0    17,260    15,634
+   non_alcoholic_beverage_venue                        0     4,696     4,301
+   restaurant                                          0    43,819    40,510
+
+== health_care  (global 0 | nyc 65,589 | nyc_conf 58,476)
+   level-2 category                               global       nyc  nyc_conf
+   hospital                                            0     1,281       977
+
+== lodging [KEPT]  (global 0 | nyc 4,275 | nyc_conf 3,642)
+   level-2 category                               global       nyc  nyc_conf
+   hotel                                               0     1,857     1,551
+
+== services_and_business  (global 0 | nyc 112,268 | nyc_conf 88,320)
+   level-2 category                               global       nyc  nyc_conf
+   corporate_or_business_office                        0     4,674     3,959
+
+== shopping [KEPT]  (global 0 | nyc 81,040 | nyc_conf 66,311)
+   level-2 category                               global       nyc  nyc_conf
+   convenience_store                                   0     1,945     1,671
+   department_store                                    0       596       493
+   discount_store                                      0     1,178       978
+   fashion_and_apparel_store                           0    20,826    16,740
+   food_and_beverage_store                             0    14,490    12,299
+
+== sports_and_recreation [KEPT]  (global 0 | nyc 15,856 | nyc_conf 13,270)
+   level-2 category                               global       nyc  nyc_conf
+   park                                                0     4,275     3,746
+   sport_or_fitness_facility                           0     8,517     6,984
+
+== travel_and_transportation [KEPT]  (global 0 | nyc 22,379 | nyc_conf 17,859)
+   level-2 category                               global       nyc  nyc_conf
+   ground_transport_facility_or_service                0     2,863     2,083
+   parking                                             0     1,756     1,359

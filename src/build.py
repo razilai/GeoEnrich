@@ -1,11 +1,12 @@
 """Enrich NYC Airbnb listings with their surroundings from Overture Maps Places.
 
 Each listing gains a `surroundings` JSON column (input for describe.py):
-    cats       top-level taxonomy group -> [count <= RADIUS, nearest m]
+    cats       level-2 taxonomy category -> [count <= RADIUS, nearest m]
     landmarks  [[name, metres], ...] curated landmarks within LANDMARK_RADIUS, nearest first
 
-Places are categorised only by their Overture top-level taxonomy group; only the
-landmarks are curated by hand. Listings with no POI within RADIUS are dropped.
+Places are categorised by their Overture level-2 taxonomy category, and only the
+categories in config.OVERTURE_CATEGORIES are kept; only the landmarks are
+curated by hand. Listings with no POI within RADIUS are dropped.
 """
 
 import argparse
@@ -24,7 +25,7 @@ from src.config import (
     LANDMARK_RADIUS,
     MIN_CONF,
     NYC_UTM,
-    OVERTURE_GROUPS,
+    OVERTURE_CATEGORIES,
     RADIUS,
 )
 
@@ -37,13 +38,13 @@ LANDMARKS_JSON = os.path.join(os.path.dirname(__file__), "landmarks.json")
 
 # The bbox.* filters let DuckDB skip Parquet row groups, so only NYC is downloaded.
 PLACES_SQL = """
-    SELECT taxonomy.hierarchy[1] AS "group",
+    SELECT taxonomy.hierarchy[2] AS "group",
            ST_AsWKB(geometry)    AS geometry
     FROM read_parquet($path)
     WHERE bbox.xmin <= $maxx AND bbox.xmax >= $minx
       AND bbox.ymin <= $maxy AND bbox.ymax >= $miny
       AND confidence >= $min_conf
-      AND list_contains($groups, taxonomy.hierarchy[1])
+      AND list_contains($categories, taxonomy.hierarchy[2])
 """
 
 # Identifier and leaky columns; they would pollute the eval's tabular baseline.
@@ -55,10 +56,10 @@ log = functools.partial(print, flush=True)
 
 # --- Per-listing aggregation ---------------------------------------------------
 def aggregate_surroundings(nearby: pd.DataFrame) -> dict[str, list[int]]:
-    """Per-group [count <= RADIUS, nearest m] for one listing's nearby places.
+    """Per-category [count <= RADIUS, nearest m] for one listing's nearby places.
 
-    `nearby` has one row per place with `group` and `dist` (metres). Groups are
-    ordered nearest first.
+    `nearby` has one row per place with `group` (its category) and `dist`
+    (metres). Categories are ordered nearest first.
     """
     stats = (
         nearby.groupby("group", sort=False)["dist"]
@@ -105,7 +106,7 @@ def load_pois(
             "maxx": listings.longitude.max() + BBOX_PAD_DEG,
             "maxy": listings.latitude.max() + BBOX_PAD_DEG,
             "min_conf": MIN_CONF,
-            "groups": list(OVERTURE_GROUPS),
+            "categories": list(OVERTURE_CATEGORIES),
         },
     ).df()
     pois = gpd.GeoDataFrame(
@@ -184,7 +185,7 @@ def main() -> None:
     listings = load_listings()
     log(
         f"{len(listings)} NYC listings — querying Overture {config.OVERTURE_RELEASE} "
-        f"({len(OVERTURE_GROUPS)} top-level groups)"
+        f"({len(OVERTURE_CATEGORIES)} level-2 categories)"
     )
     pois = load_pois(connect(), listings)
     if pois.empty:
