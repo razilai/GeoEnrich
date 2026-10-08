@@ -23,6 +23,7 @@ from src import config
 SUMMARY = "surroundings_summary"
 LANDMARK_ONLY = "landmark_only"
 LANDMARK_REDACTED = "landmark_redacted"
+CENSORED_ARMS = (LANDMARK_ONLY, LANDMARK_REDACTED)
 REDACTION = "a well-known landmark"
 LANDMARKS_JSON = os.path.join(config.ROOT, "src", "landmarks.json")
 
@@ -67,6 +68,17 @@ def arm_csv(arm: str, prompt: str) -> str:
     return os.path.join(config.PROCESSED_DIR, f"airbnb_arm_{arm}_{prompt}.csv")
 
 
+def read_arm(path: str, source: pd.DataFrame) -> pd.DataFrame:
+    """Read an arm CSV, restoring the empty strings the CSV round trip turns into NaN.
+
+    A summary is genuinely missing only where the source corpus lacks one.
+    """
+    frame = pd.read_csv(path, low_memory=False)
+    has_source = frame["index"].map(source.drop_duplicates("index").set_index("index")[SUMMARY].notna())
+    frame[SUMMARY] = frame[SUMMARY].where(~has_source.astype(bool), frame[SUMMARY].fillna(""))
+    return frame
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prompt", action="append", required=True, help="prompt id(s) to censor")
@@ -74,11 +86,17 @@ def main() -> None:
 
     names = load_landmarks()
     for prompt in args.prompt:
-        pending = [a for a in (LANDMARK_ONLY, LANDMARK_REDACTED) if not os.path.exists(arm_csv(a, prompt))]
+        corpus = pd.read_csv(config.described_csv(prompt), low_memory=False)
+        # Existing arms are kept only while they cover the corpus's current rows.
+        pending = [
+            a
+            for a in CENSORED_ARMS
+            if not os.path.exists(arm_csv(a, prompt))
+            or pd.read_csv(arm_csv(a, prompt), usecols=["index"])["index"].tolist() != corpus["index"].tolist()
+        ]
         if not pending:
             print(f"{prompt}: arms exist, skipping")
             continue
-        corpus = pd.read_csv(config.described_csv(prompt), low_memory=False)
         for arm, frame in build_arms(corpus, names).items():
             if arm in pending:
                 frame.to_csv(arm_csv(arm, prompt), index=False)

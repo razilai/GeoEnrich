@@ -96,3 +96,11 @@ def test_staged_censored_feature_types(corpus, tmp_path) -> None:
         types = detect(pd.read_parquet(path).drop(columns="price"), image_column=None)
         assert types.text_features == {"surroundings_summary"}
         assert types.categorical_features == {"room_type"}
+
+
+def test_csv_round_trip_keeps_empty_strings_and_missing_summaries(corpus, tmp_path) -> None:
+    path = str(tmp_path / "arm.csv")
+    arms.build_arms(corpus, NAMES)["landmark_only"].to_csv(path, index=False)
+    summary = arms.read_arm(path, corpus)["surroundings_summary"]
+    assert summary[2] == "" and summary[5] == ""
+    assert pd.isna(summary[3])

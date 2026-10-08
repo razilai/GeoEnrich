@@ -193,14 +193,16 @@ def main() -> None:
     described = {}
     for prompt in prompts:
         corpora = {ARM: config.described_csv(prompt)}
-        for arm in (arms.LANDMARK_ONLY, arms.LANDMARK_REDACTED):
+        for arm in arms.CENSORED_ARMS:
             corpora[arm] = arms.arm_csv(arm, prompt)
         for arm, path in corpora.items():
             if not os.path.exists(path):
                 raise SystemExit(f"{path} missing; run {'describe' if arm == ARM else 'arms'} first")
             corpus = pd.read_csv(path, low_memory=False)
             if INDEX not in corpus:
-                raise SystemExit(f"{path} has no `{INDEX}` column; re-run describe")
+                raise SystemExit(f"{path} has no `{INDEX}` column; re-run {'describe' if arm == ARM else 'arms'}")
+            if arm != ARM:
+                corpus = arms.read_arm(path, described[(ARM, prompt)])
             described[(arm, prompt)] = corpus
     datasets = build_datasets(pd.read_csv(config.CLEANED_CSV), described)
 
