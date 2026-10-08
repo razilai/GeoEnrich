@@ -73,6 +73,13 @@ One of the benchmark's six outer train/test partitions — TabArena's 3-fold
 67/33 scheme, repeated twice.
 _Avoid_: fold
 
+**Screen**:
+The prompt-selection grid: every **condition** for each **prompt**, the full
+committee, on split 0 only. Its verdict applies the eligibility rule but only
+ranks prompts for the author to choose between; it does not establish that
+anything is **eligible**.
+_Avoid_: pilot, sweep, prompt eval
+
 **Score**:
 A run's `test_score`: negated RMSE for this regression target, so higher is
 better. RMSE itself is `test_error`. R² is not reported.
