@@ -20,6 +20,10 @@ Per-stage (each forwards its args; run any in isolation):
                                      --confirm is mandatory); --grid probe times one TAR and
                                      one frozen run first
 
+    uv run report --grid screen|final
+                                  5. collect run JSONs -> results/metrics_<grid>.csv and judge the
+                                     curation criterion -> results/verdict_<grid>.csv
+
 Whole chain:
     uv run main --confirm    runs build -> describe, skipping any stage whose
                              output already exists (safe to re-run). clean is
@@ -131,6 +135,11 @@ def stage() -> None:
 def bench() -> None:
     """`uv run bench --grid G --confirm [--device D]` — run the benchmark grid offline."""
     _stage("bench", sys.argv[1:])
+
+
+def report() -> None:
+    """`uv run report --grid G` — collect results into a metrics CSV and judge eligibility."""
+    _stage("report", sys.argv[1:])
 
 
 def main() -> None:
