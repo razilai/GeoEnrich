@@ -74,7 +74,11 @@ if [ ! -d MulTaBench/.git ]; then
 else
     echo "✅ MulTaBench already present — skipping clone"
 fi
-git -C MulTaBench checkout --quiet "$MULTABENCH_COMMIT"
+# An older checkout may point at the retired fork and carry its local patch:
+# re-point origin, fetch the pinned commit, and discard the stale edit.
+git -C MulTaBench remote set-url origin "$MULTABENCH_REPO"
+git -C MulTaBench fetch --quiet origin
+git -C MulTaBench checkout --quiet --force "$MULTABENCH_COMMIT"
 echo "📌 MulTaBench pinned at $(git -C MulTaBench rev-parse --short HEAD)"
 
 # 3. Build MulTaBench's uv venv + install its deps (its init.sh is uv-based).

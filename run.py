@@ -118,6 +118,8 @@ def describe() -> None:
 def main() -> None:
     prompt, rest = pop_prompt(sys.argv[1:])
     described_csv = described(prompt)
+    if "--confirm" not in rest:
+        sys.exit("main may call describe, which spends LLM credits; re-run with --confirm")
     ensure_env()
 
     # 1. build: Overture Places POI enrichment. Skipped once ENRICHED exists.
