@@ -27,22 +27,26 @@ here: register the dataset in the official repository's supported flow and run
 
 ## 3. Extract paper assets
 
-`make_paper_assets.py` is rewritten in a later step to read the new results CSV.
+After `uv run report --grid final`, render the paper assets from its two CSVs
+(`results/metrics_final.csv`, `results/verdict_final.csv`) and nothing else:
 
-The outputs are deterministic, reviewable files:
+```bash
+MulTaBench/.venv/bin/python analysis/make_paper_assets.py --grid final [--config analysis/config.json]
+```
 
-- `tables/table_1_dataset_card.{csv,tex}` — compact data/curation card.
-- `tables/appendix_a1_field_inventory.csv` — field inventory and missingness.
-- `tables/table_2_multabench_results.{csv,tex}` — the main five-learner table.
-- `tables/appendix_a4_per_fold.{csv,tex}` — every official fold score.
-- `tables/curation_verdict.json` — C1/C2 pass flags and the 3/5 verdict.
-- `figures/figure_1_curation_pipeline.pdf` — the required curation diagram.
-- `figures/figure_2_multabench_scores.pdf` — fold-mean scores with error bars.
+Outputs go to `results/paper/` (`--out` to change):
 
-`table_2` uses fold-mean R², with
-`Δjoint = joint_frozen − max(structured, text)` and
-`ΔTAR = joint_tar − joint_frozen`.  A positive value is required; the overall
-verdict is pass only when at least three learners pass both conditions.
+- `tables/table_2_results.{csv,tex}` — per arm and committee learner: the four
+  condition scores, the `latlon` reference, joint signal and TAR gain deltas, and
+  whether the arm is eligible.
+- `tables/appendix_a4_per_split.{csv,tex}` — every run's score and error.
+- `methods.md` — the evaluation-protocol paragraph (six splits, score and error,
+  leaderboard non-comparability, the deliberate `landmark_redacted` token).
+- `figures/figure_2_scores.pdf` — split-mean score per condition, ±1 SEM.
+- `figures/figure_1_curation_pipeline.pdf` — only with `--config`.
+
+The logic lives in `src/paper.py`; a score is the benchmark's negated RMSE
+(higher is better), so it is not comparable to the published leaderboard.
 
 ## Design boundary
 
