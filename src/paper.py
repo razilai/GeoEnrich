@@ -9,6 +9,7 @@ copied by hand; every figure in the paper is a reshaping of those two tables.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import textwrap
 from pathlib import Path
@@ -101,6 +102,7 @@ def methods_text(metrics: pd.DataFrame, verdict: pd.DataFrame) -> str:
     text_arms = sorted(verdict["arm"].unique())
     arm_names = ", ".join(f"`{a}`" for a in [*text_arms, *([LATLON] if (metrics["arm"] == LATLON).any() else [])])
     committee = ", ".join(report.COMMITTEE)
+    margin = report.MARGIN_THOUSANDTHS / 1000
     eligible = sorted(verdict.loc[verdict["eligible"], "arm"].unique())
     verdict_line = (
         "Eligible arms: " + ", ".join(f"`{a}`" for a in eligible) + "."
@@ -119,10 +121,11 @@ def methods_text(metrics: pd.DataFrame, verdict: pd.DataFrame) -> str:
         "not directly comparable to the published MulTaBench leaderboard, whose "
         "regression metric differs.",
         "A learner shows joint signal when its mean `joint_frozen` score exceeds both its "
-        "mean `structured` and its mean `text_only` score by more than 0.001, and shows "
-        "TAR gain when its mean `joint_tar` score exceeds its mean `joint_frozen` score by "
-        "more than 0.001; means are rounded to three decimals before differencing. An arm "
-        "is eligible when at least 3 of the 5 committee learners show both. This is this "
+        f"mean `structured` and its mean `text_only` score by more than {margin}, and shows "
+        f"TAR gain when its mean `joint_tar` score exceeds its mean `joint_frozen` score by "
+        f"more than {margin}; means are rounded to three decimals before differencing. An arm "
+        f"is eligible when at least {report.QUORUM} of the {len(report.COMMITTEE)} committee "
+        "learners show both. This is this "
         f"project's computation of the published criterion. {verdict_line}",
         "The `landmark_only` arm keeps only the landmark names found in each summary; "
         "the `landmark_redacted` arm replaces each matched landmark name with the generic "
@@ -171,7 +174,7 @@ def render_scores_figure(path: Path, metrics: pd.DataFrame, verdict: pd.DataFram
                 if condition == LATLON:
                     scores = ok[(ok["arm"] == LATLON) & (ok["learner"] == learner)][TEST_SCORE]
                 else:
-                    shared = "shared" if condition == "structured" else arm
+                    shared = report.SHARED if condition == "structured" else arm
                     scores = ok[(ok["arm"] == shared) & (ok["condition"] == condition) & (ok["learner"] == learner)][TEST_SCORE]
                 sem = scores.sem() if len(scores) > 1 else 0.0
                 ax.errorbar(
@@ -224,7 +227,6 @@ def main(argv: list[str] | None = None) -> None:
     (out / "figures").mkdir(parents=True, exist_ok=True)
     render_scores_figure(out / "figures" / "figure_2_scores.pdf", metrics, verdict)
     if args.config:
-        import json
 
         cfg = json.loads(args.config.read_text(encoding="utf-8"))
         render_pipeline_figure(out / "figures" / "figure_1_curation_pipeline.pdf", cfg["metadata"], cfg["text_column"])
