@@ -12,16 +12,19 @@ Per-stage (each forwards its args; run any in isolation):
     uv run describe --confirm [N] 2. -> data/processed/airbnb_described_<prompt>.csv
                                      (spends LLM credits, so --confirm is mandatory)
 
-    uv run stage [--prompt ID]    3. described corpora -> registered datasets in the local HF cache
+    uv run arms --prompt ID       3. described corpus -> airbnb_arm_<arm>_<ID>.csv (landmark_only,
+                                     landmark_redacted; pure pandas, skips existing)
+
+    uv run stage [--prompt ID]    4. described corpora + censored arms -> registered datasets in the local HF cache
                                      (offline; nothing uploaded)
 
     uv run bench --grid screen|final|probe --confirm [--device cuda:1]
-                                  4. run the benchmark grid offline (occupies the GPU, so
+                                  5. run the benchmark grid offline (occupies the GPU, so
                                      --confirm is mandatory); --grid probe times one TAR and
                                      one frozen run first
 
     uv run report --grid screen|final
-                                  5. collect run JSONs -> results/metrics_<grid>.csv and judge the
+                                  6. collect run JSONs -> results/metrics_<grid>.csv and judge the
                                      curation criterion -> results/verdict_<grid>.csv
 
 Whole chain:
@@ -125,6 +128,11 @@ def build() -> None:
 def describe() -> None:
     """`uv run describe --confirm [N] [--prompt ID]` — stage 2: -> airbnb_described_<ID>.csv."""
     _stage("describe", sys.argv[1:])
+
+
+def arms() -> None:
+    """`uv run arms --prompt ID` — derive the landmark-censored arms from a described corpus."""
+    _stage("arms", sys.argv[1:])
 
 
 def stage() -> None:

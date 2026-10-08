@@ -45,7 +45,7 @@ def datasets() -> dict[str, pd.DataFrame]:
     # Described in density order, not listing order; listing 4 has no summary in "08".
     return stage.build_datasets(
         listings(),
-        {"05": corpus([5, 1, 3, 4, 0]), "08": corpus([3, 1, 5, 4, 0], "b", missing=(4,))},
+        {("enriched", "05"): corpus([5, 1, 3, 4, 0]), ("enriched", "08"): corpus([3, 1, 5, 4, 0], "b", missing=(4,))},
     )
 
 
@@ -122,7 +122,7 @@ def test_benchmark_feature_types_per_dataset(datasets, tmp_path) -> None:
 def test_missing_superhost_stays_boolean_like() -> None:
     frame = listings()
     frame["is_superhost"] = [True, None, False, True, False, True]
-    out = stage.build_datasets(frame, {"05": corpus(list(range(6)))})["structured"]
+    out = stage.build_datasets(frame, {("enriched", "05"): corpus(list(range(6)))})["structured"]
     assert out["is_superhost"].isna().sum() == 1
     assert pd.api.types.is_bool_dtype(out["is_superhost"])
 
@@ -187,8 +187,8 @@ def test_patch_registry_fails_loudly_without_anchor(registry_source) -> None:
 
 
 def test_restaging_after_row_set_change_rewrites(tmp_path) -> None:
-    full = stage.build_datasets(listings(), {"05": corpus([0, 1, 2, 3, 4, 5])})
-    fewer = stage.build_datasets(listings(), {"05": corpus([0, 1, 2, 3, 4, 5], missing=(5,))})
+    full = stage.build_datasets(listings(), {("enriched", "05"): corpus([0, 1, 2, 3, 4, 5])})
+    fewer = stage.build_datasets(listings(), {("enriched", "05"): corpus([0, 1, 2, 3, 4, 5], missing=(5,))})
     stage.write_snapshots(full, str(tmp_path))
     assert sorted(stage.write_snapshots(fewer, str(tmp_path))) == sorted(fewer)
     staged = pd.read_parquet(os.path.join(stage.snapshot_dir(str(tmp_path), "latlon"), "data.parquet"))

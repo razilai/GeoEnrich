@@ -19,7 +19,7 @@ import re
 
 import pandas as pd
 
-from src import config
+from src import arms, config
 
 TARGET = "price"
 CATEGORICAL = ("room_type",)
@@ -31,7 +31,7 @@ INDEX = "index"
 # `lat`/`long` as written by clean.py; build.py renames them the same way.
 _COORDINATE_RENAMES = {"lat": "latitude", "long": "longitude"}
 
-ARM = "enriched"  # the only arm staged by this verb until the censored arms land
+ARM = "enriched"  # the uncensored text arm; `arms` derives the censored ones from it
 HF_ORG = "multabench"  # namespace the benchmark's hub module resolves ids under
 REVISION = "0" * 40  # fixed snapshot name; stale content is detected by row set
 DATA_PARQUET = "data.parquet"
@@ -64,9 +64,9 @@ def dataset_key(arm: str, prompt: str, condition: str) -> str:
 
 
 def build_datasets(
-    listings: pd.DataFrame, described: dict[str, pd.DataFrame]
+    listings: pd.DataFrame, described: dict[tuple[str, str], pd.DataFrame]
 ) -> dict[str, pd.DataFrame]:
-    """Cleaned listings + one described corpus per prompt -> dataset key -> typed frame.
+    """Cleaned listings + one described corpus per (arm, prompt) -> dataset key -> typed frame.
 
     `listings` is the cleaned frame (coordinates kept, positional index). Each
     described corpus carries the listing `index` and its summary. All datasets share
@@ -86,13 +86,13 @@ def build_datasets(
         "latlon": _typed(base),
         "structured": _typed(base[tabular]),
     }
-    for prompt, corpus in described.items():
+    for (arm, prompt), corpus in described.items():
         summary = (
             corpus.drop_duplicates(INDEX).set_index(INDEX).loc[rows, SUMMARY].reset_index(drop=True)
         )
         joint = base[tabular].assign(**{SUMMARY: summary})
-        datasets[dataset_key(ARM, prompt, "text_only")] = _typed(joint[[SUMMARY, TARGET]])
-        datasets[dataset_key(ARM, prompt, "joint")] = _typed(joint)
+        datasets[dataset_key(arm, prompt, "text_only")] = _typed(joint[[SUMMARY, TARGET]])
+        datasets[dataset_key(arm, prompt, "joint")] = _typed(joint)
     return datasets
 
 
@@ -192,10 +192,18 @@ def main() -> None:
         raise SystemExit("no described corpus found; run describe first")
     described = {}
     for prompt in prompts:
-        corpus = pd.read_csv(config.described_csv(prompt), low_memory=False)
-        if INDEX not in corpus:
-            raise SystemExit(f"{config.described_csv(prompt)} has no `{INDEX}` column; re-run describe")
-        described[prompt] = corpus
+        corpora = {ARM: config.described_csv(prompt)}
+        for arm in arms.CENSORED_ARMS:
+            corpora[arm] = arms.arm_csv(arm, prompt)
+        for arm, path in corpora.items():
+            if not os.path.exists(path):
+                raise SystemExit(f"{path} missing; run {'describe' if arm == ARM else 'arms'} first")
+            corpus = pd.read_csv(path, low_memory=False)
+            if INDEX not in corpus:
+                raise SystemExit(f"{path} has no `{INDEX}` column; re-run {'describe' if arm == ARM else 'arms'}")
+            if arm != ARM:
+                corpus = arms.read_arm(path, described[(ARM, prompt)])
+            described[(arm, prompt)] = corpus
     datasets = build_datasets(pd.read_csv(config.CLEANED_CSV), described)
 
     path = registry_path()
