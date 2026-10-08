@@ -15,6 +15,11 @@ Per-stage (each forwards its args; run any in isolation):
     uv run stage [--prompt ID]    3. described corpora -> registered datasets in the local HF cache
                                      (offline; nothing uploaded)
 
+    uv run bench --grid screen|final|probe --confirm [--device cuda:1]
+                                  4. run the benchmark grid offline (occupies the GPU, so
+                                     --confirm is mandatory); --grid probe times one TAR and
+                                     one frozen run first
+
 Whole chain:
     uv run main --confirm    runs build -> describe, skipping any stage whose
                              output already exists (safe to re-run). clean is
@@ -121,6 +126,11 @@ def describe() -> None:
 def stage() -> None:
     """`uv run stage [--prompt ID]` — register and stage the benchmark datasets offline."""
     _stage("stage", sys.argv[1:])
+
+
+def bench() -> None:
+    """`uv run bench --grid G --confirm [--device D]` — run the benchmark grid offline."""
+    _stage("bench", sys.argv[1:])
 
 
 def main() -> None:

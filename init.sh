@@ -143,9 +143,11 @@ Drive one stage at a time — each runs in MulTaBench/.venv automatically:
                                   #  --prompt 05|08|16)
 
   uv run stage          # described corpora -> registered datasets in the local HF cache (offline)
+  uv run bench --grid probe --confirm   # time one TAR + one frozen run before committing to a grid
+  uv run bench --grid screen --confirm  # run the grid (GPU; --grid final for the final one)
 
-Benchmark stages (stage/bench/report) run with HF_HUB_OFFLINE=1; bench/report arrive
-in later tickets and take the benchmark's --device flag.
+Benchmark stages (stage/bench/report) run with HF_HUB_OFFLINE=1; report arrives
+in a later ticket; bench takes the benchmark's --device flag.
 
 To copy credentials to this checkout on the vast host, run scripts/sync.sh from the
 source checkout that contains MulTaBench/.env.
