@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Bootstrap a GPU VM from this checkout, then transfer MulTaBench credentials
-# and the described dataset CSVs to it. The only sync script in the repo:
-# credentials travel one way (here -> VM), code travels via Git, data via rsync.
+# Run on YOUR machine. Bootstraps a GPU VM (clone/fast-forward the repo, run
+# init.sh there), then sends everything Git does not carry: MulTaBench
+# credentials, the cleaned listings and the described dataset CSVs.
+# Code travels via Git (push first), credentials and data via rsync.
+# Afterwards, on the VM:  scripts/screen.sh     (and locally: scripts/pull.sh)
 #
 # Build the dataset locally first (src.build + .describe), then:
 #   scripts/sync.sh
@@ -36,9 +38,8 @@ if [[ -z "$REPO_URL" ]]; then
     exit 1
 fi
 
-# Do not overwrite a checkout that belongs to a different repository. An
-# existing matching checkout is reused as-is; this script never pulls, resets,
-# or otherwise changes its Git history.
+# Do not overwrite a checkout that belongs to a different repository. A matching
+# checkout is fast-forwarded (never reset or merged), so pushed code reaches the VM.
 echo "🔌 connecting to $SSH_HOST and preparing $REMOTE_DIR"
 ssh "$SSH_HOST" bash -s -- "$REMOTE_DIR" "$REPO_URL" <<'REMOTE_SETUP'
 set -euo pipefail
@@ -63,7 +64,8 @@ else
         echo "❌ $remote_dir is a checkout of $current_url, not $repo_url; refusing to modify it." >&2
         exit 1
     fi
-    echo "✅ existing matching checkout found — reusing it"
+    echo "✅ existing matching checkout found — fast-forwarding"
+    git -C "$remote_dir" pull --ff-only
 fi
 
 cd -- "$remote_dir"
@@ -78,8 +80,9 @@ rsync --archive --checksum --protect-args --chmod=go-rwx "$SOURCE_ENV" "$REMOTE_
 
 cd "$ROOT"
 shopt -s nullglob
-CSVS=(data/processed/airbnb_described_*.csv)
-if [ ${#CSVS[@]} -eq 0 ]; then
+[[ -f data/processed/airbnb.csv ]] || { echo "❌ data/processed/airbnb.csv missing (run clean)" >&2; exit 1; }
+CSVS=(data/processed/airbnb.csv data/processed/airbnb_described_*.csv)
+if [ ${#CSVS[@]} -eq 1 ]; then
     echo "⚠️  no data/processed/airbnb_described_*.csv — run the describe stage, then re-run to ship data"
 else
     echo "📤 syncing ${#CSVS[@]} dataset CSV(s) -> $SSH_HOST:$REMOTE_DIR/"
@@ -88,3 +91,4 @@ else
     rsync --archive --relative --checksum --progress "${CSVS[@]}" "$SSH_HOST:$REMOTE_DIR/"
 fi
 echo "✅ VM initialized, credentials and data synced"
+echo "Next: ssh $SSH_HOST \"cd $REMOTE_DIR && scripts/screen.sh\""
