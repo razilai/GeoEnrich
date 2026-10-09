@@ -4,7 +4,7 @@
 # Either way it then sends everything Git does not carry: MulTaBench
 # credentials, the cleaned listings and the described dataset CSVs.
 # Code travels via Git (push, then git pull on the VM), credentials and data via rsync.
-# Afterwards, on the VM:  scripts/screen.sh     (and locally: scripts/pull.sh)
+# Afterwards, on the VM:  scripts/evaluate.sh --prompt 16   (and locally: scripts/pull.sh)
 #
 # Build the dataset locally first (src.build + .describe), then:
 #   scripts/sync.sh
@@ -107,4 +107,4 @@ else
     rsync --archive --relative --checksum --progress "${CSVS[@]}" "$SSH_HOST:$REMOTE_DIR/"
 fi
 echo "✅ credentials and data synced"
-echo "Next: ssh $SSH_HOST \"cd $REMOTE_DIR && scripts/screen.sh\""
+echo "Next: ssh $SSH_HOST \"cd $REMOTE_DIR && scripts/evaluate.sh --prompt 16\""

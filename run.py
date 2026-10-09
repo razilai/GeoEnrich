@@ -15,13 +15,13 @@ Per-stage (each forwards its args; run any in isolation):
     uv run arms --prompt ID       3. described corpus -> airbnb_arm_<arm>_<ID>.csv (landmark_only,
                                      landmark_redacted; pure pandas, skips existing)
 
-    uv run stage [--prompt ID]    4. described corpora + censored arms -> registered datasets in the local HF cache
-                                     (offline; nothing uploaded)
+    uv run stage --prompt ID      4. airbnb_described_<ID>.csv alone -> its structured, text_only and
+                                     joint datasets in the local HF cache (offline; nothing uploaded)
 
-    uv run bench --grid screen|final|probe --confirm [--device cuda:1]
-                                  5. run the benchmark grid offline (occupies the GPU, so
-                                     --confirm is mandatory); --grid probe times one TAR and
-                                     one frozen run first
+    uv run bench --grid screen|final|probe --prompt ID --confirm [--device cuda:1]
+                                  5. run the benchmark grid on that dataset offline (occupies the
+                                     GPU, so --confirm is mandatory); --grid probe times one TAR and
+                                     one frozen run first. scripts/evaluate.sh runs stage -> bench -> report
 
     uv run report --grid screen|final
                                   6. collect run JSONs -> results/metrics_<grid>.csv and judge the

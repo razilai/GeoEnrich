@@ -12,43 +12,35 @@ from src import stage
 REGISTRY = os.path.join(
     os.path.dirname(__file__), "..", "MulTaBench", "multabench", "datasets", "all_datasets.py"
 )
+TABULAR = [
+    "price", "ratings", "guests", "bathrooms", "room_type", "property_number_of_reviews",
+    "is_superhost", "num_bedrooms", "num_baths",
+]  # fmt: skip
 
 
-def listings(n: int = 6) -> pd.DataFrame:
+def described(order=(5, 1, 3, 4, 0, 2), missing: tuple[int, ...] = ()) -> pd.DataFrame:
+    """A described CSV as read back: described in density order, not listing order."""
+    n = len(order)
     return pd.DataFrame(
         {
-            "price": [100.0 + i for i in range(n)],
+            "index": list(order),
+            "price": [100.0 + i for i in order],
             "ratings": [4.5] * n,
-            "lat": [40.7 + i / 100 for i in range(n)],
-            "long": [-73.9] * n,
-            "guests": [2] * n,
+            "guests": [2.0] * n,
             "bathrooms": [1.0] * n,
             "room_type": ["Private room", "Entire home/apt"] * (n // 2),
-            "property_number_of_reviews": [10] * n,
+            "property_number_of_reviews": [10.0] * n,
             "is_superhost": [True, False] * (n // 2),
             "num_bedrooms": [1.0] * n,
             "num_baths": [1.0] * n,
-        }
-    )
-
-
-def corpus(indices: list[int], tag: str = "a", missing: tuple[int, ...] = ()) -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "index": indices,
-            "price": [100.0 + i for i in indices],  # as described.py copies it from the listings
-            "surroundings_summary": [None if i in missing else f"{tag} summary {i}" for i in indices],
+            "surroundings_summary": [None if i in missing else f"summary {i}" for i in order],
         }
     )
 
 
 @pytest.fixture
 def datasets() -> dict[str, pd.DataFrame]:
-    # Described in density order, not listing order; listing 4 has no summary in "08".
-    return stage.build_datasets(
-        listings(),
-        {("enriched", "05"): corpus([5, 1, 3, 4, 0]), ("enriched", "08"): corpus([3, 1, 5, 4, 0], "b", missing=(4,))},
-    )
+    return stage.build_datasets(described(missing=(4,)), "16")
 
 
 def roundtrip(key: str, frame: pd.DataFrame, tmp_path) -> pd.DataFrame:
@@ -57,70 +49,34 @@ def roundtrip(key: str, frame: pd.DataFrame, tmp_path) -> pd.DataFrame:
 
 
 def test_dataset_keys(datasets) -> None:
-    assert set(datasets) == {
-        "latlon",
-        "structured",
-        "enriched_05_text_only",
-        "enriched_05_joint",
-        "enriched_08_text_only",
-        "enriched_08_joint",
-        "latlon_enriched_05_joint",
-        "latlon_enriched_08_joint",
-    }
+    assert set(datasets) == {"structured", "enriched_16_text_only", "enriched_16_joint"}
 
 
-def test_target_comes_from_the_described_corpus() -> None:
-    logged = corpus([0, 1, 2, 3])
-    logged["price"] = np.log1p(logged["price"])
-    out = stage.build_datasets(listings(4), {("enriched", "16"): logged})
-    for key, frame in out.items():
-        assert frame["price"].tolist() == pytest.approx(np.log1p([100.0, 101.0, 102.0, 103.0]).tolist()), key
-
-
-def test_uncensored_corpora_disagreeing_on_target_are_refused() -> None:
-    logged = corpus([0, 1, 2, 3])
-    logged["price"] = np.log1p(logged["price"])
-    with pytest.raises(ValueError, match="price"):
-        stage.build_datasets(listings(4), {("enriched", "05"): corpus([0, 1, 2, 3]), ("enriched", "16"): logged})
-
-
-def test_censored_corpus_target_is_ignored() -> None:
-    stale = corpus([0, 1, 2, 3], "c")
-    stale["price"] = -1.0
-    out = stage.build_datasets(listings(4), {("enriched", "16"): corpus([0, 1, 2, 3]), ("landmark_only", "16"): stale})
-    assert all((frame["price"] > 0).all() for frame in out.values())
-
-
-def test_latlon_enriched_is_latlon_plus_summary(datasets) -> None:
-    joint = datasets["latlon_enriched_05_joint"]
-    pd.testing.assert_frame_equal(joint.drop(columns="surroundings_summary"), datasets["latlon"])
-    assert joint["surroundings_summary"].tolist() == datasets["enriched_05_joint"]["surroundings_summary"].tolist()
-
-
-def test_all_datasets_share_one_row_set_in_listing_order(datasets) -> None:
-    assert {len(frame) for frame in datasets.values()} == {4}
-    targets = {key: frame["price"].tolist() for key, frame in datasets.items()}
-    assert all(t == [100.0, 101.0, 103.0, 105.0] for t in targets.values())
-    assert datasets["enriched_05_joint"]["surroundings_summary"].tolist() == [
-        f"a summary {i}" for i in (0, 1, 3, 5)
+def test_rows_with_a_summary_in_listing_order(datasets) -> None:
+    for frame in datasets.values():
+        assert frame["price"].tolist() == [100.0, 101.0, 102.0, 103.0, 105.0]
+    assert datasets["enriched_16_joint"]["surroundings_summary"].tolist() == [
+        f"summary {i}" for i in (0, 1, 2, 3, 5)
     ]
 
 
-def test_only_latlon_arms_carry_coordinates(datasets) -> None:
-    for key, frame in datasets.items():
-        has = {"latitude", "longitude"} <= set(frame.columns)
-        assert has == key.startswith("latlon"), key
-        assert "lat" not in frame and "long" not in frame
+def test_target_is_the_described_csv_price_unchanged() -> None:
+    corpus = described()
+    corpus["price"] = np.log1p(corpus["price"])
+    for frame in stage.build_datasets(corpus, "16").values():
+        assert frame["price"].tolist() == np.log1p([100.0, 101.0, 102.0, 103.0, 104.0, 105.0]).tolist()
 
 
-def test_summary_only_in_text_conditions(datasets) -> None:
-    for key, frame in datasets.items():
-        assert ("surroundings_summary" in frame) == ("enriched" in key), key
-    assert list(datasets["enriched_05_text_only"].columns) == ["surroundings_summary", "price"]
+def test_columns_per_condition(datasets) -> None:
+    assert list(datasets["structured"].columns) == TABULAR
+    assert list(datasets["enriched_16_text_only"].columns) == ["surroundings_summary", "price"]
+    assert list(datasets["enriched_16_joint"].columns) == [*TABULAR, "surroundings_summary"]
+    for frame in datasets.values():
+        assert "index" not in frame
 
 
 def test_declared_dtypes(datasets) -> None:
-    joint = datasets["enriched_05_joint"]
+    joint = datasets["enriched_16_joint"]
     assert isinstance(joint["room_type"].dtype, pd.CategoricalDtype)
     assert joint["is_superhost"].dtype == bool
     assert joint["surroundings_summary"].dtype == "string"
@@ -137,13 +93,9 @@ def test_benchmark_feature_types_per_dataset(datasets, tmp_path) -> None:
         "is_superhost", "num_bedrooms", "num_baths",
     }  # fmt: skip
     expect = {
-        "latlon": (tabular_numeric | {"latitude", "longitude"}, {"room_type"}, set()),
         "structured": (tabular_numeric, {"room_type"}, set()),
-        "enriched_05_text_only": (set(), set(), {"surroundings_summary"}),
-        "enriched_05_joint": (tabular_numeric, {"room_type"}, {"surroundings_summary"}),
-        "latlon_enriched_05_joint": (
-            tabular_numeric | {"latitude", "longitude"}, {"room_type"}, {"surroundings_summary"},
-        ),
+        "enriched_16_text_only": (set(), set(), {"surroundings_summary"}),
+        "enriched_16_joint": (tabular_numeric, {"room_type"}, {"surroundings_summary"}),
     }
     for key, (numerical, categorical, text) in expect.items():
         x = roundtrip(key, datasets[key], tmp_path).drop(columns="price")
@@ -155,9 +107,9 @@ def test_benchmark_feature_types_per_dataset(datasets, tmp_path) -> None:
 
 
 def test_missing_superhost_stays_boolean_like() -> None:
-    frame = listings()
-    frame["is_superhost"] = [True, None, False, True, False, True]
-    out = stage.build_datasets(frame, {("enriched", "05"): corpus(list(range(6)))})["structured"]
+    corpus = described()
+    corpus["is_superhost"] = [True, None, False, True, False, True]
+    out = stage.build_datasets(corpus, "16")["structured"]
     assert out["is_superhost"].isna().sum() == 1
     assert pd.api.types.is_bool_dtype(out["is_superhost"])
 
@@ -182,7 +134,7 @@ def test_metadata(datasets, tmp_path) -> None:
     import json
 
     stage.write_snapshots(datasets, str(tmp_path))
-    with open(os.path.join(stage.snapshot_dir(str(tmp_path), "latlon"), "metadata.json")) as f:
+    with open(os.path.join(stage.snapshot_dir(str(tmp_path), "structured"), "metadata.json")) as f:
         assert json.load(f) == {"target": "price", "image_col": None, "task_type": "reg"}
 
 
@@ -222,12 +174,19 @@ def test_patch_registry_fails_loudly_without_anchor(registry_source) -> None:
 
 
 def test_restaging_after_row_set_change_rewrites(tmp_path) -> None:
-    full = stage.build_datasets(listings(), {("enriched", "05"): corpus([0, 1, 2, 3, 4, 5])})
-    fewer = stage.build_datasets(listings(), {("enriched", "05"): corpus([0, 1, 2, 3, 4, 5], missing=(5,))})
+    full = stage.build_datasets(described(), "16")
+    fewer = stage.build_datasets(described(missing=(5,)), "16")
     stage.write_snapshots(full, str(tmp_path))
     assert sorted(stage.write_snapshots(fewer, str(tmp_path))) == sorted(fewer)
-    staged = pd.read_parquet(os.path.join(stage.snapshot_dir(str(tmp_path), "latlon"), "data.parquet"))
+    staged = pd.read_parquet(os.path.join(stage.snapshot_dir(str(tmp_path), "structured"), "data.parquet"))
     assert len(staged) == 5
+
+
+def test_restaging_after_target_change_rewrites(tmp_path) -> None:
+    raw = described()
+    logged = raw.assign(price=np.log1p(raw["price"]))
+    stage.write_snapshots(stage.build_datasets(raw, "16"), str(tmp_path))
+    assert len(stage.write_snapshots(stage.build_datasets(logged, "16"), str(tmp_path))) == 3
 
 
 @pytest.mark.parametrize("anchor", ["\n}\n\n\nfor _d in MulTaBenchDatasetID:", "\n\n\n_IMAGE_PREFIXES = ("])

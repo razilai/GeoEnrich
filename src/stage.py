@@ -1,6 +1,12 @@
-"""Stage the cleaned listings and described corpora as registered MulTaBench datasets.
+"""Stage one described corpus as registered MulTaBench datasets.
 
-Every arm/condition pair is one dataset id: a typed `data.parquet` plus
+The described CSV (`airbnb_described_<prompt>.csv`) is the whole dataset: its `price`
+is the target, its tabular columns are the structured features and its summary is
+the only text. It is staged as three dataset ids, one per input the curation
+conditions need: `structured`, `enriched_<prompt>_text_only` and
+`enriched_<prompt>_joint` (run with the frozen and the TAR encoder).
+
+Every dataset id is a typed `data.parquet` plus
 `metadata.json`, laid out by hand in the local Hugging Face cache so the benchmark
 reads it offline (nothing is uploaded, no token is used). The benchmark reads
 feature types from the stored dtypes, so they are declared here, never inferred:
@@ -19,22 +25,16 @@ import re
 
 import pandas as pd
 
-from src import arms, config
+from src import config
 
 TARGET = "price"
 CATEGORICAL = ("room_type",)
 BOOLEAN = ("is_superhost",)
-COORDINATES = ("latitude", "longitude")
 SUMMARY = "surroundings_summary"
 INDEX = "index"
 
-# `lat`/`long` as written by clean.py; build.py renames them the same way.
-_COORDINATE_RENAMES = {"lat": "latitude", "long": "longitude"}
 
-ARM = "enriched"  # the uncensored text arm; `arms` derives the censored ones from it
-# The uncensored summary alongside the coordinates. It has no text_only dataset of its
-# own (that would duplicate the `enriched` one) and is judged against `latlon`.
-LATLON_ARM = "latlon_enriched"
+ARM = "enriched"  # the arm label of the described corpus
 HF_ORG = "multabench"  # namespace the benchmark's hub module resolves ids under
 REVISION = "0" * 40  # fixed snapshot name; stale content is detected by row set
 DATA_PARQUET = "data.parquet"
@@ -66,52 +66,20 @@ def dataset_key(arm: str, prompt: str, condition: str) -> str:
     return f"{arm}_{prompt}_{condition}"
 
 
-def build_datasets(
-    listings: pd.DataFrame, described: dict[tuple[str, str], pd.DataFrame]
-) -> dict[str, pd.DataFrame]:
-    """Cleaned listings + one described corpus per (arm, prompt) -> dataset key -> typed frame.
+def build_datasets(corpus: pd.DataFrame, prompt: str) -> dict[str, pd.DataFrame]:
+    """One described corpus -> dataset key -> typed frame.
 
-    `listings` is the cleaned frame (coordinates kept, positional index). Each
-    described corpus carries the listing `index` and its summary. All datasets share
-    the rows that have a summary in every corpus, in listing order, so the
-    benchmark's positional splits line up across arms.
-
-    The target of every dataset is the uncensored corpora's `price`, not the cleaned
-    listings', so an edited target (e.g. log1p) in the described CSV is what is staged.
-    Uncensored corpora that disagree on it are refused.
+    Rows without a summary are dropped and the rest are kept in listing (`index`)
+    order, so the benchmark's positional splits are a function of the corpus alone.
     """
-    listings = listings.rename(columns=_COORDINATE_RENAMES)
-    rows = None
-    for corpus in described.values():
-        kept = set(corpus.loc[corpus[SUMMARY].notna(), INDEX])
-        rows = kept if rows is None else rows & kept
-    rows = sorted(rows or set())
-    base = listings.loc[rows].reset_index(drop=True)
-    targets = [
-        corpus.drop_duplicates(INDEX).set_index(INDEX).loc[rows, TARGET].reset_index(drop=True)
-        for (arm, _), corpus in described.items()
-        if arm == ARM
-    ]
-    if targets:
-        if any(not t.equals(targets[0]) for t in targets[1:]):
-            raise ValueError(f"described corpora disagree on `{TARGET}`; stage one prompt at a time")
-        base[TARGET] = targets[0]
-    tabular = [c for c in base.columns if c not in COORDINATES]
-
-    datasets = {
-        "latlon": _typed(base),
-        "structured": _typed(base[tabular]),
+    corpus = corpus[corpus[SUMMARY].notna()].drop_duplicates(INDEX).sort_values(INDEX)
+    joint = corpus.drop(columns=INDEX).reset_index(drop=True)
+    tabular = [c for c in joint.columns if c != SUMMARY]
+    return {
+        "structured": _typed(joint[tabular]),
+        dataset_key(ARM, prompt, "text_only"): _typed(joint[[SUMMARY, TARGET]]),
+        dataset_key(ARM, prompt, "joint"): _typed(joint[[*tabular, SUMMARY]]),
     }
-    for (arm, prompt), corpus in described.items():
-        summary = (
-            corpus.drop_duplicates(INDEX).set_index(INDEX).loc[rows, SUMMARY].reset_index(drop=True)
-        )
-        joint = base[tabular].assign(**{SUMMARY: summary})
-        datasets[dataset_key(arm, prompt, "text_only")] = _typed(joint[[SUMMARY, TARGET]])
-        datasets[dataset_key(arm, prompt, "joint")] = _typed(joint)
-        if arm == ARM:
-            datasets[dataset_key(LATLON_ARM, prompt, "joint")] = _typed(base.assign(**{SUMMARY: summary}))
-    return datasets
 
 
 # --- Registry ----------------------------------------------------------------------
@@ -202,37 +170,23 @@ def prompts_with_corpus() -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--prompt", action="append", help="prompt id(s) to stage (default: every described corpus)")
+    parser.add_argument("--prompt", required=True, help="stage data/processed/airbnb_described_<prompt>.csv")
     args = parser.parse_args()
 
-    prompts = args.prompt or prompts_with_corpus()
-    if not prompts:
-        raise SystemExit("no described corpus found; run describe first")
-    described = {}
-    for prompt in prompts:
-        corpora = {ARM: config.described_csv(prompt)}
-        for arm in arms.CENSORED_ARMS:
-            corpora[arm] = arms.arm_csv(arm, prompt)
-        for arm, path in corpora.items():
-            if not os.path.exists(path):
-                raise SystemExit(f"{path} missing; run {'describe' if arm == ARM else 'arms'} first")
-            corpus = pd.read_csv(path, low_memory=False)
-            if INDEX not in corpus:
-                raise SystemExit(f"{path} has no `{INDEX}` column; re-run {'describe' if arm == ARM else 'arms'}")
-            if arm != ARM:
-                corpus = arms.read_arm(path, described[(ARM, prompt)])
-            described[(arm, prompt)] = corpus
-    datasets = build_datasets(pd.read_csv(config.CLEANED_CSV), described)
+    path = config.described_csv(args.prompt)
+    if not os.path.exists(path):
+        raise SystemExit(f"{path} missing; run describe first")
+    datasets = build_datasets(pd.read_csv(path, low_memory=False), args.prompt)
 
-    path = registry_path()
-    with open(path) as f:
+    registry = registry_path()
+    with open(registry) as f:
         source = f.read()
     patched = patch_registry(source, list(datasets))
     if patched != source:
-        with open(path, "w") as f:
+        with open(registry, "w") as f:
             f.write(patched)
     written = write_snapshots(datasets, hub_cache())
-    print(f"{len(datasets)} datasets registered, {len(written)} newly staged in {hub_cache()}")
+    print(f"{path}: {len(datasets)} datasets registered, {len(written)} newly staged in {hub_cache()}")
 
 
 if __name__ == "__main__":

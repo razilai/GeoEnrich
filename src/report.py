@@ -24,7 +24,7 @@ from multabench.baselines.tabpfnv2 import TabPFNv2, TabPFNv2p5
 from multabench.benchmark.collect import collect_results
 from multabench.result_keys import STATUS, TEST_SCORE, RunStatus
 
-from src import bench, config, stage
+from src import bench, config
 
 _COMMITTEE_MODELS = (LightGBM, CatBoost, TabM, TabPFNv2, TabPFNv2p5)
 COMMITTEE = bench.COMMITTEE
@@ -35,7 +35,6 @@ MARGIN_THOUSANDTHS = 1  # state means are compared as integer thousandths; delta
 QUORUM = 3
 CONDITIONS = ("structured", "text_only", "joint_frozen", "joint_tar")
 SHARED = "shared"  # the arm label of the one structured dataset every text arm is judged against
-LATLON = "latlon"
 
 _PREFIX = "REG_TEXT_GEOENRICH_"
 _TEXT_DATASET = re.compile(r"^(?P<arm>.+)_(?P<prompt>[^_]+)_(?P<kind>TEXT_ONLY|JOINT)$")
@@ -52,7 +51,7 @@ def _label(dataset: str, encoder: str | None) -> tuple[str, str | None, str]:
     """(arm, prompt, condition) of one run from its dataset name and text encoder."""
     key = dataset.removeprefix(_PREFIX)
     if key in ("STRUCTURED", "LATLON"):
-        return (SHARED if key == "STRUCTURED" else LATLON), None, "structured"
+        return (SHARED if key == "STRUCTURED" else "latlon"), None, "structured"
     m = _TEXT_DATASET.match(key)
     if m is None:
         raise ValueError(f"unrecognised dataset name {dataset!r}")
@@ -95,22 +94,16 @@ def _state_means(cell: pd.DataFrame, splits: tuple[int, ...], where: str) -> dic
 def judge(table: pd.DataFrame, splits: tuple[int, ...]) -> pd.DataFrame:
     """This project's computation of MulTaBench's curation criterion over the text arms of a metrics table.
 
-    Per (arm, prompt) and committee learner, against the shared structured baseline, or
-    `latlon` for `latlon_enriched`, which also takes its text_only from the `enriched` arm: state means are rounded to three decimals
+    Per (arm, prompt) and committee learner: state means are rounded to three decimals
     before differencing; joint signal is `joint_frozen - max(structured, text_only)`
     and TAR gain is `joint_tar - joint_frozen`, each required to exceed 0.001; an arm
     is eligible when at least 3 of the 5 learners show both. Raises `IncompleteGrid`
     rather than averaging over fewer splits than `splits`.
     """
+    structured = table[table["arm"] == SHARED]
     rows = []
-    text = table[~table["arm"].isin([SHARED, LATLON])]
+    text = table[~table["arm"].isin([SHARED, "latlon"])]
     for (arm, prompt), cell in text.groupby(ARM_PROMPT):
-        if arm == stage.LATLON_ARM:
-            structured = table[table["arm"] == LATLON]
-            enriched = table[(table["arm"] == stage.ARM) & (table["prompt"] == prompt)]
-            cell = pd.concat([cell, enriched[enriched["condition"] == "text_only"]])
-        else:
-            structured = table[table["arm"] == SHARED]
         means = _state_means(pd.concat([structured, cell]), splits, f"{arm}/{prompt}")
         for learner in COMMITTEE:
             m = {c: means[(learner, c)] for c in CONDITIONS}

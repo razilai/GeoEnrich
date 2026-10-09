@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import os
-
 import pandas as pd
 import pytest
 
-from src import arms, stage
-from test_stage import listings
+from src import arms
 
 NAMES = ["Central Park", "Central Park Zoo", "Empire State Building"]
 TEXTS = [
@@ -67,35 +64,6 @@ def test_names_are_canonical_case(built) -> None:
 def test_curated_list_loads() -> None:
     names = arms.load_landmarks()
     assert len(names) == 77 and "Empire State Building" in names
-
-
-def censored(corpus: pd.DataFrame) -> dict[tuple[str, str], pd.DataFrame]:
-    described = {("enriched", "05"): corpus}
-    described.update({(arm, "05"): frame for arm, frame in arms.build_arms(corpus, NAMES).items()})
-    return described
-
-
-def test_staged_censored_arms_share_rows_with_summary_as_only_text(corpus) -> None:
-    datasets = stage.build_datasets(listings(), censored(corpus))
-    assert {len(frame) for frame in datasets.values()} == {5}
-    for arm in ("landmark_only", "landmark_redacted"):
-        joint = datasets[stage.dataset_key(arm, "05", "joint")]
-        assert joint["surroundings_summary"].dtype == "string"
-        assert isinstance(joint["room_type"].dtype, pd.CategoricalDtype)
-        text_only = datasets[stage.dataset_key(arm, "05", "text_only")]
-        assert list(text_only.columns) == ["surroundings_summary", "price"]
-
-
-def test_staged_censored_feature_types(corpus, tmp_path) -> None:
-    detect = pytest.importorskip("multabench.baselines.preprocessing.feature_types").detect_feature_types
-    datasets = stage.build_datasets(listings(), censored(corpus))
-    for arm in ("landmark_only", "landmark_redacted"):
-        key = stage.dataset_key(arm, "05", "joint")
-        stage.write_snapshots({key: datasets[key]}, str(tmp_path))
-        path = os.path.join(stage.snapshot_dir(str(tmp_path), key), "data.parquet")
-        types = detect(pd.read_parquet(path).drop(columns="price"), image_column=None)
-        assert types.text_features == {"surroundings_summary"}
-        assert types.categorical_features == {"room_type"}
 
 
 def test_csv_round_trip_keeps_empty_strings_and_missing_summaries(corpus, tmp_path) -> None:

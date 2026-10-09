@@ -121,32 +121,6 @@ def judged(path, splits=SPLITS):
     return report.judge(report.metrics_table(str(path)), splits)
 
 
-def write_condition(path, key, encoder, score, splits=SPLITS):
-    for learner in report.COMMITTEE:
-        for split in splits:
-            write_run(path, key, encoder, learner, split, score)
-
-
-def test_latlon_enriched_is_judged_against_latlon_and_the_enriched_text_only(tmp_path) -> None:
-    write_grid(tmp_path, uniform(structured=-100.0, text_only=-120.0))
-    write_condition(tmp_path, "latlon", FROZEN, -95.0)
-    write_condition(tmp_path, "latlon_enriched_08_joint", FROZEN, -90.0)
-    write_condition(tmp_path, "latlon_enriched_08_joint", TAR, -85.0)
-    v = judged(tmp_path).set_index("arm").loc["latlon_enriched"]
-    assert v["structured_mean"].tolist() == [-95.0] * 5
-    assert v["text_only_mean"].tolist() == [-120.0] * 5
-    assert v["joint_signal_delta"].tolist() == pytest.approx([5.0] * 5)
-    assert v["eligible"].all()
-
-
-def test_latlon_enriched_without_latlon_is_incomplete(tmp_path) -> None:
-    write_grid(tmp_path, uniform())
-    write_condition(tmp_path, "latlon_enriched_08_joint", FROZEN, -90.0)
-    write_condition(tmp_path, "latlon_enriched_08_joint", TAR, -85.0)
-    with pytest.raises(report.IncompleteGrid, match="latlon_enriched"):
-        judged(tmp_path)
-
-
 def test_verdict_per_arm_with_deltas(tmp_path) -> None:
     write_grid(tmp_path, uniform())
     write_grid(tmp_path, uniform(frozen=-100.0, tar=-100.0), arm="landmark_only")

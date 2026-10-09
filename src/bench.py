@@ -49,35 +49,24 @@ class Grid:
         return len(self.pairs) * len(self.learners) * len(self.splits)
 
 
-def _variant_pairs(arm: str, prompt: str) -> list[Pair]:
-    """text_only, joint frozen and joint TAR; `latlon_enriched` reuses the `enriched` text_only."""
-    key = lambda condition: stage.dataset_key(arm, prompt, condition)  # noqa: E731
-    joint = [(key("joint"), FROZEN), (key("joint"), TAR)]
-    return joint if arm == stage.LATLON_ARM else [(key("text_only"), FROZEN), *joint]
+def _pairs(prompt: str) -> tuple[Pair, ...]:
+    """The four conditions of one staged corpus: structured, text_only, joint frozen and joint TAR."""
+    key = lambda condition: stage.dataset_key(stage.ARM, prompt, condition)  # noqa: E731
+    return (("structured", FROZEN), (key("text_only"), FROZEN), (key("joint"), FROZEN), (key("joint"), TAR))
 
 
-def screen_grid(prompts: list[str]) -> Grid:
-    """One shared structured dataset plus each prompt's text_only, joint frozen and joint TAR."""
-    pairs: list[Pair] = [("structured", FROZEN)]
-    for prompt in prompts:
-        pairs += _variant_pairs(stage.ARM, prompt)
-    return Grid(tuple(pairs), COMMITTEE, SCREEN_SPLITS)
+def screen_grid(prompt: str) -> Grid:
+    """The final grid on split 0 only."""
+    return Grid(_pairs(prompt), COMMITTEE, SCREEN_SPLITS)
 
 
-def final_grid(variants: list[tuple[str, str]]) -> Grid:
-    """structured and latlon, plus each (arm, prompt)'s text_only, joint frozen and joint TAR.
-
-    Every arm runs independently; nothing is deduplicated across arms.
-    """
-    pairs: list[Pair] = [("structured", FROZEN), ("latlon", FROZEN)]
-    for arm, prompt in variants:
-        pairs += _variant_pairs(arm, prompt)
-    return Grid(tuple(pairs), COMMITTEE, FINAL_SPLITS)
+def final_grid(prompt: str) -> Grid:
+    return Grid(_pairs(prompt), COMMITTEE, FINAL_SPLITS)
 
 
-def probe_grid(arm: str, prompt: str) -> Grid:
+def probe_grid(prompt: str) -> Grid:
     """Two runs, one TAR and one frozen, on the same joint dataset, to size a grid from."""
-    joint = stage.dataset_key(arm, prompt, "joint")
+    joint = stage.dataset_key(stage.ARM, prompt, "joint")
     return Grid(((joint, FROZEN), (joint, TAR)), (PROBE_LEARNER,), (PROBE_SPLIT,))
 
 
@@ -123,21 +112,13 @@ def main() -> None:
     parser.add_argument("--grid", choices=["screen", "final", "probe"], required=True)
     parser.add_argument("--confirm", action="store_true", help="required: the grid occupies the GPU")
     parser.add_argument("--device", default="cuda", help="forwarded to benchmark.py (e.g. cuda:1)")
-    parser.add_argument("--prompt", action="append", help="prompt id(s); default: every described corpus")
-    parser.add_argument("--arm", action="append", help="final/probe arm(s); default: %s" % stage.ARM)
+    parser.add_argument("--prompt", required=True, help="the prompt id `stage` was run with")
     parser.add_argument("--output_dir", default=os.path.join(config.RESULTS_DIR, "runs"))
     args = parser.parse_args()
 
     if not args.confirm:
         raise SystemExit("bench occupies the GPU; re-run with --confirm")
-    prompts = args.prompt or stage.prompts_with_corpus()
-    arms = args.arm or [stage.ARM]
-    if args.grid == "screen":
-        grid = screen_grid(prompts)
-    elif args.grid == "final":
-        grid = final_grid([(arm, p) for arm in arms for p in prompts])
-    else:
-        grid = probe_grid(arms[0], prompts[0])
+    grid = {"screen": screen_grid, "final": final_grid, "probe": probe_grid}[args.grid](args.prompt)
     repo_dir = os.path.join(config.ROOT, "MulTaBench")
     failed = execute(plan_runs(grid), os.path.abspath(args.output_dir), args.device, repo_dir)
     raise SystemExit(1 if failed else 0)
