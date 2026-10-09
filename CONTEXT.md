@@ -21,7 +21,10 @@ _Avoid_: variant, prompt variant, template
 One dataset built for the paper's comparison — `latlon`, `enriched`,
 `landmark_only`, or `landmark_redacted` — differing only in what stands in for
 location. All arms share the same rows and tabular columns, except `latlon`,
-which keeps the coordinates and carries no text.
+which keeps the coordinates and carries no text, and `latlon_enriched`, which
+keeps the coordinates and adds the uncensored summary. `latlon_enriched` is
+judged against `latlon` as its structured baseline and reuses the `enriched`
+text_only. Every arm's target is the `price` column of the described CSV.
 _Avoid_: variant, censored variant, version, v1/v2/v3/v4
 
 **Condition**:

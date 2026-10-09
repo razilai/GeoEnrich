@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Run on YOUR machine. Bootstraps a GPU VM (clone/fast-forward the repo, run
-# init.sh there), then sends everything Git does not carry: MulTaBench
+# Run on YOUR machine. On a fresh GPU VM, clones the repo and runs init.sh
+# there; on a VM that already has the checkout, Git and init.sh are skipped.
+# Either way it then sends everything Git does not carry: MulTaBench
 # credentials, the cleaned listings and the described dataset CSVs.
-# Code travels via Git (push first), credentials and data via rsync.
+# Code travels via Git (push, then git pull on the VM), credentials and data via rsync.
 # Afterwards, on the VM:  scripts/screen.sh     (and locally: scripts/pull.sh)
 #
 # Build the dataset locally first (src.build + .describe), then:
@@ -38,8 +39,8 @@ if [[ -z "$REPO_URL" ]]; then
     exit 1
 fi
 
-# Do not overwrite a checkout that belongs to a different repository. A matching
-# checkout is fast-forwarded (never reset or merged), so pushed code reaches the VM.
+# Do not touch a checkout that belongs to a different repository. A matching
+# checkout is left as is: no pull, no init.sh.
 echo "🔌 connecting to $SSH_HOST and preparing $REMOTE_DIR"
 ssh "$SSH_HOST" bash -s -- "$REMOTE_DIR" "$REPO_URL" <<'REMOTE_SETUP'
 set -euo pipefail
@@ -49,6 +50,19 @@ repo_url="$2"
 parent_dir="$(dirname -- "$remote_dir")"
 
 mkdir -p -- "$parent_dir"
+
+# Reduce a remote URL to lowercase host/path so https, ssh, www., .git and case
+# variants of the same repository compare equal.
+normalize_url() {
+    local url="${1,,}"
+    url="${url#*://}"
+    url="${url#*@}"
+    url="${url#www.}"
+    url="${url/://}"
+    url="${url%/}"
+    url="${url%.git}"
+    printf '%s' "$url"
+}
 
 if [[ -e "$remote_dir" && ! -d "$remote_dir/.git" ]]; then
     echo "❌ $remote_dir exists but is not a Git checkout; refusing to overwrite it." >&2
@@ -60,12 +74,14 @@ if [[ ! -d "$remote_dir/.git" ]]; then
     git clone "$repo_url" "$remote_dir"
 else
     current_url="$(git -C "$remote_dir" config --get remote.origin.url || true)"
-    if [[ "$current_url" != "$repo_url" ]]; then
+    if [[ "$(normalize_url "$current_url")" != "$(normalize_url "$repo_url")" ]]; then
         echo "❌ $remote_dir is a checkout of $current_url, not $repo_url; refusing to modify it." >&2
         exit 1
     fi
-    echo "✅ existing matching checkout found — fast-forwarding"
-    git -C "$remote_dir" pull --ff-only
+    # Existing checkout: leave code and environment alone (update them on the VM
+    # with git pull / init.sh yourself); only the untracked files below are sent.
+    echo "✅ existing matching checkout found — skipping git and init.sh"
+    exit 0
 fi
 
 cd -- "$remote_dir"
@@ -90,5 +106,5 @@ else
     # --relative keeps the data/processed/ prefix so remote stages find their inputs
     rsync --archive --relative --checksum --progress "${CSVS[@]}" "$SSH_HOST:$REMOTE_DIR/"
 fi
-echo "✅ VM initialized, credentials and data synced"
+echo "✅ credentials and data synced"
 echo "Next: ssh $SSH_HOST \"cd $REMOTE_DIR && scripts/screen.sh\""

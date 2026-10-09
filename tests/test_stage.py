@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import types
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -35,6 +36,7 @@ def corpus(indices: list[int], tag: str = "a", missing: tuple[int, ...] = ()) ->
     return pd.DataFrame(
         {
             "index": indices,
+            "price": [100.0 + i for i in indices],  # as described.py copies it from the listings
             "surroundings_summary": [None if i in missing else f"{tag} summary {i}" for i in indices],
         }
     )
@@ -62,7 +64,37 @@ def test_dataset_keys(datasets) -> None:
         "enriched_05_joint",
         "enriched_08_text_only",
         "enriched_08_joint",
+        "latlon_enriched_05_joint",
+        "latlon_enriched_08_joint",
     }
+
+
+def test_target_comes_from_the_described_corpus() -> None:
+    logged = corpus([0, 1, 2, 3])
+    logged["price"] = np.log1p(logged["price"])
+    out = stage.build_datasets(listings(4), {("enriched", "16"): logged})
+    for key, frame in out.items():
+        assert frame["price"].tolist() == pytest.approx(np.log1p([100.0, 101.0, 102.0, 103.0]).tolist()), key
+
+
+def test_uncensored_corpora_disagreeing_on_target_are_refused() -> None:
+    logged = corpus([0, 1, 2, 3])
+    logged["price"] = np.log1p(logged["price"])
+    with pytest.raises(ValueError, match="price"):
+        stage.build_datasets(listings(4), {("enriched", "05"): corpus([0, 1, 2, 3]), ("enriched", "16"): logged})
+
+
+def test_censored_corpus_target_is_ignored() -> None:
+    stale = corpus([0, 1, 2, 3], "c")
+    stale["price"] = -1.0
+    out = stage.build_datasets(listings(4), {("enriched", "16"): corpus([0, 1, 2, 3]), ("landmark_only", "16"): stale})
+    assert all((frame["price"] > 0).all() for frame in out.values())
+
+
+def test_latlon_enriched_is_latlon_plus_summary(datasets) -> None:
+    joint = datasets["latlon_enriched_05_joint"]
+    pd.testing.assert_frame_equal(joint.drop(columns="surroundings_summary"), datasets["latlon"])
+    assert joint["surroundings_summary"].tolist() == datasets["enriched_05_joint"]["surroundings_summary"].tolist()
 
 
 def test_all_datasets_share_one_row_set_in_listing_order(datasets) -> None:
@@ -74,16 +106,16 @@ def test_all_datasets_share_one_row_set_in_listing_order(datasets) -> None:
     ]
 
 
-def test_only_latlon_carries_coordinates(datasets) -> None:
+def test_only_latlon_arms_carry_coordinates(datasets) -> None:
     for key, frame in datasets.items():
         has = {"latitude", "longitude"} <= set(frame.columns)
-        assert has == (key == "latlon"), key
+        assert has == key.startswith("latlon"), key
         assert "lat" not in frame and "long" not in frame
 
 
 def test_summary_only_in_text_conditions(datasets) -> None:
     for key, frame in datasets.items():
-        assert ("surroundings_summary" in frame) == (key.startswith("enriched")), key
+        assert ("surroundings_summary" in frame) == ("enriched" in key), key
     assert list(datasets["enriched_05_text_only"].columns) == ["surroundings_summary", "price"]
 
 
@@ -109,6 +141,9 @@ def test_benchmark_feature_types_per_dataset(datasets, tmp_path) -> None:
         "structured": (tabular_numeric, {"room_type"}, set()),
         "enriched_05_text_only": (set(), set(), {"surroundings_summary"}),
         "enriched_05_joint": (tabular_numeric, {"room_type"}, {"surroundings_summary"}),
+        "latlon_enriched_05_joint": (
+            tabular_numeric | {"latitude", "longitude"}, {"room_type"}, {"surroundings_summary"},
+        ),
     }
     for key, (numerical, categorical, text) in expect.items():
         x = roundtrip(key, datasets[key], tmp_path).drop(columns="price")

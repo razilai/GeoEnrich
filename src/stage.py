@@ -32,6 +32,9 @@ INDEX = "index"
 _COORDINATE_RENAMES = {"lat": "latitude", "long": "longitude"}
 
 ARM = "enriched"  # the uncensored text arm; `arms` derives the censored ones from it
+# The uncensored summary alongside the coordinates. It has no text_only dataset of its
+# own (that would duplicate the `enriched` one) and is judged against `latlon`.
+LATLON_ARM = "latlon_enriched"
 HF_ORG = "multabench"  # namespace the benchmark's hub module resolves ids under
 REVISION = "0" * 40  # fixed snapshot name; stale content is detected by row set
 DATA_PARQUET = "data.parquet"
@@ -72,6 +75,10 @@ def build_datasets(
     described corpus carries the listing `index` and its summary. All datasets share
     the rows that have a summary in every corpus, in listing order, so the
     benchmark's positional splits line up across arms.
+
+    The target of every dataset is the uncensored corpora's `price`, not the cleaned
+    listings', so an edited target (e.g. log1p) in the described CSV is what is staged.
+    Uncensored corpora that disagree on it are refused.
     """
     listings = listings.rename(columns=_COORDINATE_RENAMES)
     rows = None
@@ -80,6 +87,15 @@ def build_datasets(
         rows = kept if rows is None else rows & kept
     rows = sorted(rows or set())
     base = listings.loc[rows].reset_index(drop=True)
+    targets = [
+        corpus.drop_duplicates(INDEX).set_index(INDEX).loc[rows, TARGET].reset_index(drop=True)
+        for (arm, _), corpus in described.items()
+        if arm == ARM
+    ]
+    if targets:
+        if any(not t.equals(targets[0]) for t in targets[1:]):
+            raise ValueError(f"described corpora disagree on `{TARGET}`; stage one prompt at a time")
+        base[TARGET] = targets[0]
     tabular = [c for c in base.columns if c not in COORDINATES]
 
     datasets = {
@@ -93,6 +109,8 @@ def build_datasets(
         joint = base[tabular].assign(**{SUMMARY: summary})
         datasets[dataset_key(arm, prompt, "text_only")] = _typed(joint[[SUMMARY, TARGET]])
         datasets[dataset_key(arm, prompt, "joint")] = _typed(joint)
+        if arm == ARM:
+            datasets[dataset_key(LATLON_ARM, prompt, "joint")] = _typed(base.assign(**{SUMMARY: summary}))
     return datasets
 
 

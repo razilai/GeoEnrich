@@ -21,7 +21,7 @@ TEXTS = [
 
 @pytest.fixture
 def corpus() -> pd.DataFrame:
-    return pd.DataFrame({"index": range(6), "surroundings_summary": TEXTS})
+    return pd.DataFrame({"index": range(6), "price": [100.0 + i for i in range(6)], "surroundings_summary": TEXTS})
 
 
 @pytest.fixture

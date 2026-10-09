@@ -130,6 +130,20 @@ else
     echo "💻 no NVIDIA GPU — skipping GPU torch install (CPU / --no-tar path)"
 fi
 
+# 3c. Cache the grid's text encoder weights now, while online: bench runs with
+# HF_HUB_OFFLINE=1, so an encoder missing from the HF cache fails every run.
+echo "📥 caching text encoder weights for offline bench runs"
+(
+    cd MulTaBench && "$VENV_PY" - <<'PY'
+from transformers import AutoModel, AutoTokenizer
+from multabench.e5.constants import E5_SMALL_V2  # frozen and TAR encoders both
+
+AutoModel.from_pretrained(E5_SMALL_V2)
+AutoTokenizer.from_pretrained(E5_SMALL_V2)
+print(f"   ✅ {E5_SMALL_V2}")
+PY
+)
+
 # 4. Sync the thin env-holder project (creates ./.venv).
 echo "🔗 uv sync"
 uv sync

@@ -58,6 +58,15 @@ def test_baselines_only_frozen_and_joint_once_per_encoder(grid) -> None:
             assert set(encoders_of(runs, dataset)) == {str(bench.FROZEN)}
 
 
+def test_latlon_enriched_adds_only_joint_frozen_and_tar() -> None:
+    grid = bench.final_grid([("enriched", "16"), ("latlon_enriched", "16")])
+    assert grid.pairs[-2:] == (
+        ("latlon_enriched_16_joint", bench.FROZEN),
+        ("latlon_enriched_16_joint", bench.TAR),
+    )
+    assert grid.total == 7 * 5 * 6
+
+
 def test_commands_use_device_and_official_entry_point() -> None:
     run = bench.plan_runs(bench.probe_grid("enriched", "08"))[0]
     cmd = bench.run_command(run, "python", "/out", "cuda:1")

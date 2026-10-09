@@ -50,8 +50,10 @@ class Grid:
 
 
 def _variant_pairs(arm: str, prompt: str) -> list[Pair]:
+    """text_only, joint frozen and joint TAR; `latlon_enriched` reuses the `enriched` text_only."""
     key = lambda condition: stage.dataset_key(arm, prompt, condition)  # noqa: E731
-    return [(key("text_only"), FROZEN), (key("joint"), FROZEN), (key("joint"), TAR)]
+    joint = [(key("joint"), FROZEN), (key("joint"), TAR)]
+    return joint if arm == stage.LATLON_ARM else [(key("text_only"), FROZEN), *joint]
 
 
 def screen_grid(prompts: list[str]) -> Grid:
