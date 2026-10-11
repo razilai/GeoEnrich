@@ -3,15 +3,26 @@
 \providecommand\HyField@AuxAddToFields[1]{}
 \providecommand\HyField@AuxAddToCoFields[2]{}
 \citation{campello2013hdbscan}
+\citation{wang2017price,zhang2017airbnb}
+\citation{overtureplaces}
+\citation{openrouterbatch}
+\citation{arazi2026multabench}
 \citation{wang2022e5}
 \citation{hu2022lora}
+\citation{raz2026airbnbregression}
+\citation{ahuja2021airbnb}
+\citation{jiang2023multisource}
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {2}Related work}{1}{section.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Text-tabular curation and target-aware representations.}{1}{section*.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Geographic context in Airbnb pricing.}{1}{section*.2}\protected@file@percent }
 \citation{zhang2017airbnb}
 \citation{tang2019spatial}
+\citation{narayan2022wrangle}
+\citation{hegselmann2023tabllm}
 \citation{insideairbnb}
+\citation{insideairbnbnyc}
+\citation{overturedata}
 \def\@LN@column{1}
 \@writefile{toc}{\contentsline {paragraph}{Prior Airbnb price studies}{2}{section*.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{LLM enrichment.}{2}{section*.4}\protected@file@percent }
@@ -21,37 +32,65 @@
 \@writefile{toc}{\contentsline {paragraph}{Data cleaning.}{2}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Geospatial enrichment.}{2}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Aggregation.}{2}{section*.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{LLM descriptive summary.}{2}{section*.8}\protected@file@percent }
+\citation{gemini35flashlite}
+\citation{arazi2026multabench}
+\citation{wang2022e5}
+\citation{hu2022lora}
 \def\@LN@column{1}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces How a row turns into a description.}}{3}{figure.1}\protected@file@percent }
-\newlabel{fig:row-to-description}{{1}{3}{How a row turns into a description}{figure.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{LLM descriptive summary.}{3}{section*.8}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces How a row turns into a description, for one listing of the released dataset (\texttt  {index} 10433; entire home, 7 guests). The coordinates, exact counts, distances and price never reach the LLM; only the word bands in (2) do.}}{3}{figure.1}\protected@file@percent }
+\newlabel{fig:row-to-description}{{1}{3}{How a row turns into a description, for one listing of the released dataset (\texttt {index} 10433; entire home, 7 guests). The coordinates, exact counts, distances and price never reach the LLM; only the word bands in (2) do}{figure.1}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Results}{3}{section.4}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Results for log-transformed and raw price: $R^2$, -RMSE, passing learners.}}{3}{table.1}\protected@file@percent }
-\newlabel{tab:results}{{1}{3}{Results for log-transformed and raw price: $R^2$, -RMSE, passing learners}{table.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion, limitations, and future work}{3}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Outcomes}{3}{subsection.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Limitations}{3}{subsection.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Evaluation.}{3}{section*.9}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces RMSE on $\log (1 + \text  {price})$, mean $\pm $ standard deviation over six splits (lower is better). $\Delta _{\text  {joint}}$: improvement of joint frozen over the better unimodal baseline. $\Delta _{\text  {TAR}}$: improvement of joint TAR over joint frozen. All five learners show both joint signal and TAR gain (5/5); the dataset is eligible.}}{4}{table.1}\protected@file@percent }
+\newlabel{tab:results}{{1}{4}{RMSE on $\log (1 + \text {price})$, mean $\pm $ standard deviation over six splits (lower is better). $\Delta _{\text {joint}}$: improvement of joint frozen over the better unimodal baseline. $\Delta _{\text {TAR}}$: improvement of joint TAR over joint frozen. All five learners show both joint signal and TAR gain (5/5); the dataset is eligible}{table.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion, limitations, and future work}{4}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Outcomes}{4}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Limitations}{4}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Evaluation.}{4}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Application.}{4}{section*.10}\protected@file@percent }
 \bibstyle{plainnat}
 \bibdata{references}
-\bibcite{campello2013hdbscan}{{1}{2013}{{Campello et~al.}}{{Campello, Moulavi, and Sander}}}
-\bibcite{hu2022lora}{{2}{2022}{{Hu et~al.}}{{Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and Chen}}}
-\bibcite{insideairbnb}{{3}{}{{Inside Airbnb}}{{}}}
-\bibcite{tang2019spatial}{{4}{2019}{{Tang et~al.}}{{Tang, Kim, and Wang}}}
-\bibcite{wang2022e5}{{5}{2022}{{Wang et~al.}}{{Wang, Yang, Huang, Jiao, Yang, Jiang, Majumder, and Wei}}}
-\bibcite{zhang2017airbnb}{{6}{2017}{{Zhang et~al.}}{{Zhang, Chen, Han, and Yang}}}
+\bibcite{ahuja2021airbnb}{{1}{2021}{{Ahuja et~al.}}{{Ahuja, Lahiri, and Das}}}
+\bibcite{arazi2026multabench}{{2}{2026}{{Arazi et~al.}}{{Arazi, Shapira, Grunblat, Ventura, Hoffer, Blayer, Holzm{\"u}ller, Purucker, Varoquaux, Hutter, and Reichart}}}
+\bibcite{campello2013hdbscan}{{3}{2013}{{Campello et~al.}}{{Campello, Moulavi, and Sander}}}
+\bibcite{gemini35flashlite}{{4}{2026}{{Google DeepMind}}{{}}}
+\bibcite{hegselmann2023tabllm}{{5}{2023}{{Hegselmann et~al.}}{{Hegselmann, Buendia, Lang, Agrawal, Jiang, and Sontag}}}
+\bibcite{hu2022lora}{{6}{2022}{{Hu et~al.}}{{Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and Chen}}}
+\bibcite{insideairbnb}{{7}{}{{Inside Airbnb}}{{}}}
+\bibcite{insideairbnbnyc}{{8}{2026}{{Inside Airbnb}}{{}}}
+\bibcite{jiang2023multisource}{{9}{2023}{{Jiang et~al.}}{{Jiang, Li, Luo, Wang, and Ning}}}
+\bibcite{narayan2022wrangle}{{10}{2022}{{Narayan et~al.}}{{Narayan, Chami, Orr, Arora, and R{\'e}}}}
+\bibcite{openrouterbatch}{{11}{2026}{{OpenRouter}}{{}}}
+\bibcite{overturedata}{{12}{2026{a}}{{Overture Maps Foundation}}{{}}}
+\bibcite{overtureplaces}{{13}{2026{b}}{{Overture Maps Foundation}}{{}}}
+\bibcite{raz2026airbnbregression}{{14}{2026}{{Raz}}{{}}}
+\bibcite{tang2019spatial}{{15}{2019}{{Tang et~al.}}{{Tang, Kim, and Wang}}}
+\bibcite{wang2017price}{{16}{2017}{{Wang and Nicolau}}{{}}}
+\bibcite{wang2022e5}{{17}{2022}{{Wang et~al.}}{{Wang, Yang, Huang, Jiao, Yang, Jiang, Majumder, and Wei}}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{Application.}{4}{section*.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Future work}{4}{subsection.5.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A}Tables and metrics only}{4}{appendix.A}\protected@file@percent }
-\newlabel{app:tables}{{A}{4}{Tables and metrics only}{appendix.A}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Appendix tables and their required content.}}{4}{table.2}\protected@file@percent }
-\newlabel{tab:appendix-plan}{{2}{4}{Appendix tables and their required content}{table.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Future work}{5}{subsection.5.3}\protected@file@percent }
+\bibcite{zhang2017airbnb}{{18}{2017}{{Zhang et~al.}}{{Zhang, Chen, Han, and Yang}}}
 \def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Data card}{6}{appendix.A}\protected@file@percent }
+\newlabel{app:data-card}{{A}{6}{Data card}{appendix.A}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Schema and feature distributions of the released dataset (14,990 rows). Quantiles are over non-missing values. The target is $\log (1+\text  {price})$, with price the nightly price in USD (raw quantiles: 7, 96, 173, 299, 30{,}973).}}{6}{table.2}\protected@file@percent }
+\newlabel{tab:data-card}{{2}{6}{Schema and feature distributions of the released dataset (14,990 rows). Quantiles are over non-missing values. The target is $\log (1+\text {price})$, with price the nightly price in USD (raw quantiles: 7, 96, 173, 299, 30{,}973)}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Row attrition from the Inside Airbnb snapshot to the released dataset, and duplicates.}}{6}{table.3}\protected@file@percent }
+\newlabel{tab:attrition}{{3}{6}{Row attrition from the Inside Airbnb snapshot to the released dataset, and duplicates}{table.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Prompt blueprint}{6}{appendix.B}\protected@file@percent }
+\newlabel{app:prompt}{{B}{6}{Prompt blueprint}{appendix.B}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Word bands used to render the evidence. Percentiles are mid-rank (ties counted half) against all 14,990 listings. A category is a primary contrast only in the outer 15\% on either side; a high band needs at least 3 places, and ``none nearby'' is used only for categories present near at least 60\% of listings.}}{7}{table.4}\protected@file@percent }
+\newlabel{tab:bands}{{4}{7}{Word bands used to render the evidence. Percentiles are mid-rank (ties counted half) against all 14,990 listings. A category is a primary contrast only in the outer 15\% on either side; a high band needs at least 3 places, and ``none nearby'' is used only for categories present near at least 60\% of listings}{table.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Generation settings and cost of the released corpus.}}{7}{table.5}\protected@file@percent }
+\newlabel{tab:generation}{{5}{7}{Generation settings and cost of the released corpus}{table.5}{}}
 \def\@LN@column{1}
-\def\@LN@column{1}
-\def\@LN@column{1}
-\def\@LN@column{1}
-\def\@LN@column{1}
-\def\@LN@column{1}
-\gdef \@abspage@last{11}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Summary text statistics}{7}{appendix.C}\protected@file@percent }
+\newlabel{app:text-stats}{{C}{7}{Summary text statistics}{appendix.C}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Statistics of \texttt  {surroundings\_summary} over the 14,990 released rows. Words are alphabetic tokens. Jaccard similarity is computed on content-word sets (stopwords and generic words such as ``area'' and ``neighborhood'' removed) over 20,000 random pairs (seed 0); lower means more varied text.}}{7}{table.6}\protected@file@percent }
+\newlabel{tab:text-stats}{{6}{7}{Statistics of \texttt {surroundings\_summary} over the 14,990 released rows. Words are alphabetic tokens. Jaccard similarity is computed on content-word sets (stopwords and generic words such as ``area'' and ``neighborhood'' removed) over 20,000 random pairs (seed 0); lower means more varied text}{table.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {D}Tables and metrics only}{7}{appendix.D}\protected@file@percent }
+\newlabel{app:tables}{{D}{7}{Tables and metrics only}{appendix.D}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Appendix tables and their required content.}}{8}{table.7}\protected@file@percent }
+\newlabel{tab:appendix-plan}{{7}{8}{Appendix tables and their required content}{table.7}{}}
+\gdef \@abspage@last{8}

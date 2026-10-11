@@ -1,9 +1,24 @@
-\begin{thebibliography}{6}
+\begin{thebibliography}{18}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Ahuja et~al.(2021)Ahuja, Lahiri, and Das]{ahuja2021airbnb}
+Aditya Ahuja, Aditya Lahiri, and Aniruddha Das.
+\newblock Predicting {Airbnb} rental prices using multiple feature modalities.
+\newblock \emph{arXiv preprint arXiv:2112.06430}, 2021.
+
+\bibitem[Arazi et~al.(2026)Arazi, Shapira, Grunblat, Ventura, Hoffer, Blayer,
+  Holzm{\"u}ller, Purucker, Varoquaux, Hutter, and
+  Reichart]{arazi2026multabench}
+Alan Arazi, Eilam Shapira, Shoham Grunblat, Mor Ventura, Elad Hoffer, Gioia
+  Blayer, David Holzm{\"u}ller, Lennart Purucker, Ga{\"e}l Varoquaux, Frank
+  Hutter, and Roi Reichart.
+\newblock {MulTaBench}: Benchmarking multimodal tabular learning with text and
+  image.
+\newblock \emph{arXiv preprint arXiv:2605.10616}, 2026.
 
 \bibitem[Campello et~al.(2013)Campello, Moulavi, and
   Sander]{campello2013hdbscan}
@@ -12,6 +27,23 @@ Ricardo J. G.~B. Campello, Davoud Moulavi, and J{\"o}rg Sander.
 \newblock In \emph{Advances in Knowledge Discovery and Data Mining (PAKDD)},
   volume 7819 of \emph{Lecture Notes in Computer Science}, pages 160--172.
   Springer, 2013.
+
+\bibitem[{Google DeepMind}(2026)]{gemini35flashlite}
+{Google DeepMind}.
+\newblock Gemini 3.5 flash-lite model card.
+\newblock
+  \url{https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/},
+  2026.
+
+\bibitem[Hegselmann et~al.(2023)Hegselmann, Buendia, Lang, Agrawal, Jiang, and
+  Sontag]{hegselmann2023tabllm}
+Stefan Hegselmann, Alejandro Buendia, Hunter Lang, Monica Agrawal, Xiaoyi
+  Jiang, and David Sontag.
+\newblock {TabLLM}: Few-shot classification of tabular data with large language
+  models.
+\newblock In \emph{Proceedings of the 26th International Conference on
+  Artificial Intelligence and Statistics (AISTATS)}, volume 206 of
+  \emph{Proceedings of Machine Learning Research}, pages 5549--5581, 2023.
 
 \bibitem[Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and
   Chen]{hu2022lora}
@@ -26,12 +58,63 @@ Edward~J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
 \newblock Inside {Airbnb}.
 \newblock \url{https://insideairbnb.com}.
 
+\bibitem[{Inside Airbnb}(2026)]{insideairbnbnyc}
+{Inside Airbnb}.
+\newblock New york city listings, snapshot of 14 june 2026.
+\newblock
+  \url{https://data.insideairbnb.com/united-states/ny/new-york-city/2026-06-14/data/listings.csv.gz},
+  2026.
+
+\bibitem[Jiang et~al.(2023)Jiang, Li, Luo, Wang, and
+  Ning]{jiang2023multisource}
+Lu~Jiang, Yuanhan Li, Na~Luo, Jianan Wang, and Qiao Ning.
+\newblock A multi-source information learning framework for {Airbnb} price
+  prediction.
+\newblock \emph{arXiv preprint arXiv:2301.01222}, 2023.
+
+\bibitem[Narayan et~al.(2022)Narayan, Chami, Orr, Arora, and
+  R{\'e}]{narayan2022wrangle}
+Avanika Narayan, Ines Chami, Laurel Orr, Simran Arora, and Christopher R{\'e}.
+\newblock Can foundation models wrangle your data?
+\newblock \emph{Proceedings of the VLDB Endowment}, 16\penalty0 (4):\penalty0
+  738--746, 2022.
+
+\bibitem[{OpenRouter}(2026)]{openrouterbatch}
+{OpenRouter}.
+\newblock Batch {API} quickstart.
+\newblock \url{https://openrouter.ai/docs/batch-quickstart}, 2026.
+
+\bibitem[{Overture Maps Foundation}(2026{\natexlab{a}})]{overturedata}
+{Overture Maps Foundation}.
+\newblock Getting overture data.
+\newblock \url{https://docs.overturemaps.org/getting-data/},
+  2026{\natexlab{a}}.
+
+\bibitem[{Overture Maps Foundation}(2026{\natexlab{b}})]{overtureplaces}
+{Overture Maps Foundation}.
+\newblock Overture maps places theme, release 2026-08-19.0.
+\newblock \url{https://docs.overturemaps.org/guides/places/},
+  2026{\natexlab{b}}.
+
+\bibitem[Raz(2026)]{raz2026airbnbregression}
+Ilai Raz.
+\newblock airbnb-regression: Airbnb price prediction with seasonality.
+\newblock \url{https://github.com/razilai/airbnb-regression}, 2026.
+
 \bibitem[Tang et~al.(2019)Tang, Kim, and Wang]{tang2019spatial}
 Liang Tang, Jaewook Kim, and Xi~Wang.
 \newblock Estimating spatial effects on peer-to-peer accommodation prices:
   Towards an innovative hedonic model approach.
 \newblock \emph{International Journal of Hospitality Management}, 81:\penalty0
   43--53, 2019.
+
+\bibitem[Wang and Nicolau(2017)]{wang2017price}
+Dan Wang and Juan~L. Nicolau.
+\newblock Price determinants of sharing economy based accommodation rental: A
+  study of listings from 33 cities on {Airbnb.com}.
+\newblock \emph{International Journal of Hospitality Management}, 62:\penalty0
+  120--131, 2017.
+\newblock \doi{10.1016/j.ijhm.2016.12.007}.
 
 \bibitem[Wang et~al.(2022)Wang, Yang, Huang, Jiao, Yang, Jiang, Majumder, and
   Wei]{wang2022e5}
