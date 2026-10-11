@@ -57,99 +57,106 @@
 
 \section{Introduction}
 
-Accommodation datasets (Airbnb, Booking.com) often include latitude-longitude coordinates
-of listings.
-The location of a listing can be leveraged as a significant indicator for price prediction
-regression tasks, though the coordinates themselves say little about what surrounds a listing.
-To solve this problem, traditional ML regression models engineer location features (e.g., spatial clustering)
-to leverage this potentially informative feature.
+Text-tabular benchmarks need datasets in which the text column carries signal that the structured columns lack.
+MulTaBench \citep{arazi2026multabench} turns this into a curation criterion: a dataset is admitted only if,
+across a committee of tabular learners, adding frozen text embeddings to the structured columns beats both unimodal baselines,
+and target-aware representations (TAR), text embeddings fine-tuned on the target, beat frozen ones.
+Neither Airbnb dataset MulTaBench evaluated passed, even though both include free-text listing fields.
 
-In addition, the surroundings of a listing can often provide signal regarding its price. For example:
-It is reasonable to assume \citep{rosen1974hedonic, wang2017price} that Airbnb listings in downtown Manhattan, where there is a high density
-of restaurants and tourist attractions, will be pricier than listings in the outskirts of the city---where few
-or no amenities can be found.
+Accommodation listings do carry a signal that their text fields rarely describe: location,
+a known determinant of nightly price \citep{wang2017price}.
+A listing in downtown Manhattan, surrounded by restaurants and tourist attractions, should command a higher price
+than one in an outer neighbourhood with few amenities nearby.
+Yet datasets scraped from platforms such as Airbnb and Booking.com record location only as latitude-longitude coordinates,
+which say nothing directly about what surrounds a listing.
+We ask whether a natural-language description of those surroundings can supply this signal,
+that is, whether adding it to the structured columns lowers held-out error in nightly-price regression.
 
-We therefore hypothesize that a natural-language description of a listing's
-surroundings will improve models' fit in a nightly-price prediction regression task.
+We build GeoEnrich-NYC to test this. Starting from Inside Airbnb's New York City listings \citep{insideairbnbnyc},
+we join each listing to the Overture Maps places \citep{overtureplaces} within 450 meters,
+reduce them to citywide percentile ranks over 20 place categories plus the nearest of 77 curated landmarks,
+phrase these as word bands, and prompt an LLM to describe the surroundings (Figure~\ref{fig:row-to-description}).
+We use text rather than adding the counts as numeric columns because the dataset targets text-tabular learning,
+and the word bands keep only what stands out against the rest of the city.
+Two design choices keep the evaluation clean: the LLM never sees coordinates, exact counts, exact distances, or price,
+so the description cannot copy the target directly; and the coordinate columns are dropped, so location reaches the models
+only through the text (whether the text adds to coordinates is left to future work).
 
-To achieve this, we leverage the given latitude-longitude coordinates from an existing Airbnb listings dataset
-and enrich them with geospatial data by querying Overture Maps places data and enriching each listing with
-business density information of its surroundings. We then use an LLM to transform the
-numerical density information into a description of each listing's surroundings.
-
-Our goal is a dataset that passes the MulTaBench \citep{arazi2026multabench} text-tabular curation criteria,
-which GeoEnrich-NYC does on all five learners (Section~\ref{sec:results}).
+Our contributions are:
+\begin{itemize}
+  \item \textbf{GeoEnrich-NYC}, a text-tabular regression dataset of 14,990 listings with 8 structured columns,
+    one generated text column, and log nightly price as the target, released under CC BY 4.0 in MulTaBench's format.
+  \item \textbf{A geospatial enrichment pipeline} that needs only latitude-longitude coordinates and withholds
+    coordinates, exact measurements, and price from the LLM.
+  \item \textbf{A MulTaBench evaluation} in which the dataset passes both curation criteria on all five learners
+    (Section~\ref{sec:results}; limits in Section~\ref{sec:limitations}).
+\end{itemize}
 
 
 \section{Related work}
 
-\paragraph{Text-tabular curation.} MulTaBench \citep{arazi2026multabench} admits a text-tabular dataset only if,
-across a committee of tabular learners, joint frozen text-tabular inputs improve on both unimodal baselines,
-and target-aware representations (TAR), as in TabSTAR \citep{arazi2025tabstar}, improve on frozen ones.
-We follow its protocol, with the one adaptation described in Section~\ref{sec:results}.
-Earlier text-tabular benchmarks include Airbnb price datasets \citep{shi2021multimodal}; MulTaBench's curation
-rejected both Airbnb datasets it evaluated (Melbourne Airbnb, 1/5 learners; Airbnb Seattle, 0/5).
+\paragraph{Text-tabular curation.} We follow the MulTaBench protocol \citep{arazi2026multabench},
+whose TAR condition builds on TabSTAR \citep{arazi2025tabstar}, with the one adaptation described in Section~\ref{sec:results}.
+MulTaBench's curation rejected both Airbnb datasets it evaluated (Melbourne Airbnb, 1/5 learners; Airbnb Seattle, 0/5).
 
-\paragraph{LLM enrichment.} Large language models are increasingly used as components of data pipelines,
-not only as predictors. Previous studies have leveraged modern LLMs
-to generate a natural-language description of tabular features \citep{hegselmann2023tabllm}.
-Closest to our pipeline, GeoLLM \citep{manvi2024geollm} prompts an LLM with coordinates and nearby OpenStreetMap places
-to predict location-level indicators, including home values. We became aware of it only after building our pipeline,
-which differs in withholding the coordinates from the LLM and leaving prediction to tabular learners.
+\paragraph{Location and LLMs in prediction.} Hedonic pricing treats a property's price as the sum of implicit prices
+of its attributes, neighbourhood amenities among them \citep{rosen1974hedonic}.
+TabLLM \citep{hegselmann2023tabllm} serializes tabular rows into natural-language text and uses an LLM to predict from it;
+GeoLLM \citep{manvi2024geollm} prompts an LLM with coordinates and nearby OpenStreetMap places
+to predict location-level indicators, including home values, drawing on the LLM's own geographic knowledge.
 
 
-\section{Dataset origins and curation methodology}
+\section{Dataset construction}
 
 \subsection{Dataset and sources}
 
-Inside Airbnb is a project that provides quarterly data and advocacy
-about Airbnb's impact on residential communities; its data is freely available
-online under a CC BY 4.0 licence. We used their New York City listings snapshot \citep{insideairbnbnyc}, scraped 14--23 June 2026.
-
-Overture Maps Foundation is a non-profit organization that provides free and open-source maps data.
-We used DuckDB to query the
-places theme (licensed under CDLA-Permissive-2.0) of Overture release \texttt{2026-08-19.0} \citep{overtureplaces} for businesses and points of interest in our
-desired city, and performed a join by proximity for each listing, with distances measured in a metric projection (UTM zone 18N).
+We use Inside Airbnb's New York City listings snapshot \citep{insideairbnbnyc}, scraped 14--23 June 2026 (CC BY 4.0),
+and query, with DuckDB, the places theme of Overture Maps release \texttt{2026-08-19.0} \citep{overtureplaces} (CDLA-Permissive-2.0)
+for businesses and points of interest in the city.
 
 \subsection{Pipeline}
 
-\paragraph{Data cleaning.} After acquiring the original dataset from ``Inside Airbnb'', we perform a standard
-feature engineering pipeline: columns that do not partake in the regression task are dropped,
-the schema is defined and enforced, and features such as ``number of rooms'' and ``number of baths''
-are extracted from semi-structured text fields using simple regex rules. Listings with missing or non-positive prices are dropped,
+The pipeline has four stages: data cleaning, geospatial enrichment, aggregation, and an LLM descriptive summary.
+
+\paragraph{Data cleaning.} We drop columns that do not partake in the regression task and enforce a schema.
+Listings with missing or non-positive prices are dropped,
 as are listings missing coordinates or more than 25\% of their features.
-In addition, the target nightly-price column of the final version of the dataset is log-transformed: $\text{target} = \log(1 + \text{price})$.
 Of the 30,259 listings in the snapshot, 21,155 survive these filters (Table~\ref{tab:attrition}); we randomly sample 15,000 of them (seed 0),
-each with 8 feature columns (six numerical, one boolean, and one categorical) besides the target. The schema and feature distributions are summarized in Table~\ref{tab:data-card} (Appendix~\ref{app:data-card}).
+each with 8 feature columns (six numerical, one boolean, and one categorical) besides the target.
+This size matches MulTaBench's per-split cap of 10,000 training and 5,000 test rows, so the benchmark uses every row.
+The target is the log-transformed nightly price, $\log(1 + \text{price})$.
+Table~\ref{tab:data-card} (Appendix~\ref{app:data-card}) summarizes the schema and feature distributions;
+the same appendix describes column parsing and missing-value handling.
 
 \paragraph{Geospatial enrichment.} We query Overture for all places within the listings' bounding box (padded by $\approx 2$\,km)
 that have a confidence score of at least 0.6 and belong to one of our selected categories.
 We apply a join such that each listing coordinate is assigned all POIs (points of interest) in a 450-meter radius
-(roughly 570 meters of walking on the Manhattan street grid), saved in JSON format.
+(roughly 570 meters of walking on the Manhattan street grid), with distances measured in a metric projection (UTM zone 18N).
 The 10 listings with no POI within that radius are dropped, leaving 14,990 listings.
-The original latitude-longitude columns are dropped by design: location reaches the models only through the text column,
-so the structured columns carry no location information.
 
-\paragraph{Aggregation.} Each JSON column describing nearby POIs is reduced down to a simple count,
-and the distance to the nearest place, according to a list of 20 predefined buckets (for example: restaurants, parks, ground transport, and nightlife venues).
+\paragraph{Aggregation.} Each listing's nearby POIs are reduced to a count and the distance to the nearest place in each of 20 predefined categories
+(for example: restaurants, parks, ground transport, and nightlife venues).
 Those categories are curated from the level-2 categories of the official Overture hierarchical taxonomy.
-We rank each listing's count in every category against the citywide distribution of that count over all listings, and replace the count-buckets of each listing with its relative percentile.
+We rank each listing's count in every category, and its total count over all categories, against the citywide distribution of that count over all listings,
+and replace each count with its percentile.
 The ranking uses no price information, but is computed over all listings, including those later used for testing.
-Popular POIs (landmarks)---77 curated attractions such as the Empire State Building, the Statue of Liberty, and Times Square---are matched
-within 800 meters of each listing and not reduced down to their categories, as they potentially carry stronger neighbourhood signal,
-which is also why they are matched over a wider radius.
+Landmarks---77 curated attractions such as the Empire State Building, the Statue of Liberty, and Times Square---may carry
+stronger neighbourhood signal, so they are kept by name rather than reduced to categories, and matched over a wider 800-meter radius.
 
-\paragraph{LLM descriptive summary.} By the end of the aggregation stage, each row has a JSON object containing the listing's
-relative density of each category in its 450-meter surrounding radius and a list of popular tourist attractions nearby,
-including their exact distance. We take a prompt blueprint and structure the JSON summaries, preparing them for an LLM API call:
-percentiles are phrased as word bands (e.g., ``far more than most neighbourhoods''), and only the three nearest landmarks are kept, with their distance phrased as a band (e.g., ``a short walk from'').
-We send batch requests to an LLM (temperature 0.4), processing all 14,990 rows independently in three batches. The LLM describes
-the surroundings and is not given the coordinates, exact counts, exact distances, or listing price, to prevent leakage.
-Figure~\ref{fig:row-to-description} traces one listing through these steps.
-
-Multiple LLMs were tested on subsets of the dataset; Gemini 3.5 Flash-Lite \citep{gemini35flashlite} was chosen for its relative
-lack of hallucinations on those subsets, generation speed, batch-request availability, and lack of reasoning.
-The prompt was refined over 16 variants, tested on a subset of $\approx 2{,}000$ rows, before the final variant was fixed.
+\paragraph{LLM descriptive summary.} Each aggregated record is rendered as a short \emph{evidence block},
+the only listing-specific input the LLM receives, in which word bands replace the numbers
+(Figure~\ref{fig:row-to-description}, column~2): an overall busyness band (``very quiet'' to ``very busy''),
+up to four category contrasts (citywide top or bottom 15\%, or a common category absent nearby),
+at most one proximity cue within 150 meters (``steps away''), limited to telling place types such as parks and transit,
+and up to three landmarks within 800 meters in walking-distance bands (``right by'' to ``about 10 minutes from'').
+Typical categories are omitted, and the sections are shuffled per listing (seeded) so the summaries do not inherit
+the block's order (exact rules in Appendix~\ref{app:evidence}).
+The prompt asks for one or two neutral sentences that use only the given evidence and keep each comparison's strength.
+We chose Gemini 3.5 Flash-Lite \citep{gemini35flashlite} (\texttt{google/gemini-3.5-flash-lite}) over other LLMs
+tested on subsets for its relative lack of hallucinations, speed, and low cost, and fixed the prompt after testing
+16 variants on $\approx 2{,}000$ rows.
+Each listing is summarized independently through OpenRouter's batch API at temperature 0.4;
+generation is sampled, so reruns differ and the released text column is the reference.
 
 The released dataset thus pairs the structured columns with a single text column, \texttt{surroundings\_summary}
 (statistics in Appendix~\ref{app:text-stats}).
@@ -178,8 +185,7 @@ under CC BY 4.0, attributing Inside Airbnb and the Overture Maps Foundation.
   \end{tabular}
   \caption{How listing 10433 of the released dataset (entire home, 7 guests) gets its description.
     Each row traces one piece of evidence; colours mark where it surfaces in the summary.
-    Of the 18 place categories near this listing, only one is a citywide contrast (outer 15\%); typical ones are omitted.
-    Only the lines in (2), in a per-listing shuffled order, reach the LLM; the measurements in (1) do not.}
+    Of the 18 place categories near this listing, only one is a citywide contrast (outer 15\%); typical ones are omitted.}
   \label{fig:row-to-description}
 \end{figure}
 
@@ -188,8 +194,8 @@ under CC BY 4.0, attributing Inside Airbnb and the Overture Maps Foundation.
 \label{sec:results}
 
 With the prompt fixed, we evaluate GeoEnrich-NYC once with the MulTaBench benchmark, run from its current repository
-(\texttt{master} at commit \texttt{d88821d}) with no change to its evaluation code; the dataset was added to its registry
-and served from a local Hugging Face cache.
+with no change to its evaluation code.\footnote{\texttt{master} at commit \texttt{d88821d}; the dataset was added to its registry
+and served from a local Hugging Face cache.}
 The curation committee consists of five learners: two GBDTs, LightGBM \citep{ke2017lightgbm} and CatBoost \citep{prokhorenkova2018catboost},
 the MLP ensemble TabM \citep{gorishniy2024tabm}, and the tabular foundation models TabPFNv2 \citep{hollmann2025tabpfn} and
 TabPFNv2.5 \citep{grinsztajn2025tabpfn25}.
@@ -236,20 +242,12 @@ they lack by design, rather than substituting for them.
 Fine-tuning the encoder on the target lowers RMSE further for all five learners, so all five show TAR gain and the
 dataset passes the MulTaBench curation criterion with 5/5 learners on both checks.
 The TAR gain is small, however ($0.002$--$0.007$), and of the same order as the split-to-split standard deviation;
-joint TAR beats joint frozen on 27 of the 30 learner--split pairs (6/6 splits for LightGBM, TabPFNv2 and TabPFNv2.5;
-5/6 for CatBoost; 4/6 for TabM; per-learner paired differences in Appendix~\ref{app:paired}).
+joint TAR beats joint frozen on 27 of the 30 learner--split pairs (per-learner paired differences in Appendix~\ref{app:paired}).
 The best configuration, TabPFNv2.5 with joint TAR, reaches an RMSE of $0.412$, a $15.9\%$ reduction over its structured baseline.
 
 
-\section{Conclusion, limitations, and future work}
-
-\subsection{Outcomes}
-
-GeoEnrich-NYC passes both MulTaBench curation criteria on all five learners.
-Most of the gain comes from adding the surroundings description to the structured columns;
-the further gain from fine-tuning the encoder is an order of magnitude smaller and comparable to split-to-split variation.
-
-\subsection{Limitations and future work}
+\section{Limitations and future work}
+\label{sec:limitations}
 
 \paragraph{Evaluation.} It is unclear what the main driver of the price signal is in each listing's surroundings description.
 It is possible that it is derived from the explicit naming of popular landmarks (present in the evidence of 42.6\% of listings),
@@ -282,6 +280,11 @@ structured columns and test whether TAR still beats joint frozen.
 
 \section{Data card}
 \label{app:data-card}
+
+The bedroom and bathroom counts (\texttt{num\_bedrooms}, \texttt{bathrooms}) are taken from the raw \texttt{bedrooms} and \texttt{bathrooms} columns,
+with missing bathroom counts parsed from the semi-structured \texttt{bathrooms\_text} field (e.g., ``1.5 baths'') by a simple regex.
+Remaining missing values are kept as nulls: LightGBM, CatBoost, and TabPFN (Section~\ref{sec:results}) handle them natively,
+and the benchmark fills numerical nulls with training-set medians for TabM.
 
 \begin{table}[h]
   \caption{Schema and feature distributions of the released dataset (14,990 rows). Quantiles are over non-missing values.
@@ -328,6 +331,22 @@ structured columns and test whether TAR still beats joint frozen.
     \bottomrule
   \end{tabular}
 \end{table}
+
+\section{Evidence-block rules}
+\label{app:evidence}
+
+The evidence block has up to four sections, each built from the aggregated record with word bands in place of numbers:
+(i)~an overall line gives the citywide quintile of the total place count, from ``very quiet'' through ``quiet'', ``average'', and ``busy'' to ``very busy'';
+(ii)~a category is listed only if its percentile lies in the outer 15\% (at or above the 85th, with at least three places, or at or below the 15th),
+as ``more than most neighbourhoods'' (``far more than most neighbourhoods'' from the 95th, ``more than almost anywhere in NYC'' from the 99th),
+``fewer than most neighbourhoods'' (``very few'' up to the 5th), or ``none nearby'' for a category that at least 60\% of listings have nearby;
+typical categories are omitted, and at most the four strongest contrasts are kept, one per level-1 category;
+(iii)~at most one proximity cue marks the nearest park, museum, hotel, nightlife venue, historic site, or ground-transport service
+(rail, transit, or taxi) within 150 meters as ``on the doorstep'' (up to 50 meters) or ``steps away'', skipping categories already listed in (ii);
+(iv)~up to three nearest landmarks within 800 meters are named (otherwise the block states that none is nearby), with their distance phrased as ``right by'', ``a couple minutes from'', ``a short walk from'',
+or ``about 10 minutes from'' (up to 100, 250, 500, and 800 meters, respectively).
+These sections, and the contrasts in (ii), appear in a per-listing shuffled order (seeded, so reproducible),
+so the summaries do not inherit a fixed evidence structure.
 
 \section{Paired TAR gains}
 \label{app:paired}

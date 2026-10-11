@@ -1,4 +1,4 @@
-\begin{thebibliography}{18}
+\begin{thebibliography}{17}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -123,13 +123,6 @@ Sherwin Rosen.
 \newblock \emph{Journal of Political Economy}, 82\penalty0 (1):\penalty0
   34--55, 1974.
 \newblock \doi{10.1086/260169}.
-
-\bibitem[Shi et~al.(2021)Shi, Mueller, Erickson, Li, and
-  Smola]{shi2021multimodal}
-Xingjian Shi, Jonas Mueller, Nick Erickson, Mu~Li, and Alexander~J. Smola.
-\newblock Benchmarking multimodal {AutoML} for tabular data with text fields.
-\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)
-  Datasets and Benchmarks Track}, 2021.
 
 \bibitem[Wang and Nicolau(2017)]{wang2017price}
 Dan Wang and Juan~L. Nicolau.
