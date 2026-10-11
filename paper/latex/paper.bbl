@@ -5,10 +5,12 @@
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
-\bibitem[Ahuja et~al.(2021)Ahuja, Lahiri, and Das]{ahuja2021airbnb}
-Aditya Ahuja, Aditya Lahiri, and Aniruddha Das.
-\newblock Predicting {Airbnb} rental prices using multiple feature modalities.
-\newblock \emph{arXiv preprint arXiv:2112.06430}, 2021.
+\bibitem[Arazi et~al.(2025)Arazi, Shapira, and Reichart]{arazi2025tabstar}
+Alan Arazi, Eilam Shapira, and Roi Reichart.
+\newblock {TabSTAR}: A tabular foundation model for tabular data with text
+  fields.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, volume~38, 2025.
 
 \bibitem[Arazi et~al.(2026)Arazi, Shapira, Grunblat, Ventura, Hoffer, Blayer,
   Holzm{\"u}ller, Purucker, Varoquaux, Hutter, and
@@ -20,20 +22,37 @@ Alan Arazi, Eilam Shapira, Shoham Grunblat, Mor Ventura, Elad Hoffer, Gioia
   image.
 \newblock \emph{arXiv preprint arXiv:2605.10616}, 2026.
 
-\bibitem[Campello et~al.(2013)Campello, Moulavi, and
-  Sander]{campello2013hdbscan}
-Ricardo J. G.~B. Campello, Davoud Moulavi, and J{\"o}rg Sander.
-\newblock Density-based clustering based on hierarchical density estimates.
-\newblock In \emph{Advances in Knowledge Discovery and Data Mining (PAKDD)},
-  volume 7819 of \emph{Lecture Notes in Computer Science}, pages 160--172.
-  Springer, 2013.
+\bibitem[Erickson et~al.(2025)Erickson, Purucker, Tschalzev, Holzm{\"u}ller,
+  Desai, Salinas, and Hutter]{erickson2025tabarena}
+Nick Erickson, Lennart Purucker, Andrej Tschalzev, David Holzm{\"u}ller,
+  Prateek~Mutalik Desai, David Salinas, and Frank Hutter.
+\newblock {TabArena}: A living benchmark for machine learning on tabular data.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)
+  Datasets and Benchmarks Track}, 2025.
 
 \bibitem[{Google DeepMind}(2026)]{gemini35flashlite}
 {Google DeepMind}.
-\newblock Gemini 3.5 flash-lite model card.
+\newblock {Gemini 3.5 Flash-Lite} model card.
 \newblock
   \url{https://deepmind.google/models/model-cards/gemini-3-5-flash-lite/},
   2026.
+
+\bibitem[Gorishniy et~al.(2025)Gorishniy, Kotelnikov, and
+  Babenko]{gorishniy2024tabm}
+Yury Gorishniy, Akim Kotelnikov, and Artem Babenko.
+\newblock {TabM}: Advancing tabular deep learning with parameter-efficient
+  ensembling.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2025.
+
+\bibitem[Grinsztajn et~al.(2025)Grinsztajn, Fl{\"o}ge, Key, Birkel, Jund, Roof,
+  J{\"a}ger, Safaric, Alessi, Hayler, et~al.]{grinsztajn2025tabpfn25}
+L{\'e}o Grinsztajn, Klemens Fl{\"o}ge, Oscar Key, Felix Birkel, Philipp Jund,
+  Brendan Roof, Benjamin J{\"a}ger, Dominik Safaric, Simone Alessi, Adrian
+  Hayler, et~al.
+\newblock {TabPFN-2.5}: Advancing the state of the art in tabular foundation
+  models.
+\newblock \emph{arXiv preprint arXiv:2511.08667}, 2025.
 
 \bibitem[Hegselmann et~al.(2023)Hegselmann, Buendia, Lang, Agrawal, Jiang, and
   Sontag]{hegselmann2023tabllm}
@@ -45,6 +64,14 @@ Stefan Hegselmann, Alejandro Buendia, Hunter Lang, Monica Agrawal, Xiaoyi
   Artificial Intelligence and Statistics (AISTATS)}, volume 206 of
   \emph{Proceedings of Machine Learning Research}, pages 5549--5581, 2023.
 
+\bibitem[Hollmann et~al.(2025)Hollmann, M{\"u}ller, Purucker, Krishnakumar,
+  K{\"o}rfer, Hoo, Schirrmeister, and Hutter]{hollmann2025tabpfn}
+Noah Hollmann, Samuel M{\"u}ller, Lennart Purucker, Arjun Krishnakumar, Max
+  K{\"o}rfer, Shi~Bin Hoo, Robin~Tibor Schirrmeister, and Frank Hutter.
+\newblock Accurate predictions on small data with a tabular foundation model.
+\newblock \emph{Nature}, 637\penalty0 (8045):\penalty0 319--326, 2025.
+\newblock \doi{10.1038/s41586-024-08328-6}.
+
 \bibitem[Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and
   Chen]{hu2022lora}
 Edward~J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
@@ -53,60 +80,56 @@ Edward~J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
 \newblock In \emph{International Conference on Learning Representations
   (ICLR)}, 2022.
 
-\bibitem[{Inside Airbnb}()]{insideairbnb}
-{Inside Airbnb}.
-\newblock Inside {Airbnb}.
-\newblock \url{https://insideairbnb.com}.
-
 \bibitem[{Inside Airbnb}(2026)]{insideairbnbnyc}
 {Inside Airbnb}.
-\newblock New york city listings, snapshot of 14 june 2026.
+\newblock {New York City} listings, snapshot of 14 {June} 2026.
 \newblock
   \url{https://data.insideairbnb.com/united-states/ny/new-york-city/2026-06-14/data/listings.csv.gz},
   2026.
 
-\bibitem[Jiang et~al.(2023)Jiang, Li, Luo, Wang, and
-  Ning]{jiang2023multisource}
-Lu~Jiang, Yuanhan Li, Na~Luo, Jianan Wang, and Qiao Ning.
-\newblock A multi-source information learning framework for {Airbnb} price
-  prediction.
-\newblock \emph{arXiv preprint arXiv:2301.01222}, 2023.
+\bibitem[Ke et~al.(2017)Ke, Meng, Finley, Wang, Chen, Ma, Ye, and
+  Liu]{ke2017lightgbm}
+Guolin Ke, Qi~Meng, Thomas Finley, Taifeng Wang, Wei Chen, Weidong Ma, Qiwei
+  Ye, and Tie-Yan Liu.
+\newblock {LightGBM}: A highly efficient gradient boosting decision tree.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, volume~30, 2017.
 
-\bibitem[Narayan et~al.(2022)Narayan, Chami, Orr, Arora, and
-  R{\'e}]{narayan2022wrangle}
-Avanika Narayan, Ines Chami, Laurel Orr, Simran Arora, and Christopher R{\'e}.
-\newblock Can foundation models wrangle your data?
-\newblock \emph{Proceedings of the VLDB Endowment}, 16\penalty0 (4):\penalty0
-  738--746, 2022.
+\bibitem[Manvi et~al.(2024)Manvi, Khanna, Mai, Burke, Lobell, and
+  Ermon]{manvi2024geollm}
+Rohin Manvi, Samar Khanna, Gengchen Mai, Marshall Burke, David Lobell, and
+  Stefano Ermon.
+\newblock {GeoLLM}: Extracting geospatial knowledge from large language models.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2024.
 
-\bibitem[{OpenRouter}(2026)]{openrouterbatch}
-{OpenRouter}.
-\newblock Batch {API} quickstart.
-\newblock \url{https://openrouter.ai/docs/batch-quickstart}, 2026.
-
-\bibitem[{Overture Maps Foundation}(2026{\natexlab{a}})]{overturedata}
+\bibitem[{Overture Maps Foundation}(2026)]{overtureplaces}
 {Overture Maps Foundation}.
-\newblock Getting overture data.
-\newblock \url{https://docs.overturemaps.org/getting-data/},
-  2026{\natexlab{a}}.
+\newblock {Overture Maps} places theme, release 2026-08-19.0.
+\newblock \url{https://docs.overturemaps.org/guides/places/}, 2026.
 
-\bibitem[{Overture Maps Foundation}(2026{\natexlab{b}})]{overtureplaces}
-{Overture Maps Foundation}.
-\newblock Overture maps places theme, release 2026-08-19.0.
-\newblock \url{https://docs.overturemaps.org/guides/places/},
-  2026{\natexlab{b}}.
+\bibitem[Prokhorenkova et~al.(2018)Prokhorenkova, Gusev, Vorobev, Dorogush, and
+  Gulin]{prokhorenkova2018catboost}
+Liudmila Prokhorenkova, Gleb Gusev, Aleksandr Vorobev, Anna~Veronika Dorogush,
+  and Andrey Gulin.
+\newblock {CatBoost}: Unbiased boosting with categorical features.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, volume~31, 2018.
 
-\bibitem[Raz(2026)]{raz2026airbnbregression}
-Ilai Raz.
-\newblock airbnb-regression: Airbnb price prediction with seasonality.
-\newblock \url{https://github.com/razilai/airbnb-regression}, 2026.
+\bibitem[Rosen(1974)]{rosen1974hedonic}
+Sherwin Rosen.
+\newblock Hedonic prices and implicit markets: Product differentiation in pure
+  competition.
+\newblock \emph{Journal of Political Economy}, 82\penalty0 (1):\penalty0
+  34--55, 1974.
+\newblock \doi{10.1086/260169}.
 
-\bibitem[Tang et~al.(2019)Tang, Kim, and Wang]{tang2019spatial}
-Liang Tang, Jaewook Kim, and Xi~Wang.
-\newblock Estimating spatial effects on peer-to-peer accommodation prices:
-  Towards an innovative hedonic model approach.
-\newblock \emph{International Journal of Hospitality Management}, 81:\penalty0
-  43--53, 2019.
+\bibitem[Shi et~al.(2021)Shi, Mueller, Erickson, Li, and
+  Smola]{shi2021multimodal}
+Xingjian Shi, Jonas Mueller, Nick Erickson, Mu~Li, and Alexander~J. Smola.
+\newblock Benchmarking multimodal {AutoML} for tabular data with text fields.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)
+  Datasets and Benchmarks Track}, 2021.
 
 \bibitem[Wang and Nicolau(2017)]{wang2017price}
 Dan Wang and Juan~L. Nicolau.
@@ -122,11 +145,5 @@ Liang Wang, Nan Yang, Xiaolong Huang, Binxing Jiao, Linjun Yang, Daxin Jiang,
   Rangan Majumder, and Furu Wei.
 \newblock Text embeddings by weakly-supervised contrastive pre-training.
 \newblock \emph{arXiv preprint arXiv:2212.03533}, 2022.
-
-\bibitem[Zhang et~al.(2017)Zhang, Chen, Han, and Yang]{zhang2017airbnb}
-Zhihua Zhang, Rachel J.~C. Chen, Lee~D. Han, and Lu~Yang.
-\newblock Key factors affecting the price of {Airbnb} listings: A
-  geographically weighted approach.
-\newblock \emph{Sustainability}, 9\penalty0 (9):\penalty0 1635, 2017.
 
 \end{thebibliography}

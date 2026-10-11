@@ -3,46 +3,44 @@ Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: paper.aux
 The style file: plainnat.bst
 Database file #1: references.bib
-Warning--empty year in insideairbnb
 You've used 18 entries,
             2773 wiz_defined-function locations,
-            684 strings with 8286 characters,
-and the built_in function-call counts, 8741 in all, are:
-= -- 733
-> -- 625
-< -- 12
-+ -- 214
-- -- 195
-* -- 704
-:= -- 1363
-add.period$ -- 56
+            684 strings with 8960 characters,
+and the built_in function-call counts, 10271 in all, are:
+= -- 803
+> -- 900
+< -- 10
++ -- 303
+- -- 285
+* -- 900
+:= -- 1633
+add.period$ -- 57
 call.type$ -- 18
-change.case$ -- 119
-chr.to.int$ -- 17
-cite$ -- 37
-duplicate$ -- 362
-empty$ -- 659
-format.name$ -- 215
-if$ -- 1812
-int.to.chr$ -- 2
+change.case$ -- 148
+chr.to.int$ -- 18
+cite$ -- 36
+duplicate$ -- 394
+empty$ -- 694
+format.name$ -- 305
+if$ -- 2091
+int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 11
-newline$ -- 99
+missing$ -- 15
+newline$ -- 101
 num.names$ -- 72
-pop$ -- 266
+pop$ -- 331
 preamble$ -- 1
-purify$ -- 101
+purify$ -- 130
 quote$ -- 0
-skip$ -- 308
+skip$ -- 333
 stack$ -- 0
-substring$ -- 189
-swap$ -- 47
-text.length$ -- 4
+substring$ -- 145
+swap$ -- 43
+text.length$ -- 5
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 198
-warning$ -- 1
-while$ -- 67
+warning$ -- 0
+while$ -- 63
 width$ -- 0
-write$ -- 233
-(There was 1 warning)
+write$ -- 237
