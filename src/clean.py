@@ -1,8 +1,9 @@
 """Stage 0: clean the raw NYC scrape into the tidy CSV the pipeline consumes.
 
 Maps the raw Airbnb schema to canonical columns, casts types, derives room
-counts, drops incomplete/invalid rows, caps the size, and writes a single CSV
-(data/processed/airbnb.csv) that build.py reads next.
+counts, keeps positive prices as log1p(price), drops rows missing too many
+features, caps the size, and writes a single CSV (data/processed/airbnb.csv)
+that build.py reads next.
 
     python -m src.clean   # data/raw/airbnb_nyc.csv -> data/processed/airbnb.csv
     python -m src.clean RAW.csv --output-path OUT.csv
@@ -11,11 +12,18 @@ counts, drops incomplete/invalid rows, caps the size, and writes a single CSV
 import argparse
 import os
 
+import numpy as np
 import pandas as pd
 
 from src import config
 
-MAX_LISTINGS = 10_000
+# 15k fills the benchmark's per-split cap (10K train, 5K test) on every split.
+MAX_LISTINGS = 15_000
+SAMPLE_SEED = 0
+# A row is kept while at most this share of its features is null: 2 of the 8.
+# Learners take the remaining nulls natively; price and coordinates may not be null.
+MAX_MISSING_SHARE = 0.25
+NON_FEATURES = ["price", "lat", "long"]
 
 # Canonical column -> raw column names it may come from; the first one present wins.
 # `bedrooms` and `details` only feed the derived room counts and are dropped after.
@@ -32,11 +40,12 @@ COLUMN_SOURCES = {
     "host_rating": ["host_rating"],
     "property_number_of_reviews": ["property_number_of_reviews", "number_of_reviews"],
     "is_superhost": ["is_supperhost", "is_superhost", "host_is_superhost"],
+    "minimum_nights": ["minimum_nights"],
 }
 
 NUMERIC_COLUMNS = [
     "price", "ratings", "lat", "long", "guests", "bedrooms", "bathrooms",
-    "host_rating", "property_number_of_reviews",
+    "host_rating", "property_number_of_reviews", "minimum_nights",
 ]
 
 # Case-insensitive boolean tokens; anything else becomes null.
@@ -48,7 +57,7 @@ BOOLEAN_TOKENS = {
 # Derived count -> (numeric column that takes precedence, fallback regex over `details`).
 ROOM_COUNTS = {
     "num_bedrooms": ("bedrooms", r"(?i)\b(\d+\.?\d*)\s+bedrooms?\b"),
-    "num_baths": ("bathrooms", r"(?i)\b(\d+\.?\d*)\s+bath(?:s|rooms?)?\b"),
+    "bathrooms": ("bathrooms", r"(?i)\b(\d+\.?\d*)\s+bath(?:s|rooms?)?\b"),
 }
 
 
@@ -83,7 +92,7 @@ def cast_types(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def derive_room_counts(df: pd.DataFrame) -> pd.DataFrame:
-    """Add num_bedrooms/num_baths: the numeric column if set, else parsed from `details`."""
+    """Set num_bedrooms/bathrooms: the numeric column if set, else parsed from `details`."""
     details = df.get("details", pd.Series(pd.NA, index=df.index)).astype("string")
     counts = {}
     for target, (source, pattern) in ROOM_COUNTS.items():
@@ -93,18 +102,23 @@ def derive_room_counts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:
-    """Run the cleaning steps on raw listings and keep those with a positive price."""
+    """Run the cleaning steps on raw listings and keep those with a positive price,
+    as the log1p(price) target."""
     df = derive_room_counts(cast_types(select_columns(df)))
-    return df[df["price"] > 0]  # NaN compares False, so null prices go too
+    df = df[df["price"] > 0]  # NaN compares False, so null prices go too
+    return df.assign(price=np.log1p(df["price"]))
 
 
 def drop_incomplete(df: pd.DataFrame, max_listings: int = MAX_LISTINGS) -> pd.DataFrame:
-    """Drop listings with any null, then randomly sample down to `max_listings`."""
-    df = df.dropna()
-    print(f"Listings after removing null values: {len(df)}")
+    """Drop listings missing coordinates or more than MAX_MISSING_SHARE of their
+    features, then randomly (but reproducibly) sample down to `max_listings`."""
+    df = df.dropna(subset=["lat", "long"])
+    features = df.columns.difference(NON_FEATURES)
+    df = df[df[features].isna().mean(axis=1) <= MAX_MISSING_SHARE]
+    print(f"Listings after removing rows missing over {MAX_MISSING_SHARE:.0%} of features: {len(df)}")
     if len(df) > max_listings:
         print(f"Randomly sampling {max_listings:,} listings.")
-        df = df.sample(n=max_listings)
+        df = df.sample(n=max_listings, random_state=SAMPLE_SEED)
     return df
 
 

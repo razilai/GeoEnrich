@@ -45,7 +45,6 @@ catboost_info/
 
 
 logs/
-paper/
 
 # Agent-skill scaffolding and local issue tracker — local-only, not shared
 /.scratch/

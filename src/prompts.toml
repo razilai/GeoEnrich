@@ -33,7 +33,7 @@ Use only what is given; never invent or add a place; copy any listed name exactl
 
 [prompts.16]
 name = "Contrast, proximity, and landmark"
-description = "Top three citywide contrasts as word bands, one independent doorstep proximity cue, and the nearest landmarks. Produced the paper's v1.csv."
+description = "Top four citywide contrasts as word bands, one independent doorstep proximity cue, and the nearest landmarks. Produced the paper's v1.csv."
 view = "price_relevant_profile"
 system = """
 Write one or two neutral, factual sentences describing the surroundings of an Airbnb listing in New York City, using only the evidence given.

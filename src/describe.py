@@ -95,8 +95,8 @@ BATCH_URL = "https://openrouter.ai/api/beta/batches"
 BATCH_POLL = float(env("BATCH_POLL", "20"))  # seconds between polls
 # OpenRouter reserves requests × max_tokens credits up front and rejects an
 # oversized reservation with 402, so both are capped.
-BATCH_SIZE = int(env("BATCH_SIZE", "3000"))
-BATCH_MAX_TOKENS = int(env("BATCH_MAX_TOKENS", "400"))
+BATCH_SIZE = int(env("BATCH_SIZE", "5000"))
+BATCH_MAX_TOKENS = int(env("BATCH_MAX_TOKENS", "300"))
 _BATCH_TERMINAL_STATES = {"completed", "failed", "expired", "cancelled"}
 _BATCH_MAX_404S = 8  # a fresh batch is briefly not queryable
 
@@ -187,7 +187,7 @@ _LM_CAP = 3
 # Given many standouts, the model averages them into generic "dense area" prose,
 # so only the sharpest few are shown.
 _DEV_CAP = 5
-_PRIMARY_CAP = 3
+_PRIMARY_CAP = 4
 
 # A standout must sit in the outer 15% of the corpus on either side; anything
 # nearer the middle is padding, not a contrast.
@@ -508,7 +508,7 @@ _VIEW_CACHE_VERSIONS = {
     "deviation": "v4",
     "deviation_exact": "v5",
     "character_deviation": "v5",
-    "price_relevant_profile": "v8",
+    "price_relevant_profile": "v9",
 }
 
 
@@ -561,9 +561,7 @@ def publish(df):
     """Write the final dataset: prose replaces the POI JSON. `index` stays, so
     `stage` can align the corpus with the cleaned listings; it drops it again."""
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
-    df.drop(columns=["surroundings"], errors="ignore").to_csv(
-        OUT_CSV, index=False
-    )
+    df.drop(columns=["surroundings"], errors="ignore").to_csv(OUT_CSV, index=False)
 
 
 # --- live LLM calls ---------------------------------------------------------------
@@ -650,11 +648,11 @@ async def _poll_batch(client, batch_id):
         resp = await client.get(f"{BATCH_URL}/{batch_id}")
         if resp.status_code == 404 and misses < _BATCH_MAX_404S:
             misses += 1
-            log(f"  poll 404 ({misses}) — batch not yet queryable")
+            log(f"  {batch_id} poll 404 ({misses}) — batch not yet queryable")
             continue
         resp.raise_for_status()
         status = resp.json()
-        log(f"  status={status.get('status')}")
+        log(f"  {batch_id} status={status.get('status')}")
         if status.get("status") in _BATCH_TERMINAL_STATES:
             return status
 
@@ -693,12 +691,12 @@ def _apply_batch_results(batch, rows, df):
         log(f"{skipped} batch results unusable (truncated/empty) — rerun to retry them")
 
 
-async def _submit_batch(client, rows, df):
-    """Submit one batch of `rows`, wait for it, and parse the results into df."""
+def _batch_requests(rows):
+    """One chat-completion request per row, keyed by the listing `index`."""
     settings = {"temperature": TEMPERATURE, "max_tokens": BATCH_MAX_TOKENS}
     if THINKING_DISABLED:
         settings["reasoning"] = {"effort": "none"}
-    requests = [
+    return [
         {
             "custom_id": str(row["index"]),
             "body": {
@@ -711,53 +709,90 @@ async def _submit_batch(client, rows, df):
         }
         for _, row in rows
     ]
+
+
+async def _submit_batch(client, rows):
+    """Submit one batch of `rows` and return its id, without waiting for it."""
+    requests = _batch_requests(rows)
     # The API stream-parses: endpoint and model must precede requests, else 400.
     payload = {"endpoint": "/v1/chat/completions", "model": MODEL, "requests": requests}
     resp = await client.post(BATCH_URL, content=json.dumps(payload))
     resp.raise_for_status()
     batch_id = resp.json()["id"]
     log(f"batch {batch_id} submitted: {len(requests)} requests")
+    return batch_id
 
+
+def _batch_json(batch_id):
+    """Raw dump path for one batch, so simultaneous batches never overwrite each other."""
+    stem, ext = os.path.splitext(config.BATCH_JSON)
+    return f"{stem}_{batch_id}{ext}"
+
+
+async def _collect_batch(client, batch_id, rows, df):
+    """Wait for one submitted batch, dump it raw, apply its results, checkpoint."""
     batch = await _poll_batch(client, batch_id)
+    path = _batch_json(batch_id)
     os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
-    with open(config.BATCH_JSON, "w") as f:  # raw dump for inspection
+    with open(path, "w") as f:  # raw dump for inspection
         json.dump(batch, f)
     if batch.get("status") == "completed":
         _apply_batch_results(batch, rows, df)
+        save(df)
     else:
-        log(f"batch ended {batch.get('status')} — see {config.BATCH_JSON}")
+        log(f"batch {batch_id} ended {batch.get('status')} — see {path}")
 
 
-async def resume_batch(rows, df, batch_id):
-    """Wait for an already-submitted batch and apply its results (no new submit)."""
+async def _gather_logged(coros, what):
+    """Run `coros` together; one failure is logged and never cancels its siblings."""
+    results = await asyncio.gather(*coros, return_exceptions=True)
+    for r in results:
+        if isinstance(r, Exception):
+            log(f"  {what} failed: {r!r}")
+    return results
+
+
+def _batch_client():
     _require_api_key()
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-    async with httpx.AsyncClient(headers=headers, timeout=120) as client:
-        batch = await _poll_batch(client, batch_id)
-    os.makedirs(config.ARTIFACTS_DIR, exist_ok=True)
-    with open(config.BATCH_JSON, "w") as f:
-        json.dump(batch, f)
-    if batch.get("status") == "completed":
-        _apply_batch_results(batch, rows, df)
-    else:
-        log(f"batch ended {batch.get('status')} — see {config.BATCH_JSON}")
+    return httpx.AsyncClient(headers=headers, timeout=120)
+
+
+async def resume_batch(rows, df, batch_ids):
+    """Wait for already-submitted batches and apply their results (no new submit).
+
+    Results are matched to rows by `custom_id`, so every batch can be given all
+    the rows still missing a summary."""
+    async with _batch_client() as client:
+        await _gather_logged(
+            (_collect_batch(client, b, rows, df) for b in batch_ids), "batch"
+        )
 
 
 async def run_batch(rows, df):
     """Summarise `rows` via OpenRouter async batches (:batch models, ~50% price).
 
-    Splits into BATCH_SIZE sub-batches to keep the up-front credit reservation
-    small, checkpointing after each. Batches are single-pass: no grounding regen.
+    Splits into BATCH_SIZE sub-batches to keep each request's up-front credit
+    reservation small, submits them all at once and polls them simultaneously, so
+    no sub-batch waits for another to finish; each checkpoints as it completes.
+    A sub-batch that fails to submit (e.g. 402 once the combined reservation
+    exceeds the credit balance) leaves its rows for a rerun. Batches are
+    single-pass: no grounding regen.
     """
-    _require_api_key()
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-    n_batches = -(-len(rows) // BATCH_SIZE)
-    async with httpx.AsyncClient(headers=headers, timeout=120) as client:
-        for b, start in enumerate(range(0, len(rows), BATCH_SIZE), 1):
-            sub = rows[start : start + BATCH_SIZE]
-            log(f"--- sub-batch {b}/{n_batches} ({len(sub)} rows) ---")
-            await _submit_batch(client, sub, df)
-            save(df)
+    subs = [rows[i : i + BATCH_SIZE] for i in range(0, len(rows), BATCH_SIZE)]
+    async with _batch_client() as client:
+        ids = await _gather_logged(
+            (_submit_batch(client, sub) for sub in subs), "sub-batch submit"
+        )
+        live = [(b, sub) for b, sub in zip(ids, subs) if isinstance(b, str)]
+        if live:
+            log(
+                f"{len(live)}/{len(subs)} sub-batches in flight; if interrupted, "
+                f"resume with --resume {' '.join(b for b, _ in live)}"
+            )
+        await _gather_logged(
+            (_collect_batch(client, b, sub, df) for b, sub in live), "batch"
+        )
 
 
 # --- entry point ------------------------------------------------------------------
@@ -821,7 +856,8 @@ def main():
     p.add_argument(
         "--resume",
         metavar="BATCH_ID",
-        help="collect an already-submitted batch instead of submitting a new one "
+        nargs="+",
+        help="collect already-submitted batches instead of submitting new ones "
         "(same k and --prompt as the original run)",
     )
     p.add_argument(

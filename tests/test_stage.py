@@ -14,7 +14,7 @@ REGISTRY = os.path.join(
 )
 TABULAR = [
     "price", "ratings", "guests", "bathrooms", "room_type", "property_number_of_reviews",
-    "is_superhost", "num_bedrooms", "num_baths",
+    "is_superhost", "num_bedrooms", "minimum_nights",
 ]  # fmt: skip
 
 
@@ -32,7 +32,7 @@ def described(order=(5, 1, 3, 4, 0, 2), missing: tuple[int, ...] = ()) -> pd.Dat
             "property_number_of_reviews": [10.0] * n,
             "is_superhost": [True, False] * (n // 2),
             "num_bedrooms": [1.0] * n,
-            "num_baths": [1.0] * n,
+            "minimum_nights": [30.0] * n,
             "surroundings_summary": [None if i in missing else f"summary {i}" for i in order],
         }
     )
@@ -90,7 +90,7 @@ def test_benchmark_feature_types_per_dataset(datasets, tmp_path) -> None:
     ).detect_feature_types
     tabular_numeric = {
         "ratings", "guests", "bathrooms", "property_number_of_reviews",
-        "is_superhost", "num_bedrooms", "num_baths",
+        "is_superhost", "num_bedrooms", "minimum_nights",
     }  # fmt: skip
     expect = {
         "structured": (tabular_numeric, {"room_type"}, set()),
