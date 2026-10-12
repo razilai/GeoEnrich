@@ -7,8 +7,9 @@ model for a one-or-two-sentence description of the area, and writes it to the
 
 Environment (.env):
     OPENROUTER_API_KEY   OpenRouter key
-    LLM_MODEL            model slug, e.g. openai/gpt-4o-mini; a `:batch` suffix
-                         uses OpenRouter's async batch API (~50% price)
+    LLM_MODEL            model slug (default google/gemini-3.5-flash-lite:batch, the
+                         paper's); a `:batch` suffix uses OpenRouter's async batch
+                         API (~50% price)
     LLM_THINKING         false/0/no/off/none explicitly disables model reasoning
     LLM_TEMPERATURE      sampling temperature (default 0.4)
     LLM_CONCURRENCY      concurrent live calls (default 32; lower on 429s)
@@ -56,7 +57,7 @@ load_dotenv()
 log = functools.partial(print, flush=True)
 env = os.environ.get
 
-MODEL = env("LLM_MODEL", "openai/gpt-4o-mini")
+MODEL = env("LLM_MODEL", "google/gemini-3.5-flash-lite:batch")
 API_KEY = env("OPENROUTER_API_KEY")
 _PLACEHOLDER_KEY = "sk-or-v1-REPLACE_ME"
 THINKING_DISABLED = env("LLM_THINKING", "").strip().lower() in {

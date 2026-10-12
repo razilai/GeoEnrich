@@ -50,23 +50,23 @@
   Evaluated with the MulTaBench curation pipeline, the dataset passes both curation criteria on all five learners:
   adding the description to the structured columns lowers RMSE on log price by 0.059--0.075,
   and fine-tuning the text encoder on the target lowers it by a further 0.002--0.007.
-  The enrichment pipeline can be applied to other datasets with latitude-longitude coordinates,
-  though we evaluate it on a single city.
+  The enrichment pipeline can be applied to other datasets with latitude-longitude coordinates.
 \end{abstract}
 
 
 \section{Introduction}
 
-Text-tabular benchmarks need datasets in which the text column carries signal that the structured columns lack.
-MulTaBench \citep{arazi2026multabench} turns this into a curation criterion: a dataset is admitted only if,
+Text-tabular benchmarks require datasets in which the text column carries signal that the structured columns lack.
+MulTaBench \citep{arazi2026multabench} defines a curation criterion: a dataset is admitted only if,
 across a committee of tabular learners, adding frozen text embeddings to the structured columns beats both unimodal baselines,
 and target-aware representations (TAR), text embeddings fine-tuned on the target, beat frozen ones.
 Neither Airbnb dataset MulTaBench evaluated passed, even though both include free-text listing fields.
 
-Accommodation listings do carry a signal that their text fields rarely describe: location,
-a known determinant of nightly price \citep{wang2017price}.
-A listing in downtown Manhattan, surrounded by restaurants and tourist attractions, should command a higher price
-than one in an outer neighbourhood with few amenities nearby.
+Accommodation listings carry a signal that their text fields rarely describe: location.
+A listing in downtown Manhattan, surrounded by restaurants and tourist attractions, plausibly commands
+a higher nightly price than a comparable one in an outer neighbourhood with few amenities nearby;
+hedonic pricing theory formalizes this intuition by treating location as one of the characteristics a price reflects
+(Section~\ref{sec:related}).
 Yet datasets scraped from platforms such as Airbnb and Booking.com record location only as latitude-longitude coordinates,
 which say nothing directly about what surrounds a listing.
 We ask whether a natural-language description of those surroundings can supply this signal,
@@ -88,20 +88,22 @@ Our contributions are:
     one generated text column, and log nightly price as the target, released under CC BY 4.0 in MulTaBench's format.
   \item \textbf{A geospatial enrichment pipeline} that needs only latitude-longitude coordinates and withholds
     coordinates, exact measurements, and price from the LLM.
-  \item \textbf{A MulTaBench evaluation} in which the dataset passes both curation criteria on all five learners
+  \item \textbf{A MulTaBench evaluation} in which the dataset passes both curation criteria on all five learners.
     (Section~\ref{sec:results}; limits in Section~\ref{sec:limitations}).
 \end{itemize}
 
 
 \section{Related work}
+\label{sec:related}
 
 \paragraph{Text-tabular curation.} We follow the MulTaBench protocol \citep{arazi2026multabench},
 whose TAR condition builds on TabSTAR \citep{arazi2025tabstar}, with the one adaptation described in Section~\ref{sec:results}.
 MulTaBench's curation rejected both Airbnb datasets it evaluated (Melbourne Airbnb, 1/5 learners; Airbnb Seattle, 0/5).
 
-\paragraph{Location and LLMs in prediction.} Hedonic pricing treats a property's price as the sum of implicit prices
-of its attributes, neighbourhood amenities among them \citep{rosen1974hedonic}.
-TabLLM \citep{hegselmann2023tabllm} serializes tabular rows into natural-language text and uses an LLM to predict from it;
+\paragraph{Location and LLMs in prediction.} Hedonic pricing theory \citep{rosen1974hedonic} models the price of a
+differentiated good as a function of its characteristics, each carrying an implicit price.
+For accommodation, location is one such characteristic; our surroundings description expresses it in text
+rather than as coordinates.
 GeoLLM \citep{manvi2024geollm} prompts an LLM with coordinates and nearby OpenStreetMap places
 to predict location-level indicators, including home values, drawing on the LLM's own geographic knowledge.
 
@@ -112,7 +114,7 @@ to predict location-level indicators, including home values, drawing on the LLM'
 
 We use Inside Airbnb's New York City listings snapshot \citep{insideairbnbnyc}, scraped 14--23 June 2026 (CC BY 4.0),
 and query, with DuckDB, the places theme of Overture Maps release \texttt{2026-08-19.0} \citep{overtureplaces} (CDLA-Permissive-2.0)
-for businesses and points of interest in the city.
+for businesses and points of interest (POIs) in the city.
 
 \subsection{Pipeline}
 
@@ -121,17 +123,16 @@ The pipeline has four stages: data cleaning, geospatial enrichment, aggregation,
 \paragraph{Data cleaning.} We drop columns that do not partake in the regression task and enforce a schema.
 Listings with missing or non-positive prices are dropped,
 as are listings missing coordinates or more than 25\% of their features.
-Of the 30,259 listings in the snapshot, 21,155 survive these filters (Table~\ref{tab:attrition}); we randomly sample 15,000 of them (seed 0),
-each with 8 feature columns (six numerical, one boolean, and one categorical) besides the target.
+Of the 30,259 listings in the snapshot, 21,155 survive these filters (Table~\ref{tab:attrition}); we randomly sample 15,000 of them,
+each with 8 feature columns besides the target.
 This size matches MulTaBench's per-split cap of 10,000 training and 5,000 test rows, so the benchmark uses every row.
-The target is the log-transformed nightly price, $\log(1 + \text{price})$.
+Due to the skewed distribution of raw nightly-price - the target is log-transformed, $\log(1 + \text{price})$.
 Table~\ref{tab:data-card} (Appendix~\ref{app:data-card}) summarizes the schema and feature distributions;
 the same appendix describes column parsing and missing-value handling.
 
-\paragraph{Geospatial enrichment.} We query Overture for all places within the listings' bounding box (padded by $\approx 2$\,km)
+\paragraph{Geospatial enrichment.} We query Overture for all places within the listings' bounding box
 that have a confidence score of at least 0.6 and belong to one of our selected categories.
-We apply a join such that each listing coordinate is assigned all POIs (points of interest) in a 450-meter radius
-(roughly 570 meters of walking on the Manhattan street grid), with distances measured in a metric projection (UTM zone 18N).
+We apply a join such that each listing coordinate is assigned all POIs in a 450-meter radius.
 The 10 listings with no POI within that radius are dropped, leaving 14,990 listings.
 
 \paragraph{Aggregation.} Each listing's nearby POIs are reduced to a count and the distance to the nearest place in each of 20 predefined categories
@@ -149,8 +150,8 @@ the only listing-specific input the LLM receives, in which word bands replace th
 up to four category contrasts (citywide top or bottom 15\%, or a common category absent nearby),
 at most one proximity cue within 150 meters (``steps away''), limited to telling place types such as parks and transit,
 and up to three landmarks within 800 meters in walking-distance bands (``right by'' to ``about 10 minutes from'').
-Typical categories are omitted, and the sections are shuffled per listing (seeded) so the summaries do not inherit
-the block's order (exact rules in Appendix~\ref{app:evidence}).
+Typical categories are omitted, and the sections are shuffled per listing so the summaries do not inherit
+the block's order.
 The prompt asks for one or two neutral sentences that use only the given evidence and keep each comparison's strength.
 We chose Gemini 3.5 Flash-Lite \citep{gemini35flashlite} (\texttt{google/gemini-3.5-flash-lite}) over other LLMs
 tested on subsets for its relative lack of hallucinations, speed, and low cost, and fixed the prompt after testing
@@ -161,7 +162,7 @@ generation is sampled, so reruns differ and the released text column is the refe
 The released dataset thus pairs the structured columns with a single text column, \texttt{surroundings\_summary}
 (statistics in Appendix~\ref{app:text-stats}).
 The code, prompts, word-band rules, and landmark list are available at \url{https://github.com/razilai/GeoEnrich}.
-The dataset is available on Hugging Face (\placeholder{link}) in MulTaBench's format (typed \texttt{data.parquet} and \texttt{metadata.json})
+The dataset is available on Hugging Face at \url{https://huggingface.co/datasets/ElyR120/geoenrich-nyc} in MulTaBench's format (typed \texttt{data.parquet} and \texttt{metadata.json})
 under CC BY 4.0, attributing Inside Airbnb and the Overture Maps Foundation.
 
 \begin{figure}[t]
@@ -193,9 +194,7 @@ under CC BY 4.0, attributing Inside Airbnb and the Overture Maps Foundation.
 \section{Results}
 \label{sec:results}
 
-With the prompt fixed, we evaluate GeoEnrich-NYC once with the MulTaBench benchmark, run from its current repository
-with no change to its evaluation code.\footnote{\texttt{master} at commit \texttt{d88821d}; the dataset was added to its registry
-and served from a local Hugging Face cache.}
+We evaluate GeoEnrich-NYC once with the MulTaBench benchmark.
 The curation committee consists of five learners: two GBDTs, LightGBM \citep{ke2017lightgbm} and CatBoost \citep{prokhorenkova2018catboost},
 the MLP ensemble TabM \citep{gorishniy2024tabm}, and the tabular foundation models TabPFNv2 \citep{hollmann2025tabpfn} and
 TabPFNv2.5 \citep{grinsztajn2025tabpfn25}.
@@ -210,8 +209,6 @@ A learner shows \emph{joint signal} when its mean joint-frozen RMSE is lower tha
 its text-only RMSE by more than $0.001$, and \emph{TAR gain} when its mean joint-TAR RMSE is lower than its
 joint-frozen RMSE by more than $0.001$ (means rounded to three decimals before differencing).
 The dataset is eligible when at least 3 of the 5 learners show both.
-We adapt the acceptance criterion of \citet[App.~A.3]{arazi2026multabench} to RMSE rather than $R^2$;
-since the current repository no longer includes it, we compute it with our own code.
 
 \begin{table}[h]
   \caption{RMSE on $\log(1 + \text{price})$, mean $\pm$ standard deviation over six splits (lower is better).

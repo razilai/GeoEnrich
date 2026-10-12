@@ -50,3 +50,6 @@ logs/
 /.scratch/
 /CLAUDE.md
 /docs/agents/
+
+# Agent worktrees — local checkouts, never tracked
+/.claude/worktrees/
